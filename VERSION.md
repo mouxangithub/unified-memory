@@ -147,3 +147,9 @@
 - ✨ 新增智能洞察 (`memory_insights.py`) - 用户分析 + 趋势 + 建议
 - ✨ 新增隐私保护 (`memory_privacy.py`) - 敏感检测 + 加密 + 审计
 - ✨ 新增云同步 (`memory_cloud.py`) - 备份 + 恢复 + 多设备同步
+
+### 0.2.2 (2026-03-18)
+- ✨ 云同步支持所有主流平台 (S3/WebDAV/Dropbox/GDrive)
+- 📚 双语文档 (README.md + README_CN.md)
+- 🔗 文档相互索引
+- 📦 完整的配置命令和依赖说明
