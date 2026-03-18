@@ -135,3 +135,9 @@
 - ✨ 新增健康检测 (`memory_health.py`)
 - ✨ 新增 Agent 接口 (`memory_agent.py`)
 - ✨ 新增集成钩子 (`memory_integration.py`)
+
+### 0.2.0 (2026-03-18)
+- ✨ 新增智能问答 (`memory_qa.py`)
+- ✨ 新增知识图谱 (`memory_graph.py`)
+- ✨ 新增多模态记忆 (`memory_multimodal.py`)
+- ✨ 新增全自动化 (`memory_auto.py`)
