@@ -1,7 +1,7 @@
 {
   "name": "unified-memory",
-  "version": "0.0.7",
-  "description": "Intelligent memory system for AI Agents with hierarchical caching, knowledge merging, and predictive loading",
+  "version": "0.0.9",
+  "description": "Intelligent memory system for AI Agents with hierarchical caching, knowledge merging, predictive loading, and auto-extraction",
   "author": "mouxangithub",
   "license": "MIT",
   "keywords": [
@@ -32,63 +32,66 @@
     "openclaw": ">=0.1.0"
   },
   
-  "dependencies": {
-    "required": [
-      "requests>=2.28.0"
-    ],
-    "optional": [
-      "lancedb>=0.3.0"
-    ]
-  },
-  
-  "integrations": {
-    "skills": [
-      {
-        "name": "memory-lancedb-pro",
-        "required": true,
-        "version": ">=1.1.0",
-        "autoInstall": true,
-        "source": "clawhub",
-        "fallback": "git+https://github.com/CortexReach/memory-lancedb-pro.git",
-        "usage": "Provides LanceDB storage, hybrid retrieval (Vector + BM25), and reranking"
-      }
-    ],
-    "builtin": [
-      {
-        "name": "ontology",
-        "required": false,
-        "usage": "Knowledge graph for structured entity relationships"
-      }
-    ],
-    "external": [
+  "requirements": {
+    "installation": {
+      "required": true,
+      "script": "scripts/install.sh",
+      "description": "Creates directories, installs Python dependencies, and optionally installs dependent skills"
+    },
+    "dependencies": {
+      "python": {
+        "required": ["requests>=2.28.0"],
+        "optional": ["lancedb>=0.3.0"]
+      },
+      "skills": [
+        {
+          "name": "memory-lancedb-pro",
+          "required": true,
+          "version": ">=1.1.0",
+          "autoInstall": true,
+          "source": "clawhub",
+          "fallback": "git+https://github.com/CortexReach/memory-lancedb-pro.git",
+          "description": "Provides LanceDB vector storage, hybrid retrieval, and reranking"
+        }
+      ]
+    },
+    "externalServices": [
       {
         "name": "ollama",
         "required": false,
-        "type": "service",
-        "config": {
-          "host_env": "OLLAMA_HOST",
-          "default_host": "http://localhost:11434",
-          "models": {
-            "llm": {
-              "env": "OLLAMA_LLM_MODEL",
-              "default": "deepseek-v3.2:cloud"
-            },
-            "embedding": {
-              "env": "OLLAMA_EMBED_MODEL",
-              "default": "nomic-embed-text:latest"
-            }
-          }
-        },
-        "fallback": "Disable auto-extraction and use rule-based extraction only"
+        "type": "llm-embedding-service",
+        "description": "Local LLM and embedding service for auto-extraction and vector search",
+        "defaultHost": "http://localhost:11434",
+        "envVars": ["OLLAMA_HOST", "OLLAMA_LLM_MODEL", "OLLAMA_EMBED_MODEL"],
+        "fallback": "Rule-based extraction without LLM features"
       }
     ]
   },
   
-  "scripts": {
-    "main": "scripts/memory.py",
-    "install": "scripts/install.sh",
-    "uninstall": "scripts/uninstall.sh",
-    "post_install": "scripts/post_install.sh"
+  "permissions": {
+    "filesystem": {
+      "read": ["~/.openclaw/workspace/memory/"],
+      "write": ["~/.openclaw/workspace/memory/"],
+      "description": "Read/write memory data, cache, knowledge blocks, archives"
+    },
+    "network": {
+      "outbound": [
+        {
+          "host": "${OLLAMA_HOST:-http://localhost:11434}",
+          "purpose": "LLM auto-extraction and embedding generation",
+          "required": false
+        }
+      ],
+      "description": "Optional outbound to Ollama for LLM features"
+    },
+    "process": {
+      "execute": ["scripts/install.sh", "scripts/uninstall.sh"],
+      "description": "Install/uninstall scripts"
+    },
+    "autoInstall": {
+      "skills": true,
+      "description": "Auto-install dependency skill (memory-lancedb-pro)"
+    }
   },
   
   "config": {
@@ -96,17 +99,20 @@
       "OLLAMA_HOST": {
         "default": "http://localhost:11434",
         "description": "Ollama server URL for embeddings and LLM",
-        "required": false
+        "required": false,
+        "sensitive": false
       },
       "OLLAMA_LLM_MODEL": {
         "default": "deepseek-v3.2:cloud",
         "description": "LLM model for memory extraction",
-        "required": false
+        "required": false,
+        "sensitive": false
       },
       "OLLAMA_EMBED_MODEL": {
         "default": "nomic-embed-text:latest",
         "description": "Embedding model for vector search",
-        "required": false
+        "required": false,
+        "sensitive": false
       }
     },
     "parameters": {
@@ -160,6 +166,12 @@
     }
   },
   
+  "scripts": {
+    "main": "scripts/memory.py",
+    "install": "scripts/install.sh",
+    "uninstall": "scripts/uninstall.sh"
+  },
+  
   "triggers": {
     "keywords": [
       "记住", "记录", "查一下", "有什么", "记忆", "知识库",
@@ -198,31 +210,34 @@
     "no_ollama": {
       "description": "Use rule-based extraction only",
       "behavior": "Disable LLM-powered auto-extraction, use regex patterns"
-    },
-    "no_ontology": {
-      "description": "Disable knowledge graph integration",
-      "behavior": "Use pure vector search without entity relationships"
     }
   },
   
   "changelog": [
     {
-      "version": "0.0.7",
+      "version": "0.0.9",
       "date": "2026-03-18",
       "changes": [
+        "Fixed metadata to accurately declare permissions and requirements",
+        "Added permissions section (filesystem, network, autoInstall)",
+        "Added requirements section with explicit dependencies",
+        "Clarified external service dependencies (Ollama)"
+      ]
+    },
+    {
+      "version": "0.0.8",
+      "date": "2026-03-18",
+      "changes": [
+        "Renamed memory_v7.py to memory.py",
+        "Removed hardcoded user data for privacy",
         "Added hierarchical cache (L1/L2/L3)",
         "Added knowledge merging",
         "Added predictive loading",
-        "Added confidence validation",
-        "Added feedback learning",
-        "Added smart forget",
         "Added auto extraction with sensitive filter",
         "Added quality metrics",
         "Added import/export",
-        "Added advanced search",
         "Added agent integration hooks"
-      ],
-      "breaking": []
+      ]
     }
   ]
 }
