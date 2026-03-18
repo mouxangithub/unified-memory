@@ -141,3 +141,9 @@
 - ✨ 新增知识图谱 (`memory_graph.py`)
 - ✨ 新增多模态记忆 (`memory_multimodal.py`)
 - ✨ 新增全自动化 (`memory_auto.py`)
+
+### 0.2.1 (2026-03-18)
+- ✨ 新增性能优化 (`memory_perf.py`) - 多级缓存 + 异步存储
+- ✨ 新增智能洞察 (`memory_insights.py`) - 用户分析 + 趋势 + 建议
+- ✨ 新增隐私保护 (`memory_privacy.py`) - 敏感检测 + 加密 + 审计
+- ✨ 新增云同步 (`memory_cloud.py`) - 备份 + 恢复 + 多设备同步

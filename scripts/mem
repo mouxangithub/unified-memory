@@ -48,8 +48,33 @@ case "$1" in
     python3 "$SCRIPTS_DIR/memory.py" webui --port ${2:-38080}
     ;;
   
+  ask)
+    # 智能问答
+    python3 "$SCRIPTS_DIR/memory_qa.py" ask "$2"
+    ;;
+  
+  graph)
+    # 知识图谱
+    python3 "$SCRIPTS_DIR/memory_graph.py" ${2:-build}
+    ;;
+  
+  insights)
+    # 智能洞察
+    python3 "$SCRIPTS_DIR/memory_insights.py" ${2:-analyze}
+    ;;
+  
+  backup)
+    # 云备份
+    python3 "$SCRIPTS_DIR/memory_cloud.py" backup
+    ;;
+  
+  privacy)
+    # 隐私扫描
+    python3 "$SCRIPTS_DIR/memory_privacy.py" scan
+    ;;
+  
   *)
-    echo "Memory Quick Commands"
+    echo "Memory Quick Commands v0.2.1"
     echo ""
     echo "Usage:"
     echo "  mem start [context]     # 会话开始，加载上下文"
@@ -60,5 +85,12 @@ case "$1" in
     echo "  mem remind              # 检查提醒"
     echo "  mem health              # 健康报告"
     echo "  mem webui [port]        # 启动 Web UI"
+    echo "  mem ask \"问题\"         # 智能问答"
+    echo "  mem graph [cmd]         # 知识图谱"
+    echo "  mem insights [cmd]      # 智能洞察"
+    echo "  mem backup              # 云备份"
+    echo "  mem privacy             # 隐私扫描"
+    echo ""
+    echo "Total features: 31"
     ;;
 esac
