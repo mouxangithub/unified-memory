@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Memory Web UI - Web 可视化界面 v0.3.4
+Memory Web UI - Web 可视化界面 v0.3.6
 
 功能:
 - 记忆浏览、搜索、创建、编辑、删除
@@ -8,7 +8,7 @@ Memory Web UI - Web 可视化界面 v0.3.4
 - 知识图谱可视化 (vis.js)
 - 成本监控面板 (Ollama/LLM 消耗)
 - 云同步状态
-- 响应式设计 + 暗色模式
+- 移动优先响应式设计 + 暗色模式
 
 Usage:
     python3 memory_webui.py --port 38080
@@ -30,18 +30,21 @@ MEMORY_DIR = WORKSPACE / "memory"
 VECTOR_DB_DIR = MEMORY_DIR / "vector"
 STATS_FILE = MEMORY_DIR / "stats.json"
 
-# HTML 模板 - 现代化设计
+# HTML 模板 - 移动优先设计
 HTML_TEMPLATE = '''<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Unified Memory v0.3.2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Unified Memory v0.3.5</title>
     <style>
         :root {
             --primary: #6366f1;
             --primary-dark: #4f46e5;
-            --bg: #f8fafc;
+            --primary-light: #818cf8;
+            --bg: #f1f5f9;
             --card: #ffffff;
             --text: #1e293b;
             --text-muted: #64748b;
@@ -49,7 +52,12 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             --success: #22c55e;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --touch: 44px;
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
         }
         
         [data-theme="dark"] {
@@ -58,67 +66,101 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             --text: #f1f5f9;
             --text-muted: #94a3b8;
             --border: #334155;
+            --shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
         
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        * { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        html {
+            font-size: 16px;
+            scroll-behavior: smooth;
+        }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
             background: var(--bg);
             color: var(--text);
             min-height: 100vh;
+            min-height: 100dvh;
             transition: background 0.3s, color 0.3s;
+            overscroll-behavior: none;
+            -webkit-font-smoothing: antialiased;
         }
         
         .app {
-            max-width: 1400px;
+            max-width: 100%;
             margin: 0 auto;
-            padding: 20px;
+            padding: 12px;
+            padding-bottom: calc(80px + var(--safe-bottom));
         }
         
-        /* Header */
+        /* Header - Mobile First */
         .header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin: -12px -12px 16px;
+            padding: 12px;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        
+        .header-top {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 24px;
         }
         
         .logo {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
         }
         
         .logo h1 {
-            font-size: 24px;
-            font-weight: 700;
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
         }
         
         .logo .version {
             background: var(--primary);
             color: white;
             padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 12px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 500;
         }
         
         .header-actions {
             display: flex;
-            gap: 12px;
+            gap: 8px;
         }
         
         .btn {
-            padding: 10px 20px;
+            min-height: var(--touch);
+            padding: 10px 16px;
             border: none;
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
         }
         
         .btn-primary {
@@ -126,8 +168,9 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             color: white;
         }
         
-        .btn-primary:hover {
+        .btn-primary:active {
             background: var(--primary-dark);
+            transform: scale(0.98);
         }
         
         .btn-ghost {
@@ -136,95 +179,119 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             border: 1px solid var(--border);
         }
         
-        .btn-ghost:hover {
-            background: var(--card);
+        .btn-ghost:active {
+            background: var(--bg);
         }
         
-        /* Stats Grid */
+        .btn-icon {
+            width: var(--touch);
+            padding: 0;
+            font-size: 18px;
+        }
+        
+        /* Stats Grid - Mobile First */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
         }
         
         .stat-card {
             background: var(--card);
-            border-radius: 12px;
-            padding: 20px;
+            border-radius: var(--radius);
+            padding: 14px;
             box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
         }
         
         .stat-card .icon {
-            font-size: 24px;
-            margin-bottom: 8px;
+            font-size: 20px;
         }
         
         .stat-card .value {
-            font-size: 28px;
+            font-size: 22px;
             font-weight: 700;
             color: var(--primary);
+            letter-spacing: -0.02em;
         }
         
         .stat-card .label {
             color: var(--text-muted);
-            font-size: 13px;
-            margin-top: 4px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
         }
         
         .stat-card.success .value { color: var(--success); }
         .stat-card.warning .value { color: var(--warning); }
         .stat-card.danger .value { color: var(--danger); }
         
-        /* Health Bar */
+        /* Health Bar - Mobile First */
         .health-bar {
             background: var(--card);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 24px;
+            border-radius: var(--radius);
+            padding: 14px;
+            margin-bottom: 16px;
             box-shadow: var(--shadow);
         }
         
         .health-bar h3 {
-            font-size: 14px;
+            font-size: 12px;
+            font-weight: 500;
             color: var(--text-muted);
-            margin-bottom: 12px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
         }
         
         .progress-bar {
-            height: 8px;
+            height: 6px;
             background: var(--border);
-            border-radius: 4px;
+            border-radius: 3px;
             overflow: hidden;
         }
         
         .progress-fill {
             height: 100%;
-            background: var(--success);
-            transition: width 0.5s;
+            background: linear-gradient(90deg, var(--success), var(--primary));
+            border-radius: 3px;
+            transition: width 0.5s ease;
         }
         
-        .progress-fill.warning { background: var(--warning); }
-        .progress-fill.danger { background: var(--danger); }
+        .progress-fill.warning { background: linear-gradient(90deg, var(--warning), #fbbf24); }
+        .progress-fill.danger { background: linear-gradient(90deg, var(--danger), #f87171); }
         
-        /* Tabs */
+        /* Tabs - Mobile First */
         .tabs {
             display: flex;
             gap: 4px;
-            margin-bottom: 16px;
-            background: var(--card);
+            margin-bottom: 12px;
             padding: 4px;
-            border-radius: 10px;
+            background: var(--card);
+            border-radius: var(--radius);
             box-shadow: var(--shadow);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        
+        .tabs::-webkit-scrollbar {
+            display: none;
         }
         
         .tab {
-            padding: 10px 20px;
+            flex-shrink: 0;
+            min-height: 38px;
+            padding: 8px 14px;
             border: none;
             background: transparent;
             cursor: pointer;
-            border-radius: 8px;
-            font-size: 14px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 500;
             color: var(--text-muted);
             transition: all 0.2s;
         }
@@ -232,26 +299,28 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         .tab.active {
             background: var(--primary);
             color: white;
+            box-shadow: var(--shadow);
         }
         
-        .tab:hover:not(.active) {
-            background: var(--border);
+        .tab:active:not(.active) {
+            background: var(--bg);
         }
         
-        /* Search */
+        /* Search - Mobile First */
         .search-container {
             background: var(--card);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 16px;
+            border-radius: var(--radius);
+            padding: 12px;
+            margin-bottom: 12px;
             box-shadow: var(--shadow);
         }
         
         .search-input {
             width: 100%;
-            padding: 12px 16px;
+            min-height: var(--touch);
+            padding: 10px 14px;
             border: 2px solid var(--border);
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             font-size: 15px;
             background: var(--bg);
             color: var(--text);
@@ -263,21 +332,21 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             border-color: var(--primary);
         }
         
-        /* Memory List */
+        /* Memory List - Mobile First */
         .memory-list {
             background: var(--card);
-            border-radius: 12px;
+            border-radius: var(--radius);
             box-shadow: var(--shadow);
             overflow: hidden;
         }
         
         .memory-item {
-            padding: 16px 20px;
+            padding: 14px;
             border-bottom: 1px solid var(--border);
-            transition: background 0.2s;
+            transition: background 0.15s;
         }
         
-        .memory-item:hover {
+        .memory-item:active {
             background: var(--bg);
         }
         
@@ -289,50 +358,51 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 8px;
+            gap: 12px;
+            margin-bottom: 10px;
         }
         
         .memory-text {
-            font-size: 15px;
-            line-height: 1.6;
+            font-size: 14px;
+            line-height: 1.5;
             flex: 1;
+            word-break: break-word;
         }
         
         .memory-actions {
             display: flex;
-            gap: 8px;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-        
-        .memory-item:hover .memory-actions {
-            opacity: 1;
+            gap: 6px;
+            flex-shrink: 0;
         }
         
         .btn-sm {
-            padding: 4px 8px;
+            min-height: 36px;
+            padding: 6px 12px;
             font-size: 12px;
         }
         
-        .btn-icon {
-            padding: 6px;
-            border-radius: 6px;
+        .btn-icon-sm {
+            width: 36px;
+            min-height: 36px;
+            padding: 0;
+            font-size: 14px;
         }
         
         .memory-meta {
             display: flex;
-            gap: 12px;
-            font-size: 13px;
-            color: var(--text-muted);
             flex-wrap: wrap;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
             align-items: center;
         }
         
         .badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 12px;
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
             font-weight: 500;
         }
         
@@ -348,9 +418,10 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         
         .importance-stars {
             color: #fbbf24;
+            font-size: 12px;
         }
         
-        /* Modal */
+        /* Modal - Mobile First */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -359,9 +430,10 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             bottom: 0;
             background: rgba(0,0,0,0.5);
             display: none;
-            align-items: center;
+            align-items: flex-end;
             justify-content: center;
             z-index: 1000;
+            animation: fadeIn 0.2s ease;
         }
         
         .modal-overlay.active {
@@ -370,17 +442,106 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         
         .modal {
             background: var(--card);
-            border-radius: 16px;
-            padding: 24px;
-            width: 90%;
-            max-width: 500px;
-            max-height: 80vh;
+            border-radius: 20px 20px 0 0;
+            padding: 0;
+            width: 100%;
+            max-height: 90vh;
+            max-height: 90dvh;
             overflow-y: auto;
+            animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        .modal-header {
+            position: sticky;
+            top: 0;
+            background: var(--card);
+            padding: 20px 20px 12px;
+            z-index: 10;
+        }
+        
+        .modal-drag-indicator {
+            width: 36px;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            margin: 0 auto 16px;
         }
         
         .modal h2 {
-            font-size: 18px;
-            margin-bottom: 20px;
+            font-size: 20px;
+            font-weight: 700;
+            margin: 0;
+            text-align: center;
+        }
+        
+        .modal-body {
+            padding: 0 20px 20px;
+        }
+        
+        /* Template Quick Select */
+        .template-quick-select {
+            margin-bottom: 24px;
+        }
+        
+        .template-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .template-carousel {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 4px 0 8px;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            margin: 0 -20px;
+            padding-left: 20px;
+            padding-right: 20px;
+        }
+        
+        .template-carousel::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .template-chip {
+            flex-shrink: 0;
+            padding: 12px 18px;
+            background: var(--bg);
+            border: 2px solid transparent;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            scroll-snap-align: start;
+        }
+        
+        .template-chip:hover {
+            background: var(--primary)10;
+            border-color: var(--primary);
+            transform: scale(1.02);
+        }
+        
+        .template-chip.active {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 16px var(--primary)30;
+        }
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+        }
+        
+        .template-chip .emoji {
+            margin-right: 6px;
         }
         
         .form-group {
@@ -389,22 +550,25 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         
         .form-group label {
             display: block;
-            font-size: 14px;
+            font-size: 13px;
+            font-weight: 500;
             color: var(--text-muted);
-            margin-bottom: 6px;
+            margin-bottom: 8px;
         }
         
         .form-group input,
         .form-group textarea,
         .form-group select {
             width: 100%;
-            padding: 10px 12px;
+            min-height: var(--touch);
+            padding: 10px 14px;
             border: 2px solid var(--border);
-            border-radius: 8px;
-            font-size: 14px;
+            border-radius: var(--radius-sm);
+            font-size: 15px;
             background: var(--bg);
             color: var(--text);
             outline: none;
+            transition: border-color 0.2s;
         }
         
         .form-group textarea {
@@ -412,63 +576,392 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             resize: vertical;
         }
         
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            border-color: var(--primary);
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .form-group.half {
+            flex: 1;
+        }
+        
+        .form-group .hint {
+            font-weight: 400;
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+        
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            outline: none;
+            margin-top: 8px;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--primary);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 8px var(--primary)40;
+        }
+        
         .form-actions {
             display: flex;
             gap: 12px;
-            justify-content: flex-end;
-            margin-top: 20px;
+            margin-top: 24px;
+        }
+        
+        .form-actions .btn {
+            flex: 1;
+            padding: 14px 20px;
+            font-size: 15px;
         }
         
         /* Empty State */
         .empty-state {
             text-align: center;
-            padding: 60px 20px;
+            padding: 40px 20px;
             color: var(--text-muted);
         }
         
         .empty-state .icon {
             font-size: 48px;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
+            opacity: 0.5;
         }
         
-        /* Toast */
+        .empty-state p {
+            font-size: 14px;
+        }
+        
+        /* Toast - Mobile First */
         .toast-container {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
+            left: 12px;
+            right: 12px;
+            bottom: calc(90px + var(--safe-bottom));
             z-index: 2000;
         }
         
         .toast {
             background: var(--card);
-            padding: 12px 20px;
-            border-radius: 8px;
-            box-shadow: var(--shadow);
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-lg);
             margin-top: 8px;
-            animation: slideIn 0.3s;
+            font-size: 14px;
+            animation: slideUp 0.3s ease;
         }
         
         .toast.success { border-left: 4px solid var(--success); }
         .toast.error { border-left: 4px solid var(--danger); }
         
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+        /* Graph Container - Mobile First */
+        #graph-container {
+            background: var(--card);
+            border-radius: var(--radius);
+            margin-bottom: 12px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
         }
         
-        /* Responsive */
-        @media (max-width: 768px) {
+        #graph-stats {
+            padding: 12px 14px;
+            font-size: 12px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        #graph-network {
+            height: 280px;
+            width: 100%;
+        }
+        
+        /* Bottom Action Bar - Mobile */
+        .bottom-bar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--card);
+            border-top: 1px solid var(--border);
+            padding: 12px 16px;
+            padding-bottom: calc(12px + var(--safe-bottom));
+            display: flex;
+            gap: 12px;
+            z-index: 100;
+        }
+        
+        .bottom-bar .btn {
+            flex: 1;
+        }
+        
+        /* Floating Action Button - Hidden on mobile */
+        .fab {
+            display: none;
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border: none;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            box-shadow: 0 4px 20px var(--primary)40, 0 8px 24px var(--primary)20;
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        .fab:hover {
+            transform: scale(1.1) rotate(90deg);
+            box-shadow: 0 6px 28px var(--primary)50, 0 12px 32px var(--primary)30;
+        }
+        
+        .fab:active {
+            transform: scale(0.95);
+        }
+        
+        .fab-icon {
+            font-weight: 300;
+            line-height: 1;
+        }
+        
+        /* Desktop Styles */
+        @media (min-width: 768px) {
+            .app {
+                max-width: 800px;
+                padding: 24px;
+                padding-bottom: 24px;
+            }
+            
             .header {
-                flex-direction: column;
-                gap: 16px;
+                position: relative;
+                flex-direction: row;
+                margin: 0 0 24px;
+                padding: 0;
+                background: transparent;
+                border-bottom: none;
+                backdrop-filter: none;
+            }
+            
+            .header-top {
+                width: 100%;
+            }
+            
+            .logo h1 {
+                font-size: 24px;
             }
             
             .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(3, 1fr);
+                gap: 16px;
+            }
+            
+            .stat-card {
+                padding: 20px;
+            }
+            
+            .stat-card .value {
+                font-size: 28px;
+            }
+            
+            .health-bar {
+                padding: 20px;
+            }
+            
+            .tabs {
+                gap: 6px;
+            }
+            
+            .tab {
+                padding: 10px 20px;
+            }
+            
+            .memory-item {
+                padding: 18px 20px;
             }
             
             .memory-actions {
+                opacity: 0;
+            }
+            
+            .memory-item:hover .memory-actions {
                 opacity: 1;
+            }
+            
+            .modal-overlay {
+                align-items: center;
+            }
+            
+            .modal {
+                max-width: 500px;
+                border-radius: var(--radius);
+                animation: zoomIn 0.2s ease;
+            }
+            
+            @keyframes zoomIn {
+                from { transform: scale(0.95); opacity: 0; }
+                to { transform: scale(1); opacity: 1; }
+            }
+            
+            .bottom-bar {
+                display: none;
+            }
+            
+            .fab {
+                display: flex;
+            }
+            
+            #graph-network {
+                height: 400px;
+            }
+        }
+        
+        @media (min-width: 1024px) {
+            .app {
+                max-width: 1000px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(6, 1fr);
+            }
+        }
+        
+        /* Settings Section */
+        .settings-section {
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow);
+        }
+        
+        .settings-section h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text);
+        }
+        
+        .cost-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        
+        .cost-item {
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .cost-item .label {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        
+        .cost-item .value {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+        
+        .cost-item .status {
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
+            width: fit-content;
+        }
+        
+        .cost-item .status.online { background: #22c55e20; color: var(--success); }
+        .cost-item .status.offline { background: #ef444420; color: var(--danger); }
+        
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .template-item {
+            background: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .template-item:hover {
+            border-color: var(--primary);
+            background: var(--card);
+        }
+        
+        .template-item .name {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        
+        .template-item .desc {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        
+        .backup-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .backup-actions .btn {
+            flex: 1;
+            min-width: 140px;
+        }
+        
+        .settings-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 12px;
+        }
+        
+        .cost-item.highlight {
+            background: var(--bg);
+            border-left: 3px solid var(--success);
+        }
+        
+        .cost-item.highlight .value {
+            color: var(--success);
+            font-size: 20px;
+        }
+        
+        @media (min-width: 768px) {
+            .cost-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+            
+            .template-grid {
+                grid-template-columns: repeat(3, 1fr);
             }
         }
     </style>
@@ -477,13 +970,14 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
     <div class="app">
         <!-- Header -->
         <div class="header">
-            <div class="logo">
-                <h1>📚 Unified Memory</h1>
-                <span class="version">v0.3.3</span>
-            </div>
-            <div class="header-actions">
-                <button class="btn btn-ghost" onclick="toggleTheme()">🌙</button>
-                <button class="btn btn-primary" onclick="openModal()">+ 新建记忆</button>
+            <div class="header-top">
+                <div class="logo">
+                    <h1>📚 Unified Memory</h1>
+                    <span class="version">v0.3.5</span>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-ghost btn-icon" onclick="toggleTheme()">🌙</button>
+                </div>
             </div>
         </div>
         
@@ -507,6 +1001,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             <button class="tab" onclick="switchTab('decision')">决策</button>
             <button class="tab" onclick="switchTab('learning')">学习</button>
             <button class="tab" onclick="switchTab('graph')">📊 图谱</button>
+            <button class="tab" onclick="switchTab('settings')">⚙️ 设置</button>
         </div>
         
         <!-- Search -->
@@ -514,48 +1009,88 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             <input type="text" class="search-input" id="search" placeholder="🔍 搜索记忆..." onkeyup="searchMemories()">
         </div>
         
+        <!-- Graph Container (hidden by default) -->
+        <div id="graph-container" style="display: none;">
+            <div id="graph-stats">加载中...</div>
+            <div id="graph-network"></div>
+        </div>
+        
+        <!-- Settings Container -->
+        <div id="settings-container" style="display: none;">
+            <!-- Cost Monitor -->
+            <div class="settings-section">
+                <h3>💰 成本监控</h3>
+                <div class="cost-grid" id="cost-stats"></div>
+            </div>
+            
+            <!-- Backup & Restore -->
+            <div class="settings-section">
+                <h3>💾 备份与恢复</h3>
+                <div class="backup-actions">
+                    <button class="btn btn-primary" onclick="backupMemory()">📤 导出备份</button>
+                    <button class="btn btn-ghost" onclick="document.getElementById('restore-input').click()">📥 导入恢复</button>
+                    <input type="file" id="restore-input" accept=".json" style="display:none" onchange="restoreMemory(event)">
+                </div>
+                <p class="settings-hint">导出会生成 JSON 文件，导入可恢复记忆数据</p>
+            </div>
+        </div>
+        
         <!-- Memory List -->
         <div class="memory-list" id="memories"></div>
-        
-        <!-- Graph Container (hidden by default) -->
-        <div id="graph-container" style="display: none; background: var(--card); border-radius: 12px; box-shadow: var(--shadow); height: 600px; position: relative;">
-            <div style="position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.7); color: white; padding: 15px 20px; border-radius: 10px; z-index: 100;">
-                <h3 style="margin: 0; font-size: 16px;">📊 知识图谱</h3>
-                <p style="margin: 5px 0 0 0; font-size: 13px; color: #aaa;" id="graph-stats">加载中...</p>
-            </div>
-            <div id="graph-network" style="width: 100%; height: 100%;"></div>
-        </div>
+    </div>
+    
+    <!-- Floating Action Button - Desktop -->
+    <button class="fab" onclick="openModal()">
+        <span class="fab-icon">+</span>
+    </button>
+    
+    <!-- Bottom Action Bar - Mobile -->
+    <div class="bottom-bar">
+        <button class="btn btn-primary" onclick="openModal()">+ 新建记忆</button>
     </div>
     
     <!-- Modal -->
-    <div class="modal-overlay" id="modal">
+    <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
         <div class="modal">
-            <h2 id="modal-title">新建记忆</h2>
-            <div class="form-group">
-                <label>内容</label>
-                <textarea id="form-text" placeholder="输入记忆内容..."></textarea>
+            <div class="modal-header">
+                <div class="modal-drag-indicator"></div>
+                <h2 id="modal-title">新建记忆</h2>
             </div>
-            <div class="form-group">
-                <label>分类</label>
-                <select id="form-category">
-                    <option value="preference">偏好 (preference)</option>
-                    <option value="entities">实体 (entities)</option>
-                    <option value="fact">事实 (fact)</option>
-                    <option value="decision">决策 (decision)</option>
-                    <option value="learning">学习 (learning)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>重要性 (0-1)</label>
-                <input type="number" id="form-importance" value="0.5" min="0" max="1" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>标签 (逗号分隔)</label>
-                <input type="text" id="form-tags" placeholder="标签1, 标签2">
-            </div>
-            <div class="form-actions">
-                <button class="btn btn-ghost" onclick="closeModal()">取消</button>
-                <button class="btn btn-primary" onclick="saveMemory()">保存</button>
+            <div class="modal-body">
+                <!-- Template Quick Select -->
+                <div class="template-quick-select">
+                    <label class="template-label">📋 快速选择模板</label>
+                    <div class="template-carousel" id="template-carousel"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label>内容</label>
+                    <textarea id="form-text" placeholder="输入记忆内容，或点击上方模板快速开始..." rows="4"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group half">
+                        <label>分类</label>
+                        <select id="form-category">
+                            <option value="preference">偏好</option>
+                            <option value="entities">实体</option>
+                            <option value="fact">事实</option>
+                            <option value="decision">决策</option>
+                            <option value="learning">学习</option>
+                        </select>
+                    </div>
+                    <div class="form-group half">
+                        <label>重要性</label>
+                        <input type="range" id="form-importance" value="0.5" min="0" max="1" step="0.1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>标签 <span class="hint">（逗号分隔）</span></label>
+                    <input type="text" id="form-tags" placeholder="标签1, 标签2">
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+                    <button class="btn btn-primary" onclick="saveMemory()">✓ 保存</button>
+                </div>
             </div>
         </div>
     </div>
@@ -707,19 +1242,196 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             event.target.classList.add('active');
             
-            // Show/hide graph container
             const graphContainer = document.getElementById('graph-container');
             const memoriesContainer = document.getElementById('memories');
+            const settingsContainer = document.getElementById('settings-container');
+            const searchContainer = document.querySelector('.search-container');
+            
+            // Hide all
+            graphContainer.style.display = 'none';
+            memoriesContainer.style.display = 'none';
+            settingsContainer.style.display = 'none';
+            searchContainer.style.display = 'block';
             
             if (tab === 'graph') {
                 graphContainer.style.display = 'block';
-                memoriesContainer.style.display = 'none';
+                searchContainer.style.display = 'none';
                 loadGraph();
+            } else if (tab === 'settings') {
+                settingsContainer.style.display = 'block';
+                searchContainer.style.display = 'none';
+                loadCosts();
             } else {
-                graphContainer.style.display = 'none';
                 memoriesContainer.style.display = 'block';
                 renderMemories();
             }
+        }
+        
+        // Templates
+        const TEMPLATES = [
+            { name: '👤 用户偏好', category: 'preference', template: '用户偏好使用 [工具/平台] 进行 [用途]，不喜欢 [某事物]' },
+            { name: '📋 项目信息', category: 'entities', template: '项目名称：[名称]\\n类型：[类型]\\n状态：[进行中/已完成]' },
+            { name: '📌 重要决策', category: 'decision', template: '决策：[决策内容]\\n原因：[原因]\\n影响：[影响范围]' },
+            { name: '📚 学习笔记', category: 'learning', template: '主题：[主题]\\n要点：\\n1. [要点1]\\n2. [要点2]' },
+            { name: 'ℹ️ 事实记录', category: 'fact', template: '[事实描述]\\n来源：[来源]\\n时间：[时间]' },
+            { name: '🎯 任务清单', category: 'entities', template: '任务：[任务名称]\\n优先级：[高/中/低]\\n截止：[日期]' }
+        ];
+        
+        function renderTemplates() {
+            const container = document.getElementById('templates');
+            container.innerHTML = TEMPLATES.map((t, i) => `
+                <div class="template-item" onclick="useTemplate(${i})">
+                    <div class="name">${t.name}</div>
+                    <div class="desc">${t.template.substring(0, 30)}...</div>
+                </div>
+            `).join('');
+        }
+        
+        function useTemplate(index) {
+            const t = TEMPLATES[index];
+            document.getElementById('form-text').value = t.template;
+            document.getElementById('form-category').value = t.category;
+            openModal();
+            document.getElementById('form-text').focus();
+        }
+        
+        // Cost Monitor
+        async function loadCosts() {
+            try {
+                const res = await fetch('/api/costs');
+                const data = await res.json();
+                renderCosts(data);
+            } catch (e) {
+                renderCosts({ ollama_status: 'offline', error: e.message });
+            }
+        }
+        
+        function renderCosts(data) {
+            const container = document.getElementById('cost-stats');
+            const isOnline = data.ollama_status === 'online';
+            const totalTokens = estimateTokens();
+            const queries = data.embedding_calls || allMemories.length;
+            
+            // 成本对比（假设 OpenAI text-embedding-3-small: $0.02/1M tokens）
+            const openaiCostPer1M = 0.02;
+            const savedCost = (totalTokens / 1000000 * openaiCostPer1M).toFixed(4);
+            const savedPerQuery = (totalTokens / queries * openaiCostPer1M / 1000000 * 100).toFixed(4);
+            
+            container.innerHTML = `
+                <div class="cost-item">
+                    <span class="label">Ollama 状态</span>
+                    <span class="value">${isOnline ? '✅ 在线' : '❌ 离线'}</span>
+                    <span class="status ${isOnline ? 'online' : 'offline'}">${data.ollama_url || 'localhost:11434'}</span>
+                </div>
+                <div class="cost-item">
+                    <span class="label">Embedding 模型</span>
+                    <span class="value">${data.embedding_model || 'nomic-embed-text'}</span>
+                    <span class="status online">${data.embedding_dim || 768}维</span>
+                </div>
+                <div class="cost-item">
+                    <span class="label">总 Token 数</span>
+                    <span class="value">${totalTokens.toLocaleString()}</span>
+                    <span class="status online">${allMemories.length} 条记忆</span>
+                </div>
+                <div class="cost-item">
+                    <span class="label">Embedding 调用</span>
+                    <span class="value">${queries}</span>
+                    <span class="status online">~${Math.round(totalTokens / queries)} tokens/次</span>
+                </div>
+                <div class="cost-item">
+                    <span class="label">💰 已节省</span>
+                    <span class="value">$${savedCost}</span>
+                    <span class="status online">vs OpenAI API</span>
+                </div>
+                <div class="cost-item">
+                    <span class="label">📊 每次查询省</span>
+                    <span class="value">$${savedPerQuery}</span>
+                    <span class="status online">~${queries} 次调用</span>
+                </div>
+                <div class="cost-item">
+                    <span class="label">LLM 提取调用</span>
+                    <span class="value">${data.llm_calls || 0}</span>
+                    <span class="status online">自动提取</span>
+                </div>
+                <div class="cost-item">
+                    <span class="label">月度预估省</span>
+                    <span class="value">$${(savedCost * 30).toFixed(2)}</span>
+                    <span class="status online">按当前用量</span>
+                </div>
+            `;
+        }
+        
+        function estimateTokens() {
+            const totalChars = allMemories.reduce((sum, m) => sum + (m.text || '').length, 0);
+            return Math.round(totalChars / 4); // 粗略估算：4字符 ≈ 1 token
+        }
+        
+        // Backup & Restore
+        async function backupMemory() {
+            try {
+                const res = await fetch('/api/memories');
+                const memories = await res.json();
+                
+                const backup = {
+                    version: '0.3.7',
+                    exported_at: new Date().toISOString(),
+                    count: memories.length,
+                    memories: memories
+                };
+                
+                const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `memory-backup-${new Date().toISOString().slice(0,10)}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                toast(`已导出 ${memories.length} 条记忆`, 'success');
+            } catch (e) {
+                toast('导出失败: ' + e.message, 'error');
+            }
+        }
+        
+        async function restoreMemory(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            try {
+                const text = await file.text();
+                const backup = JSON.parse(text);
+                
+                if (!backup.memories || !Array.isArray(backup.memories)) {
+                    throw new Error('无效的备份文件格式');
+                }
+                
+                let imported = 0;
+                for (const m of backup.memories) {
+                    try {
+                        const res = await fetch('/api/memories', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                text: m.text,
+                                category: m.category || 'general',
+                                importance: m.importance || 0.5,
+                                tags: m.tags || []
+                            })
+                        });
+                        if (res.ok) imported++;
+                    } catch (e) {
+                        console.error('Import failed:', e);
+                    }
+                }
+                
+                toast(`已导入 ${imported} 条记忆`, 'success');
+                loadMemories();
+                loadStats();
+            } catch (e) {
+                toast('导入失败: ' + e.message, 'error');
+            }
+            
+            event.target.value = '';
         }
         
         // Search
@@ -735,7 +1447,43 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             document.getElementById('form-category').value = 'preference';
             document.getElementById('form-importance').value = 0.5;
             document.getElementById('form-tags').value = '';
+            
+            // 渲染模板选择条
+            renderTemplateCarousel();
+            
             document.getElementById('modal').classList.add('active');
+        }
+        
+        function renderTemplateCarousel() {
+            const container = document.getElementById('template-carousel');
+            container.innerHTML = TEMPLATES.map((t, i) => `
+                <div class="template-chip" onclick="selectTemplate(${i})">
+                    <span class="emoji">${t.name.split(' ')[0]}</span>
+                    ${t.name.split(' ').slice(1).join(' ')}
+                </div>
+            `).join('') + `
+                <div class="template-chip" onclick="selectTemplate(-1)">
+                    <span class="emoji">✏️</span>空白
+                </div>
+            `;
+        }
+        
+        function selectTemplate(index) {
+            // 移除其他选中状态
+            document.querySelectorAll('.template-chip').forEach((chip, i) => {
+                chip.classList.toggle('active', i === index);
+            });
+            
+            if (index === -1) {
+                // 空白模板
+                document.getElementById('form-text').value = '';
+                document.getElementById('form-category').value = 'preference';
+                return;
+            }
+            
+            const t = TEMPLATES[index];
+            document.getElementById('form-text').value = t.template;
+            document.getElementById('form-category').value = t.category;
         }
         
         function closeModal() {
@@ -900,6 +1648,8 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                     '<p>图谱加载失败</p><p style="font-size: 12px;">' + e.message + '</p></div>';
             }
         }
+        
+        function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
