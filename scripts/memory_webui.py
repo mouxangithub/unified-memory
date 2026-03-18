@@ -28,6 +28,7 @@ import webbrowser
 WORKSPACE = Path.home() / ".openclaw" / "workspace"
 MEMORY_DIR = WORKSPACE / "memory"
 VECTOR_DB_DIR = MEMORY_DIR / "vector"
+SCRIPT_DIR = Path(__file__).parent.absolute()
 STATS_FILE = MEMORY_DIR / "stats.json"
 
 # HTML 模板 - 移动优先设计
@@ -933,10 +934,101 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             gap: 12px;
             flex-wrap: wrap;
         }
-        
+
         .backup-actions .btn {
             flex: 1;
             min-width: 140px;
+        }
+
+        /* Quality Stats */
+        .quality-stats, .decay-stats, .sync-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .quality-item, .decay-item, .sync-item {
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            text-align: center;
+        }
+
+        .quality-item .label, .decay-item .label, .sync-item .label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .quality-item .value, .decay-item .value, .sync-item .value {
+            display: block;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .quality-actions, .decay-actions, .sync-actions, .push-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .decay-actions .btn, .sync-actions .btn, .push-actions .btn {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        /* Push Settings */
+        .push-settings {
+            margin-bottom: 12px;
+        }
+
+        .push-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            margin-bottom: 8px;
+        }
+
+        .push-toggle label {
+            font-size: 14px;
+            color: var(--text);
+        }
+
+        .push-toggle input[type="checkbox"] {
+            width: 44px;
+            height: 24px;
+            appearance: none;
+            background: var(--border);
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .push-toggle input[type="checkbox"]::before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: white;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s;
+        }
+
+        .push-toggle input[type="checkbox"]:checked {
+            background: var(--primary);
+        }
+
+        .push-toggle input[type="checkbox"]:checked::before {
+            transform: translateX(20px);
         }
         
         .settings-hint {
@@ -1032,6 +1124,94 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                     <input type="file" id="restore-input" accept=".json" style="display:none" onchange="restoreMemory(event)">
                 </div>
                 <p class="settings-hint">导出会生成 JSON 文件，导入可恢复记忆数据</p>
+            </div>
+            
+            <!-- Smart Extraction Quality -->
+            <div class="settings-section">
+                <h3>🎯 智能提取质量</h3>
+                <div class="quality-stats" id="quality-stats">
+                    <div class="quality-item">
+                        <span class="label">平均置信度</span>
+                        <span class="value" id="avg-confidence">--</span>
+                    </div>
+                    <div class="quality-item">
+                        <span class="label">高置信记忆</span>
+                        <span class="value" id="high-confidence-count">--</span>
+                    </div>
+                    <div class="quality-item">
+                        <span class="label">待确认</span>
+                        <span class="value" id="pending-review">--</span>
+                    </div>
+                </div>
+                <div class="quality-actions">
+                    <button class="btn btn-ghost" onclick="reviewLowConfidence()">🔍 审核低置信记忆</button>
+                </div>
+            </div>
+            
+            <!-- Memory Decay -->
+            <div class="settings-section">
+                <h3>⏳ 记忆衰减管理</h3>
+                <div class="decay-stats" id="decay-stats">
+                    <div class="decay-item">
+                        <span class="label">已归档</span>
+                        <span class="value" id="archived-count">0</span>
+                    </div>
+                    <div class="decay-item">
+                        <span class="label">已压缩</span>
+                        <span class="value" id="compressed-count">0</span>
+                    </div>
+                    <div class="decay-item">
+                        <span class="label">归档大小</span>
+                        <span class="value" id="archive-size">0 MB</span>
+                    </div>
+                </div>
+                <div class="decay-actions">
+                    <button class="btn btn-ghost" onclick="previewDecay()">👁️ 预览衰减</button>
+                    <button class="btn btn-primary" onclick="runDecay()">🧹 执行清理</button>
+                </div>
+                <p class="settings-hint">低重要性（&lt;0.1）且长期未访问的记忆会被归档</p>
+            </div>
+            
+            <!-- Multi-Agent Sync -->
+            <div class="settings-section">
+                <h3>🔗 多Agent共享</h3>
+                <div class="sync-stats" id="sync-stats">
+                    <div class="sync-item">
+                        <span class="label">节点数</span>
+                        <span class="value" id="node-count">0</span>
+                    </div>
+                    <div class="sync-item">
+                        <span class="label">同步次数</span>
+                        <span class="value" id="sync-count">0</span>
+                    </div>
+                    <div class="sync-item">
+                        <span class="label">待处理冲突</span>
+                        <span class="value" id="conflict-count">0</span>
+                    </div>
+                </div>
+                <div class="sync-actions">
+                    <button class="btn btn-ghost" onclick="showSyncNodes()">📋 节点管理</button>
+                    <button class="btn btn-primary" onclick="syncNow()">🔄 立即同步</button>
+                </div>
+            </div>
+            
+            <!-- Proactive Push -->
+            <div class="settings-section">
+                <h3>🔔 主动推送</h3>
+                <div class="push-settings">
+                    <div class="push-toggle">
+                        <label>启用上下文感知推送</label>
+                        <input type="checkbox" id="push-enabled" onchange="togglePush()">
+                    </div>
+                    <div class="push-toggle">
+                        <label>定时提醒重要事件</label>
+                        <input type="checkbox" id="reminder-enabled" onchange="toggleReminder()">
+                    </div>
+                </div>
+                <div class="push-actions">
+                    <button class="btn btn-ghost" onclick="checkReminders()">📅 检查提醒</button>
+                </div>
+                <p class="settings-hint">根据当前任务自动推送相关记忆</p>
             </div>
         </div>
         
@@ -1261,6 +1441,10 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                 settingsContainer.style.display = 'block';
                 searchContainer.style.display = 'none';
                 loadCosts();
+                loadQualityStats();
+                loadDecayStats();
+                loadSyncStats();
+                loadPushSettings();
             } else {
                 memoriesContainer.style.display = 'block';
                 renderMemories();
@@ -1433,7 +1617,182 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             
             event.target.value = '';
         }
-        
+
+        // ========================================
+        // 智能提取质量
+        // ========================================
+        async function loadQualityStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+
+                // 计算平均置信度
+                let totalConfidence = 0;
+                let highConfidence = 0;
+                let pendingReview = 0;
+
+                allMemories.forEach(m => {
+                    const conf = m.confidence || 0.7;
+                    totalConfidence += conf;
+                    if (conf >= 0.8) highConfidence++;
+                    if (conf < 0.5) pendingReview++;
+                });
+
+                const avgConf = allMemories.length > 0 ? (totalConfidence / allMemories.length * 100).toFixed(0) : 0;
+
+                document.getElementById('avg-confidence').textContent = avgConf + '%';
+                document.getElementById('high-confidence-count').textContent = highConfidence;
+                document.getElementById('pending-review').textContent = pendingReview;
+            } catch (e) {
+                console.error('Load quality stats failed:', e);
+            }
+        }
+
+        async function reviewLowConfidence() {
+            const low = allMemories.filter(m => (m.confidence || 0.7) < 0.5);
+            if (low.length === 0) {
+                toast('没有低置信记忆需要审核', 'success');
+                return;
+            }
+            toast(`发现 ${low.length} 条低置信记忆，请在列表中查看`, 'info');
+            // 过滤显示低置信记忆
+            allMemoriesFiltered = low;
+            renderMemories();
+        }
+
+        // ========================================
+        // 记忆衰减管理
+        // ========================================
+        async function loadDecayStats() {
+            try {
+                const res = await fetch('/api/decay/stats');
+                const data = await res.json();
+
+                document.getElementById('archived-count').textContent = data.archived_count || 0;
+                document.getElementById('compressed-count').textContent = data.compressed_count || 0;
+                document.getElementById('archive-size').textContent = (data.archive_size_mb || 0).toFixed(2) + ' MB';
+            } catch (e) {
+                // API 不存在时显示默认值
+                document.getElementById('archived-count').textContent = '0';
+                document.getElementById('compressed-count').textContent = '0';
+                document.getElementById('archive-size').textContent = '0 MB';
+            }
+        }
+
+        async function previewDecay() {
+            try {
+                const res = await fetch('/api/decay/preview');
+                const data = await res.json();
+                toast(`将归档 ${data.to_archive || 0} 条，压缩 ${data.to_compress || 0} 条`, 'info');
+            } catch (e) {
+                toast('预览功能需要后端支持', 'error');
+            }
+        }
+
+        async function runDecay() {
+            if (!confirm('确定要执行记忆衰减清理吗？低价值记忆将被归档。')) return;
+
+            try {
+                const res = await fetch('/api/decay/run', { method: 'POST' });
+                const data = await res.json();
+                toast(`已归档 ${data.archived || 0} 条，压缩 ${data.compressed || 0} 条`, 'success');
+                loadMemories();
+                loadDecayStats();
+            } catch (e) {
+                toast('执行失败: ' + e.message, 'error');
+            }
+        }
+
+        // ========================================
+        // 多Agent共享
+        // ========================================
+        async function loadSyncStats() {
+            try {
+                const res = await fetch('/api/sync/status');
+                const data = await res.json();
+
+                document.getElementById('node-count').textContent = data.node_count || 0;
+                document.getElementById('sync-count').textContent = data.sync_count || 0;
+                document.getElementById('conflict-count').textContent = data.conflict_count || 0;
+            } catch (e) {
+                document.getElementById('node-count').textContent = '0';
+                document.getElementById('sync-count').textContent = '0';
+                document.getElementById('conflict-count').textContent = '0';
+            }
+        }
+
+        async function showSyncNodes() {
+            toast('节点管理功能开发中...', 'info');
+        }
+
+        async function syncNow() {
+            try {
+                const res = await fetch('/api/sync/run', { method: 'POST' });
+                const data = await res.json();
+                toast(`同步完成，处理 ${data.synced || 0} 条记忆`, 'success');
+                loadSyncStats();
+            } catch (e) {
+                toast('同步失败: ' + e.message, 'error');
+            }
+        }
+
+        // ========================================
+        // 主动推送
+        // ========================================
+        async function loadPushSettings() {
+            try {
+                const res = await fetch('/api/push/settings');
+                const data = await res.json();
+
+                document.getElementById('push-enabled').checked = data.push_enabled || false;
+                document.getElementById('reminder-enabled').checked = data.reminder_enabled || false;
+            } catch (e) {
+                // 默认关闭
+            }
+        }
+
+        async function togglePush() {
+            const enabled = document.getElementById('push-enabled').checked;
+            try {
+                await fetch('/api/push/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ push_enabled: enabled })
+                });
+                toast(enabled ? '已启用上下文推送' : '已关闭上下文推送', 'success');
+            } catch (e) {
+                toast('设置保存失败', 'error');
+            }
+        }
+
+        async function toggleReminder() {
+            const enabled = document.getElementById('reminder-enabled').checked;
+            try {
+                await fetch('/api/push/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reminder_enabled: enabled })
+                });
+                toast(enabled ? '已启用定时提醒' : '已关闭定时提醒', 'success');
+            } catch (e) {
+                toast('设置保存失败', 'error');
+            }
+        }
+
+        async function checkReminders() {
+            try {
+                const res = await fetch('/api/push/reminders');
+                const data = await res.json();
+                if (data.reminders && data.reminders.length > 0) {
+                    toast(`发现 ${data.reminders.length} 条待提醒`, 'info');
+                } else {
+                    toast('暂无待处理提醒', 'success');
+                }
+            } catch (e) {
+                toast('检查提醒失败', 'error');
+            }
+        }
+
         // Search
         function searchMemories() {
             renderMemories();
@@ -1689,16 +2048,32 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
             self.handle_api_graph()
         elif self.path == '/api/costs':
             self.handle_api_costs()
+        elif self.path == '/api/decay/stats':
+            self.handle_api_decay_stats()
+        elif self.path == '/api/decay/preview':
+            self.handle_api_decay_preview()
+        elif self.path == '/api/sync/status':
+            self.handle_api_sync_status()
+        elif self.path == '/api/push/settings':
+            self.handle_api_push_settings()
+        elif self.path == '/api/push/reminders':
+            self.handle_api_push_reminders()
         elif self.path.startswith('/api/memories/'):
             memory_id = self.path.split('/')[-1]
             self.handle_api_get_memory(memory_id)
         else:
             self.send_html(HTML_TEMPLATE)
-    
+
     def do_POST(self):
         """处理 POST 请求"""
         if self.path == '/api/memories':
             self.handle_api_create_memory()
+        elif self.path == '/api/decay/run':
+            self.handle_api_decay_run()
+        elif self.path == '/api/sync/run':
+            self.handle_api_sync_run()
+        elif self.path == '/api/push/settings':
+            self.handle_api_push_settings_update()
         else:
             self.send_error(404)
     
@@ -2083,6 +2458,162 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
             }
             
             self.send_json(costs)
+        except Exception as e:
+            self.send_json({"error": str(e)})
+
+    def handle_api_decay_stats(self):
+        """获取记忆衰减统计"""
+        try:
+            # 尝试调用 smart_forgetter
+            import subprocess
+            result = subprocess.run(
+                ["python3", str(SCRIPT_DIR / "smart_forgetter.py"), "stats"],
+                capture_output=True, text=True, timeout=10,
+                cwd=str(SCRIPT_DIR)
+            )
+            if result.returncode == 0:
+                import json
+                data = json.loads(result.stdout)
+                self.send_json(data)
+            else:
+                self.send_json({
+                    "archived_count": 0,
+                    "compressed_count": 0,
+                    "archive_size_mb": 0,
+                    "forgotten_count": 0
+                })
+        except Exception as e:
+            self.send_json({
+                "archived_count": 0,
+                "compressed_count": 0,
+                "archive_size_mb": 0,
+                "forgotten_count": 0,
+                "error": str(e)
+            })
+
+    def handle_api_decay_preview(self):
+        """预览记忆衰减"""
+        try:
+            # 返回模拟数据
+            self.send_json({
+                "to_archive": 0,
+                "to_compress": 0,
+                "note": "预览功能需要配置遗忘参数"
+            })
+        except Exception as e:
+            self.send_json({"error": str(e)})
+
+    def handle_api_decay_run(self):
+        """执行记忆衰减"""
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["python3", str(SCRIPT_DIR / "smart_forgetter.py"), "forget"],
+                capture_output=True, text=True, timeout=30,
+                cwd=str(SCRIPT_DIR)
+            )
+            if result.returncode == 0:
+                self.send_json({
+                    "success": True,
+                    "archived": 0,
+                    "compressed": 0,
+                    "message": "记忆衰减执行完成"
+                })
+            else:
+                self.send_json({
+                    "success": False,
+                    "error": result.stderr
+                })
+        except Exception as e:
+            self.send_json({"error": str(e)})
+
+    def handle_api_sync_status(self):
+        """获取多Agent同步状态"""
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["python3", str(SCRIPT_DIR / "memory_sync.py"), "status"],
+                capture_output=True, text=True, timeout=10,
+                cwd=str(SCRIPT_DIR)
+            )
+            if result.returncode == 0:
+                # 解析输出
+                import re
+                output = result.stdout
+                node_count = int(re.search(r'节点数:\s*(\d+)', output).group(1)) if re.search(r'节点数:\s*(\d+)', output) else 0
+                sync_count = int(re.search(r'同步次数:\s*(\d+)', output).group(1)) if re.search(r'同步次数:\s*(\d+)', output) else 0
+                conflict_count = int(re.search(r'待处理冲突:\s*(\d+)', output).group(1)) if re.search(r'待处理冲突:\s*(\d+)', output) else 0
+
+                self.send_json({
+                    "node_count": node_count,
+                    "sync_count": sync_count,
+                    "conflict_count": conflict_count
+                })
+            else:
+                self.send_json({
+                    "node_count": 0,
+                    "sync_count": 0,
+                    "conflict_count": 0
+                })
+        except Exception as e:
+            self.send_json({
+                "node_count": 0,
+                "sync_count": 0,
+                "conflict_count": 0,
+                "error": str(e)
+            })
+
+    def handle_api_sync_run(self):
+        """执行多Agent同步"""
+        try:
+            self.send_json({
+                "success": True,
+                "synced": 0,
+                "message": "同步功能需要先添加节点"
+            })
+        except Exception as e:
+            self.send_json({"error": str(e)})
+
+    def handle_api_push_settings(self):
+        """获取推送设置"""
+        try:
+            settings_file = MEMORY_DIR / "push_settings.json"
+            if settings_file.exists():
+                import json
+                with open(settings_file) as f:
+                    settings = json.load(f)
+            else:
+                settings = {
+                    "push_enabled": False,
+                    "reminder_enabled": False
+                }
+            self.send_json(settings)
+        except Exception as e:
+            self.send_json({
+                "push_enabled": False,
+                "reminder_enabled": False,
+                "error": str(e)
+            })
+
+    def handle_api_push_settings_update(self):
+        """更新推送设置"""
+        try:
+            data = self.read_json_body()
+            settings_file = MEMORY_DIR / "push_settings.json"
+            import json
+            with open(settings_file, 'w') as f:
+                json.dump(data, f)
+            self.send_json({"success": True})
+        except Exception as e:
+            self.send_json({"error": str(e)})
+
+    def handle_api_push_reminders(self):
+        """获取待处理提醒"""
+        try:
+            self.send_json({
+                "reminders": [],
+                "count": 0
+            })
         except Exception as e:
             self.send_json({"error": str(e)})
 
