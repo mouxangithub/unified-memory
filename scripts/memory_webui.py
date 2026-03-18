@@ -426,16 +426,19 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
             count = len(result.get("id", []))
             for i in range(count):
                 memories.append({
-                    "id": result["id"][i] if len(result["id"]) > i else "",
-                    "text": result["text"][i] if len(result["text"]) > i else "",
-                    "category": result["category"][i] if len(result["category"]) > i else "general",
-                    "importance": result["importance"][i] if len(result["importance"]) > i else 0.5,
-                    "tags": result["tags"][i] if len(result["tags"]) > i and result["tags"][i] else [],
-                    "created_at": result["created_at"][i] if len(result["created_at"]) > i else ""
+                    "id": result["id"][i] if i < len(result.get("id", [])) else "",
+                    "text": result["text"][i] if i < len(result.get("text", [])) else "",
+                    "category": result["category"][i] if i < len(result.get("category", [])) else "general",
+                    "importance": float(result["importance"][i]) if i < len(result.get("importance", [])) else 0.5,
+                    "tags": [],  # 数据库中没有 tags 字段
+                    "created_at": str(result["timestamp"][i]) if i < len(result.get("timestamp", [])) else ""
                 })
             
             self.send_json(memories)
         except Exception as e:
+            print(f"Error loading memories: {e}")
+            import traceback
+            traceback.print_exc()
             self.send_json([])
 
 
