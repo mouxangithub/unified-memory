@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Memory Web UI - Web 可视化界面 v0.3.3
+Memory Web UI - Web 可视化界面 v0.3.4
 
 功能:
 - 记忆浏览、搜索、创建、编辑、删除
 - 统计仪表盘 + 健康状态
 - 知识图谱可视化 (vis.js)
-- 成本监控面板
+- 成本监控面板 (Ollama/LLM 消耗)
 - 云同步状态
 - 响应式设计 + 暗色模式
 
@@ -937,6 +937,8 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
             self.handle_api_memories()
         elif self.path == '/api/graph':
             self.handle_api_graph()
+        elif self.path == '/api/costs':
+            self.handle_api_costs()
         elif self.path.startswith('/api/memories/'):
             memory_id = self.path.split('/')[-1]
             self.handle_api_get_memory(memory_id)
@@ -1279,6 +1281,60 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
             import traceback
             traceback.print_exc()
             self.send_json({"nodes": [], "edges": [], "error": str(e)})
+    
+    def handle_api_costs(self):
+        """获取成本统计"""
+        try:
+            import requests
+            
+            # Ollama 状态
+            ollama_url = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+            ollama_status = "offline"
+            models = []
+            
+            try:
+                res = requests.get(f"{ollama_url}/api/tags", timeout=2)
+                if res.status_code == 200:
+                    ollama_status = "online"
+                    models = [m.get("name", "") for m in res.json().get("models", [])]
+            except:
+                pass
+            
+            # 估算成本 (基于记忆数量)
+            try:
+                import lancedb
+                db = lancedb.connect(str(VECTOR_DB_DIR))
+                table = db.open_table("memories")
+                result = table.to_lance().to_table().to_pydict()
+                memory_count = len(result.get("id", []))
+            except:
+                memory_count = 0
+            
+            # 估算 token 消耗 (假设每个记忆平均 50 tokens)
+            estimated_tokens = memory_count * 50
+            # 估算 embedding 成本 (每个记忆 1 次 embedding)
+            embedding_calls = memory_count
+            # 估算 LLM 调用 (假设 10% 的记忆经过 LLM 提取)
+            llm_calls = memory_count // 10
+            
+            costs = {
+                "ollama_status": ollama_status,
+                "ollama_url": ollama_url,
+                "models": models,
+                "memory_count": memory_count,
+                "estimated_tokens": estimated_tokens,
+                "embedding_calls": embedding_calls,
+                "llm_calls": llm_calls,
+                # 估算成本 (假设本地 Ollama 免费)
+                "embedding_cost": 0,
+                "llm_cost": 0,
+                "total_cost": 0,
+                "note": "本地 Ollama，无 API 费用"
+            }
+            
+            self.send_json(costs)
+        except Exception as e:
+            self.send_json({"error": str(e)})
 
 
 def main():
