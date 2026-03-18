@@ -1,4 +1,4 @@
-# Unified Memory 0.0.7 - Optimization Complete
+# Unified Memory - Optimization Log
 
 ## ✅ P0-P3 Optimization Summary
 
@@ -143,7 +143,7 @@ unified-memory/
 
 3. **Community Feedback**
    - Collect user feedback
-   - Iterate on v0.0.8 based on real usage
+   - Iterate on v0.1.x based on real usage
 
 ---
 

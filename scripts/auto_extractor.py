@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Auto Extractor - 自动记忆提取器 v0.0.7
+Auto Extractor - 自动记忆提取器
 
 功能:
 - 从对话中自动提取重要信息
@@ -387,7 +387,7 @@ class AutoExtractor:
 # ============================================================
 
 def main():
-    parser = argparse.ArgumentParser(description="Auto Extractor 0.0.7")
+    parser = argparse.ArgumentParser(description="Auto Extractor")
     parser.add_argument("command", choices=["extract", "batch", "stats"])
     parser.add_argument("--conversation", "-c", help="对话内容")
     parser.add_argument("--file", "-f", help="对话文件")

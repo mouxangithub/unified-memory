@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Agent Integration - Agent 生命周期集成 v0.0.7
+Agent Integration - Agent 生命周期集成
 
 功能:
 - Agent 启动时自动加载相关记忆
@@ -183,7 +183,7 @@ class AgentMemoryIntegration:
 def main():
     import argparse
     
-    parser = argparse.ArgumentParser(description="Agent Memory Integration 0.0.7")
+    parser = argparse.ArgumentParser(description="Agent Memory Integration")
     parser.add_argument("command", choices=["start", "message", "end", "context", "feedback", "status"])
     parser.add_argument("--context", "-c", help="上下文")
     parser.add_argument("--user", help="用户消息")
