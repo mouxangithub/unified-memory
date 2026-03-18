@@ -73,8 +73,64 @@ case "$1" in
     python3 "$SCRIPTS_DIR/memory_privacy.py" scan
     ;;
   
+  recommend)
+    # 智能推荐
+    python3 "$SCRIPTS_DIR/memory_recommend.py" recommend --query "${2:-查询}" --k ${3:-5}
+    ;;
+  
+  hot)
+    # 热点记忆
+    python3 "$SCRIPTS_DIR/memory_recommend.py" hot --k ${2:-5}
+    ;;
+  
+  feedback)
+    # 记忆反馈
+    # mem feedback [memory_id] [helpful|irrelevant|wrong|outdated]
+    python3 "$SCRIPTS_DIR/memory_adaptive.py" update --id "$2" --feedback "$3"
+    ;;
+  
+  confidence)
+    # 置信度统计
+    python3 "$SCRIPTS_DIR/memory_adaptive.py" stats
+    ;;
+  
+  audit)
+    # 审计日志
+    python3 "$SCRIPTS_DIR/memory_audit.py" query --limit ${2:-10}
+    ;;
+  
+  report)
+    # 合规报告
+    python3 "$SCRIPTS_DIR/memory_audit.py" report --days ${2:-30}
+    ;;
+  
+  sync)
+    # 多Agent同步
+    python3 "$SCRIPTS_DIR/memory_sync.py" sync
+    ;;
+  
+  nodes)
+    # 节点列表
+    python3 "$SCRIPTS_DIR/memory_sync.py" list-nodes
+    ;;
+  
+  summary)
+    # 生成摘要
+    python3 "$SCRIPTS_DIR/memory_summary.py" generate --id "$2" --style ${3:-medium}
+    ;;
+  
+  inject)
+    # 主动注入
+    python3 "$SCRIPTS_DIR/memory_integration.py" proactive-inject --context "${2:-上下文}"
+    ;;
+  
+  topic)
+    # 主题检测
+    python3 "$SCRIPTS_DIR/memory_integration.py" detect-topic --conversation "${2:-对话内容}"
+    ;;
+  
   *)
-    echo "Memory Quick Commands v0.2.1"
+    echo "Memory Quick Commands v0.2.4"
     echo ""
     echo "Usage:"
     echo "  mem start [context]     # 会话开始，加载上下文"
@@ -91,6 +147,19 @@ case "$1" in
     echo "  mem backup              # 云备份"
     echo "  mem privacy             # 隐私扫描"
     echo ""
-    echo "Total features: 31"
+    echo "  # 新增功能 v0.2.4:"
+    echo "  mem recommend [query] [k] # 智能推荐"
+    echo "  mem hot [k]               # 热点记忆"
+    echo "  mem feedback [id] [type]  # 记忆反馈 (helpful/irrelevant/wrong)"
+    echo "  mem confidence            # 置信度统计"
+    echo "  mem audit [limit]         # 审计日志"
+    echo "  mem report [days]         # 合规报告"
+    echo "  mem sync                  # 多Agent同步"
+    echo "  mem nodes                 # 节点列表"
+    echo "  mem summary [id] [style]  # 生成摘要"
+    echo "  mem inject [context]      # 主动上下文注入"
+    echo "  mem topic [conversation]  # 主题检测"
+    echo ""
+    echo "Total features: 40+"
     ;;
 esac

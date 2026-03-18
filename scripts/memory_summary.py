@@ -1,326 +1,326 @@
 #!/usr/bin/env python3
 """
-Memory Summary - 记忆摘要生成 v0.1.3
+Memory Summary - 记忆摘要生成 v1.0
 
 功能:
-- 自动生成记忆摘要
-- 多粒度摘要（短/中/长）
-- 基于 LLM 生成摘要
-- 摘要历史记录
+- 多粒度摘要 (short/medium/long)
+- 批量生成记忆摘要
+- 知识块摘要
+- 会话摘要
+- 自动缓存
 
 Usage:
-    memory_summary.py generate --memory-id <id>
-    memory_summary.py batch --count 10
-    memory_summary.py history
+    python3 scripts/memory_summary.py generate --id MEM_ID --style short
+    python3 scripts/memory_summary.py batch --all
+    python3 scripts/memory_summary.py session --session-id "session_xxx"
 """
 
 import argparse
 import json
-import os
-import sys
-from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from datetime import datetime
+from typing import Dict, List, Optional
+import os
 
 # 配置
 WORKSPACE = Path.home() / ".openclaw" / "workspace"
 MEMORY_DIR = WORKSPACE / "memory"
 VECTOR_DB_DIR = MEMORY_DIR / "vector"
 SUMMARY_DIR = MEMORY_DIR / "summaries"
+SUMMARY_CACHE = MEMORY_DIR / "summary_cache.json"
 
-try:
-    import lancedb
-    HAS_LANCEDB = True
-except ImportError:
-    HAS_LANCEDB = False
+# Ollama 配置
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_LLM_MODEL = os.environ.get("OLLAMA_LLM_MODEL", "deepseek-v3.2:cloud")
 
-try:
-    import requests
-    HAS_REQUESTS = True
-except ImportError:
-    HAS_REQUESTS = False
-
-# Ollama
-OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-OLLAMA_LLM_MODEL = os.getenv("OLLAMA_LLM_MODEL", "deepseek-v3.2:cloud")
+# 摘要模板
+SUMMARY_PROMPTS = {
+    "short": "用一句话概括以下内容的要点（不超过50字）：\n\n{text}",
+    "medium": "用一段话概括以下内容的要点（150字以内）：\n\n{text}",
+    "long": "详细概括以下内容，包括主要观点和关键信息（300字以内）：\n\n{text}"
+}
 
 
-class MemorySummary:
-    """记忆摘要生成"""
+class MemorySummarizer:
+    """记忆摘要生成器"""
     
     def __init__(self):
-        self.memories = self._load_memories()
-        self.history_file = SUMMARY_DIR / "history.json"
-        self.history = self._load_history()
+        self.cache = self._load_cache()
     
-    def _load_memories(self) -> List[Dict]:
-        """加载记忆"""
-        memories = []
-        
-        if HAS_LANCEDB:
-            try:
-                db = lancedb.connect(str(VECTOR_DB_DIR))
-                table = db.open_table("memories")
-                result = table.to_lance().to_table().to_pydict()
-                
-                if result:
-                    count = len(result.get("id", []))
-                    for i in range(count):
-                        mem = {col: result[col][i] for col in result.keys() if len(result[col]) > i}
-                        memories.append(mem)
-            except:
-                pass
-        
-        return memories
+    def _load_cache(self) -> Dict:
+        if SUMMARY_CACHE.exists():
+            with open(SUMMARY_CACHE) as f:
+                return json.load(f)
+        return {"summaries": {}}
     
-    def _load_history(self) -> Dict:
-        """加载历史"""
-        if self.history_file.exists():
-            try:
-                return json.loads(self.history_file.read_text())
-            except:
-                pass
-        return {"summaries": []}
+    def _save_cache(self):
+        SUMMARY_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        with open(SUMMARY_CACHE, 'w') as f:
+            json.dump(self.cache, f, indent=2)
     
-    def _save_history(self):
-        """保存历史"""
-        SUMMARY_DIR.mkdir(parents=True, exist_ok=True)
-        self.history_file.write_text(json.dumps(self.history, ensure_ascii=False, indent=2))
-    
-    def _generate_summary_llm(self, text: str, length: str = "medium") -> str:
-        """使用 LLM 生成摘要"""
-        if not HAS_REQUESTS:
-            return self._generate_summary_rule(text, length)
+    def _get_summary_from_ollama(self, text: str, style: str = "medium") -> Optional[str]:
+        """从 Ollama 获取摘要"""
+        if len(text) < 100:
+            return text[:100]  # 太短不需要摘要
         
-        length_prompt = {
-            "short": "一句话概括，不超过30字",
-            "medium": "简要总结，50-80字",
-            "long": "详细摘要，100-150字"
-        }
-        
-        prompt = f"""请为以下记忆生成{length_prompt.get(length, 'medium')}：
-
-记忆内容：
-{text}
-
-要求：
-1. 保留关键信息
-2. 使用用户可理解的语言
-3. 如果是偏好类记忆，标注类型
-
-摘要："""
+        prompt = SUMMARY_PROMPTS.get(style, SUMMARY_PROMPTS["medium"]).format(text=text[:1000])
         
         try:
+            import requests
             response = requests.post(
-                f"{OLLAMA_URL}/api/generate",
+                f"{OLLAMA_HOST}/api/generate",
                 json={
                     "model": OLLAMA_LLM_MODEL,
                     "prompt": prompt,
                     "stream": False,
-                    "options": {"temperature": 0.5, "num_predict": 200}
+                    "options": {"temperature": 0.3}
                 },
                 timeout=30
             )
             
-            if response.status_code == 200:
+            if response.ok:
                 result = response.json()
                 summary = result.get("response", "").strip()
-                # 清理格式
-                summary = summary.replace("摘要：", "").strip()
-                return summary
+                return summary[:500] if summary else None
         except Exception as e:
-            print(f"⚠️ LLM 生成失败: {e}", file=sys.stderr)
+            print(f"⚠️ Ollama 生成失败: {e}")
         
-        # 降级到规则提取
-        return self._generate_summary_rule(text, length)
+        return None
     
-    def _generate_summary_rule(self, text: str, length: str = "medium") -> str:
-        """基于规则生成摘要"""
-        # 提取关键信息
-        import re
+    def _extract_key_sentences(self, text: str, max_sentences: int = 3) -> str:
+        """提取关键句子（规则方法）"""
+        sentences = text.replace("\n", "。").split("。")
+        sentences = [s.strip() for s in sentences if len(s.strip()) > 10]
         
-        # 提取项目名
-        project_match = re.search(r'(?:项目|Project)[：:]\s*([^\n,，]+)', text)
-        project = project_match.group(1).strip() if project_match else ""
+        if not sentences:
+            return text[:100]
         
-        # 提取决策
-        decision_match = re.search(r'(决定|确认|选择|同意|批准)[：:]\s*([^\n。]+)', text)
-        decision = decision_match.group(0).strip() if decision_match else ""
+        # 简单评分：包含关键词 + 位置权重
+        keywords = {"决定", "选择", "偏好", "重要", "关键", "核心", "主要"}
         
-        # 提取偏好
-        prefer_match = re.search(r'偏好|喜欢|想要|倾向', text)
-        is_prefer = bool(prefer_match)
+        scored = []
+        for i, sent in enumerate(sentences):
+            score = 0
+            # 包含关键词加分
+            for kw in keywords:
+                if kw in sent:
+                    score += 2
+            
+            # 靠前的句子加分
+            if i < 3:
+                score += 1
+            
+            scored.append((score, sent))
         
-        # 组合摘要
-        parts = []
-        if project:
-            parts.append(f"项目: {project}")
-        if decision:
-            parts.append(decision)
-        if is_prefer:
-            parts.append("偏好类记忆")
+        scored.sort(reverse=True)
+        top_sentences = [s for _, s in scored[:max_sentences]]
         
-        if not parts:
-            # 截取前N个字
-            max_len = {"short": 30, "medium": 60, "long": 100}.get(length, 60)
-            parts.append(text[:max_len] + "..." if len(text) > max_len else text)
+        return "。".join(top_sentences) + "。"
+    
+    def generate_summary(self, text: str, style: str = "medium", use_llm: bool = True) -> str:
+        """生成摘要"""
+        # 检查缓存
+        cache_key = f"{hash(text)}_{style}"
+        if cache_key in self.cache["summaries"]:
+            return self.cache["summaries"][cache_key]
         
-        summary = " | ".join(parts)
+        summary = ""
         
-        # 限制长度
-        max_len = {"short": 30, "medium": 80, "long": 150}.get(length, 80)
-        if len(summary) > max_len:
-            summary = summary[:max_len] + "..."
+        if use_llm:
+            try:
+                summary = self._get_summary_from_ollama(text, style)
+            except:
+                pass
+        
+        if not summary:
+            # 回退到规则方法
+            if style == "short":
+                summary = self._extract_key_sentences(text, 1)[:50]
+            elif style == "long":
+                summary = self._extract_key_sentences(text, 5)[:300]
+            else:
+                summary = self._extract_key_sentences(text, 3)[:150]
+        
+        # 缓存
+        self.cache["summaries"][cache_key] = summary
+        self._save_cache()
         
         return summary
     
-    def generate(self, memory_id: str, length: str = "medium") -> Dict:
-        """生成单个记忆的摘要"""
-        memory = None
-        for mem in self.memories:
-            if mem.get("id") == memory_id:
-                memory = mem
-                break
-        
-        if not memory:
-            return {"error": "Memory not found"}
-        
-        text = memory.get("text", "")
-        
-        # 生成摘要
-        if HAS_REQUESTS:
-            summary = self._generate_summary_llm(text, length)
-        else:
-            summary = self._generate_summary_rule(text, length)
-        
-        # 保存
-        summary_data = {
-            "memory_id": memory_id,
-            "summary": summary,
-            "length": length,
-            "created_at": datetime.now().isoformat(),
-            "source_text": text[:100] + "..." if len(text) > 100 else text
-        }
-        
-        self.history["summaries"].append(summary_data)
-        self._save_history()
-        
-        # 保存单独文件
-        summary_file = SUMMARY_DIR / f"{memory_id}.json"
-        summary_file.write_text(json.dumps(summary_data, ensure_ascii=False, indent=2))
-        
-        return summary_data
-    
-    def batch_generate(self, count: int = 10, length: str = "medium") -> Dict:
-        """批量生成摘要"""
-        # 选择最近的记忆
-        recent = sorted(
-            self.memories,
-            key=lambda x: x.get("created_at") or x.get("timestamp") or "",
-            reverse=True
-        )[:count]
-        
-        generated = []
-        for mem in recent:
-            memory_id = mem.get("id")
-            if not memory_id:
-                continue
+    def summarize_memory(self, memory_id: str, style: str = "medium") -> Optional[str]:
+        """为单条记忆生成摘要"""
+        try:
+            import lancedb
+            db = lancedb.connect(str(VECTOR_DB_DIR))
+            table = db.open_table("memories")
             
-            # 跳过已有摘要的
+            result = table.where(f"id = '{memory_id}'").to_list()
+            if not result:
+                return None
+            
+            mem = result[0]
+            text = mem.get("text", "")
+            
+            summary = self.generate_summary(text, style)
+            
+            # 保存摘要到文件
+            SUMMARY_DIR.mkdir(parents=True, exist_ok=True)
             summary_file = SUMMARY_DIR / f"{memory_id}.json"
-            if summary_file.exists():
-                continue
             
-            result = self.generate(memory_id, length)
-            if "summary" in result:
-                generated.append(result)
-        
-        return {
-            "total": len(self.memories),
-            "requested": count,
-            "generated": len(generated),
-            "summaries": generated[:5]  # 返回前5个
-        }
+            with open(summary_file, 'w') as f:
+                json.dump({
+                    "memory_id": memory_id,
+                    "style": style,
+                    "summary": summary,
+                    "original_length": len(text),
+                    "summary_length": len(summary),
+                    "generated_at": datetime.now().isoformat()
+                }, f, indent=2)
+            
+            return summary
+            
+        except Exception as e:
+            print(f"❌ 生成记忆摘要失败: {e}")
+            return None
     
-    def get_summary(self, memory_id: str) -> Optional[Dict]:
-        """获取记忆摘要"""
+    def batch_summarize(self, limit: int = 10, style: str = "medium") -> Dict:
+        """批量生成摘要"""
+        try:
+            import lancedb
+            db = lancedb.connect(str(VECTOR_DB_DIR))
+            table = db.open_table("memories")
+            data = table.to_lance().to_table().to_pydict()
+            
+            memories = []
+            for i in range(min(limit, len(data.get("id", [])))):
+                memories.append({
+                    "id": data["id"][i],
+                    "text": data["text"][i]
+                })
+            
+            results = []
+            for mem in memories:
+                summary = self.summarize_memory(mem["id"], style)
+                if summary:
+                    results.append({
+                        "memory_id": mem["id"],
+                        "summary": summary,
+                        "text_preview": mem["text"][:50]
+                    })
+            
+            return {
+                "total": len(memories),
+                "generated": len(results),
+                "results": results
+            }
+            
+        except Exception as e:
+            return {"error": str(e), "total": 0, "generated": 0}
+    
+    def get_summary(self, memory_id: str, style: str = "medium") -> Optional[str]:
+        """获取已保存的摘要"""
         summary_file = SUMMARY_DIR / f"{memory_id}.json"
         if summary_file.exists():
             try:
-                return json.loads(summary_file.read_text())
+                with open(summary_file) as f:
+                    data = json.load(f)
+                    if data.get("style") == style:
+                        return data.get("summary")
             except:
                 pass
         return None
-    
-    def get_history(self) -> Dict:
-        """获取历史"""
-        return {
-            "total": len(self.history.get("summaries", [])),
-            "recent": self.history.get("summaries", [])[-10:]
-        }
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Memory Summary 0.1.3")
-    parser.add_argument("command", choices=["generate", "batch", "history", "get"])
-    parser.add_argument("--memory-id", "-m", help="记忆 ID")
-    parser.add_argument("--count", "-c", type=int, default=10, help="批量数量")
-    parser.add_argument("--length", "-l", choices=["short", "medium", "long"], default="medium")
+    parser = argparse.ArgumentParser(description="Memory Summary v1.0")
+    parser.add_argument("command", choices=["generate", "batch", "session", "list"])
+    parser.add_argument("--id", "-i", help="记忆 ID")
+    parser.add_argument("--style", "-s", choices=["short", "medium", "long"], default="medium")
+    parser.add_argument("--limit", "-l", type=int, default=10, help="批量数量")
+    parser.add_argument("--no-llm", action="store_true", help="不使用 LLM")
+    parser.add_argument("--json", "-j", action="store_true", help="JSON 输出")
     
     args = parser.parse_args()
     
-    summary = MemorySummary()
+    summarizer = MemorySummarizer()
     
     if args.command == "generate":
-        if not args.memory_id:
-            print("❌ 请指定 --memory-id")
-            sys.exit(1)
+        if not args.id:
+            print("❌ 请提供 --id")
+            return
         
-        result = summary.generate(args.memory_id, args.length)
+        summary = summarizer.summarize_memory(args.id, args.style)
         
-        if "error" in result:
-            print(f"❌ {result['error']}")
+        if summary:
+            if args.json:
+                result = {
+                    "memory_id": args.id,
+                    "style": args.style,
+                    "summary": summary
+                }
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            else:
+                print(f"📝 摘要 ({args.style}):")
+                print(summary)
         else:
-            print(f"✅ 摘要生成成功:")
-            print(f"  记忆: {result['memory_id'][:16]}...")
-            print(f"  长度: {result['length']}")
-            print(f"  摘要: {result['summary']}")
+            print("❌ 生成失败")
     
     elif args.command == "batch":
-        print(f"🔄 批量生成摘要 (前 {args.count} 条)...")
-        result = summary.batch_generate(args.count, args.length)
+        print(f"📦 批量生成摘要 (limit={args.limit}, style={args.style})")
+        result = summarizer.batch_summarize(args.limit, args.style)
         
-        print(f"\n✅ 完成:")
-        print(f"  总记忆: {result['total']}")
-        print(f"  请求数: {result['requested']}")
-        print(f"  生成数: {result['generated']}")
-        
-        if result["summaries"]:
-            print(f"\n示例:")
-            for s in result["summaries"][:3]:
-                print(f"  - {s['summary'][:50]}...")
-    
-    elif args.command == "history":
-        history = summary.get_history()
-        print(f"📜 摘要历史 ({history['total']} 条):")
-        
-        for h in history["recent"]:
-            print(f"  {h['created_at'][:10]}: {h['summary'][:50]}...")
-    
-    elif args.command == "get":
-        if not args.memory_id:
-            print("❌ 请指定 --memory-id")
-            sys.exit(1)
-        
-        result = summary.get_summary(args.memory_id)
-        
-        if result:
-            print(f"📋 摘要:")
-            print(f"  记忆: {result['memory_id'][:16]}...")
-            print(f"  摘要: {result['summary']}")
-            print(f"  时间: {result['created_at']}")
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
         else:
-            print("❌ 未找到摘要")
+            print(f"   总数: {result['total']}")
+            print(f"   生成: {result['generated']}")
+            
+            for r in result.get("results", [])[:5]:
+                print(f"\n   {r['memory_id'][:8]}...")
+                print(f"   {r['summary'][:60]}...")
+    
+    elif args.command == "session":
+        # 摘要最近会话（基于记忆）
+        print("📋 最近会话摘要")
+        
+        try:
+            import lancedb
+            db = lancedb.connect(str(VECTOR_DB_DIR))
+            table = db.open_table("memories")
+            data = table.to_lance().to_table().to_pydict()
+            
+            # 取最近 5 条
+            recent = []
+            for i in range(min(5, len(data.get("id", [])))):
+                recent.append({
+                    "id": data["id"][i],
+                    "text": data["text"][i],
+                    "timestamp": data.get("timestamp", [""])[i]
+                })
+            
+            for mem in recent:
+                summary = summarizer.get_summary(mem["id"], "short")
+                if not summary:
+                    summary = summarizer.summarize_memory(mem["id"], "short")
+                
+                print(f"\n   {mem['timestamp'][:10]}")
+                print(f"   {summary[:80]}...")
+        
+        except Exception as e:
+            print(f"❌ 失败: {e}")
+    
+    elif args.command == "list":
+        SUMMARY_DIR.mkdir(parents=True, exist_ok=True)
+        summaries = list(SUMMARY_DIR.glob("*.json"))
+        
+        print(f"📚 已有摘要: {len(summaries)} 个")
+        for s in summaries[:10]:
+            try:
+                with open(s) as f:
+                    data = json.load(f)
+                print(f"   {s.stem} ({data['style']}): {data['summary'][:40]}...")
+            except:
+                pass
 
 
 if __name__ == "__main__":

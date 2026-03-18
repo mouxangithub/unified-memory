@@ -1,7 +1,7 @@
 {
   "name": "unified-memory",
-  "version": "0.2.3",
-  "description": "Intelligent memory system for AI Agents with hierarchical caching, knowledge merging, predictive loading, and auto-extraction",
+  "version": "0.2.4",
+  "description": "Intelligent memory system for AI Agents with hierarchical caching, knowledge merging, predictive loading, auto-extraction, proactive injection, adaptive confidence, and multi-agent sync",
   "author": "mouxangithub",
   "license": "MIT",
   "keywords": [
@@ -12,7 +12,11 @@
     "semantic-search",
     "hierarchical-cache",
     "auto-extraction",
-    "quality-metrics"
+    "quality-metrics",
+    "proactive-injection",
+    "adaptive-confidence",
+    "multi-agent-sync",
+    "audit-logging"
   ],
   "categories": ["Core", "Memory"],
   

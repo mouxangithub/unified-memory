@@ -1,6 +1,6 @@
 # Unified Memory - AI Agent Memory System
 
-> **Version 0.2.2** | An intelligent memory system designed for AI Agents with hierarchical caching, knowledge merging, predictive loading, automatic maintenance, and multi-cloud sync.
+> **Version 0.2.4** | An intelligent memory system designed for AI Agents with hierarchical caching, knowledge merging, predictive loading, automatic maintenance, proactive injection, adaptive confidence, audit logging, and multi-agent sync.
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-Publish-green)](https://clawhub.com)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://python.org)
@@ -250,15 +250,21 @@ OLLAMA_EMBED_MODEL=nomic-embed-text:latest
     │   ├── memory.py              # Main entry
     │   ├── memory_cloud.py        # Cloud sync
     │   ├── memory_qa.py           # Smart Q&A
-    │   ├── memory_graph.py        # Knowledge graph
-    │   ├── memory_insights.py     # Insights
-    │   ├── memory_privacy.py      # Privacy
-    │   ├── memory_perf.py         # Performance
-    │   ├── memory_multimodal.py   # Multimodal
-    │   ├── memory_auto.py         # Automation
-    │   └── mem                    # Quick command
-    ├── README.md                  # English docs
-    ├── README_CN.md               # Chinese docs
+    │   ├── memory_graph.py       # Knowledge graph
+    │   ├── memory_insights.py    # Insights
+    │   ├── memory_privacy.py     # Privacy
+    │   ├── memory_perf.py        # Performance
+    │   ├── memory_multimodal.py  # Multimodal
+    │   ├── memory_auto.py        # Automation
+    │   ├── memory_recommend.py   # Smart recommendations
+    │   ├── memory_adaptive.py    # Adaptive confidence
+    │   ├── memory_audit.py       # Audit logging
+    │   ├── memory_sync.py       # Multi-agent sync
+    │   ├── memory_summary.py    # Memory summaries
+    │   ├── memory_integration.py # Agent integration
+    │   └── mem                 # Quick command
+    ├── README.md                 # English docs
+    ├── README_CN.md              # Chinese docs
     ├── SKILL.md
     └── VERSION.md
 ```
@@ -298,7 +304,16 @@ pip install google-api-python-client google-auth-oauthlib  # Google Drive
 
 ## 🗺️ Roadmap
 
-### v0.2.2 (Current)
+### v0.2.4 (Current)
+- ✅ Proactive context injection (主动上下文注入)
+- ✅ Adaptive confidence with feedback (动态置信度自适应)
+- ✅ Smart recommendations (智能关联推荐)
+- ✅ Audit logging (可审计日志)
+- ✅ Multi-agent sync (多Agent同步)
+- ✅ Memory summaries (记忆摘要生成)
+- ✅ Topic switch detection (主题切换检测)
+
+### v0.2.2
 - ✅ Multi-cloud sync (S3/WebDAV/Dropbox/GDrive)
 - ✅ Bilingual documentation
 
