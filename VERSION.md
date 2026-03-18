@@ -153,3 +153,9 @@
 - 📚 双语文档 (README.md + README_CN.md)
 - 🔗 文档相互索引
 - 📦 完整的配置命令和依赖说明
+
+### 0.2.3 (2026-03-18)
+- 📖 新增云同步完整使用指南 (examples/memory_cloud_usage.md)
+- 📚 详细配置教程：AWS S3 / MinIO / 阿里云OSS / 腾讯云COS / WebDAV / Dropbox / Google Drive
+- 🔧 故障排除指南
+- 🔐 安全建议
