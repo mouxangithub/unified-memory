@@ -1,6 +1,6 @@
 # Unified Memory - AI Agent 记忆系统
 
-> **版本 0.3.3** | 专为 AI Agent 设计的智能记忆系统，支持分层缓存、知识合并、预测加载、自动维护、主动注入、自适应置信度、审计日志和多代理同步。
+> **版本 0.3.4** | 专为 AI Agent 设计的智能记忆系统，支持分层缓存、知识合并、预测加载、自动维护、主动注入、自适应置信度、审计日志和多代理同步。
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-已发布-green)](https://clawhub.com)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://python.org)
