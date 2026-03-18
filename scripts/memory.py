@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Memory System 0.0.7 - Unified Entry (Complete)
+Memory System 0.1.0 - Unified Entry (Complete)
 
 Features:
 - Hierarchical Cache (MemoryHierarchy)
@@ -83,7 +83,7 @@ except ImportError:
 
 
 class MemorySystemV7:
-    """统一记忆系统 0.0.7 (完整版)"""
+    """统一记忆系统 0.1.0 (完整版)"""
     
     def __init__(self):
         # 核心模块
@@ -272,8 +272,8 @@ class MemorySystemV7:
         forgetter_stats = self.forgetter.stats()
         
         return {
-            "system": "Memory 0.0.7",
-            "version": "0.0.7",
+            "system": "Memory 0.1.0",
+            "version": "0.1.0",
             "total_memories": len(self.memories),
             "hierarchy": hierarchy_stats,
             "knowledge_merger": merger_stats,
@@ -293,7 +293,7 @@ class MemorySystemV7:
         f = self.forgetter.stats()
         
         lines = [
-            "🧠 Memory 0.0.7 完整状态",
+            "🧠 Memory 0.1.0 完整状态",
             "=" * 50,
             f"📚 总记忆: {len(self.memories)} 条",
             "",
@@ -330,7 +330,7 @@ class MemorySystemV7:
 # ============================================================
 
 def main():
-    parser = argparse.ArgumentParser(description="Memory System 0.0.7 (完整版)")
+    parser = argparse.ArgumentParser(description="Memory System 0.1.0 (完整版)")
     parser.add_argument("command", choices=[
         "status", "init", "rebuild", "merge", "analyze", "context", 
         "validate", "feedback", "forget", "stats"
@@ -341,7 +341,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("🚀 启动 Memory 0.0.7 (完整版)...")
+    print("🚀 启动 Memory 0.1.0 (完整版)...")
     mem = MemorySystemV7()
     
     if args.command == "status":

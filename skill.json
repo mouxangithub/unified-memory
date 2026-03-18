@@ -1,6 +1,6 @@
 {
   "name": "unified-memory",
-  "version": "0.0.9",
+  "version": "0.1.0",
   "description": "Intelligent memory system for AI Agents with hierarchical caching, knowledge merging, predictive loading, and auto-extraction",
   "author": "mouxangithub",
   "license": "MIT",
@@ -215,7 +215,7 @@
   
   "changelog": [
     {
-      "version": "0.0.9",
+      "version": "0.1.0",
       "date": "2026-03-18",
       "changes": [
         "Fixed metadata to accurately declare permissions and requirements",
