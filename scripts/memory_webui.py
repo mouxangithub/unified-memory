@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Memory Web UI - Web 可视化界面 v0.3.5
+Memory Web UI - Web 可视化界面 v0.3.6
 
 功能:
 - 记忆浏览、搜索、创建、编辑、删除
@@ -39,7 +39,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#6366f1">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Unified Memory v0.3.5</title>
+    <title>Unified Memory v0.3.6</title>
     <style>
         :root {
             --primary: #6366f1;
@@ -1065,7 +1065,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             <div class="header-top">
                 <div class="logo">
                     <h1>📚 Unified Memory</h1>
-                    <span class="version">v0.3.5</span>
+                    <span class="version">v0.3.6</span>
                 </div>
                 <div class="header-actions">
                     <button class="btn btn-ghost btn-icon" onclick="toggleTheme()">🌙</button>
@@ -2619,13 +2619,13 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Memory Web UI v0.3.5")
+    parser = argparse.ArgumentParser(description="Memory Web UI v0.3.6")
     parser.add_argument("--port", "-p", type=int, default=38080)
     parser.add_argument("--open", "-o", action="store_true", help="自动打开浏览器")
-    
+
     args = parser.parse_args()
-    
-    print(f"🌐 Memory Web UI v0.3.5")
+
+    print(f"🌐 Memory Web UI v0.3.6")
     print(f"   地址: http://localhost:{args.port}")
     print(f"   按 Ctrl+C 停止")
     
