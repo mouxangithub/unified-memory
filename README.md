@@ -97,6 +97,14 @@ python3 scripts/memory_cloud.py backup
 
 **Install**: `pip install google-api-python-client google-auth-oauthlib`
 
+### 📖 Detailed Usage Guide
+
+See [examples/memory_cloud_usage.md](./examples/memory_cloud_usage.md) for:
+- Complete setup guide for each provider
+- Multi-device sync workflow
+- Troubleshooting tips
+- Security recommendations
+
 ---
 
 ## ✨ Features (31 Total)

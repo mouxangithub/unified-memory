@@ -128,6 +128,14 @@ python3 scripts/memory_cloud.py backup
 pip install google-api-python-client google-auth-oauthlib
 ```
 
+### 📖 详细使用指南
+
+查看 [examples/memory_cloud_usage.md](./examples/memory_cloud_usage.md) 获取：
+- 各平台的完整配置教程
+- 多设备同步工作流
+- 故障排除指南
+- 安全建议
+
 ### 云同步命令
 
 ```bash
