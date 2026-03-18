@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Memory Web UI - Web 可视化界面 v0.3.6
+Memory Web UI - Web 可视化界面 v0.3.7
 
 功能:
 - 记忆浏览、搜索、创建、编辑、删除
@@ -39,7 +39,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#6366f1">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Unified Memory v0.3.6</title>
+    <title>Unified Memory v0.3.7</title>
     <style>
         :root {
             --primary: #6366f1;
@@ -1030,7 +1030,55 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         .push-toggle input[type="checkbox"]:checked::before {
             transform: translateX(20px);
         }
-        
+
+        /* PWA Status */
+        .pwa-status {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .pwa-item {
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            text-align: center;
+        }
+
+        .pwa-item .label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .pwa-item .value {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .pwa-item .value.online {
+            color: var(--success);
+        }
+
+        .pwa-item .value.offline {
+            color: var(--error);
+        }
+
+        .pwa-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .pwa-actions .btn {
+            flex: 1;
+            min-width: 120px;
+        }
+
         .settings-hint {
             font-size: 12px;
             color: var(--text-muted);
@@ -1057,6 +1105,13 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             }
         }
     </style>
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Memory">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icon-192.png">
 </head>
 <body>
     <div class="app">
@@ -1065,7 +1120,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             <div class="header-top">
                 <div class="logo">
                     <h1>📚 Unified Memory</h1>
-                    <span class="version">v0.3.6</span>
+                    <span class="version">v0.3.7</span>
                 </div>
                 <div class="header-actions">
                     <button class="btn btn-ghost btn-icon" onclick="toggleTheme()">🌙</button>
@@ -1212,6 +1267,26 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                     <button class="btn btn-ghost" onclick="checkReminders()">📅 检查提醒</button>
                 </div>
                 <p class="settings-hint">根据当前任务自动推送相关记忆</p>
+            </div>
+
+            <!-- PWA Support -->
+            <div class="settings-section">
+                <h3>📱 PWA 离线支持</h3>
+                <div class="pwa-status" id="pwa-status">
+                    <div class="pwa-item">
+                        <span class="label">Service Worker</span>
+                        <span class="value" id="sw-status">检测中...</span>
+                    </div>
+                    <div class="pwa-item">
+                        <span class="label">离线缓存</span>
+                        <span class="value" id="cache-status">检测中...</span>
+                    </div>
+                </div>
+                <div class="pwa-actions">
+                    <button class="btn btn-primary" id="install-btn" style="display: none;">📲 安装应用</button>
+                    <button class="btn btn-ghost" onclick="clearCache()">🗑️ 清除缓存</button>
+                </div>
+                <p class="settings-hint">安装后可离线使用，体验更流畅</p>
             </div>
         </div>
         
@@ -1445,6 +1520,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                 loadDecayStats();
                 loadSyncStats();
                 loadPushSettings();
+                checkPWAStatus();
             } else {
                 memoriesContainer.style.display = 'block';
                 renderMemories();
@@ -1793,6 +1869,59 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             }
         }
 
+        // ========================================
+        // PWA Support
+        // ========================================
+        async function checkPWAStatus() {
+            // Check Service Worker
+            const swStatus = document.getElementById('sw-status');
+            if ('serviceWorker' in navigator) {
+                const reg = await navigator.serviceWorker.getRegistration();
+                if (reg) {
+                    swStatus.textContent = '✅ 已注册';
+                    swStatus.className = 'value online';
+                } else {
+                    swStatus.textContent = '⚠️ 未注册';
+                    swStatus.className = 'value offline';
+                }
+            } else {
+                swStatus.textContent = '❌ 不支持';
+                swStatus.className = 'value offline';
+            }
+
+            // Check Cache
+            const cacheStatus = document.getElementById('cache-status');
+            if ('caches' in window) {
+                const cacheNames = await caches.keys();
+                const totalCaches = cacheNames.length;
+                if (totalCaches > 0) {
+                    cacheStatus.textContent = `✅ ${totalCaches} 个缓存`;
+                    cacheStatus.className = 'value online';
+                } else {
+                    cacheStatus.textContent = '⚠️ 无缓存';
+                    cacheStatus.className = 'value offline';
+                }
+            } else {
+                cacheStatus.textContent = '❌ 不支持';
+                cacheStatus.className = 'value offline';
+            }
+        }
+
+        async function clearCache() {
+            if (!confirm('确定要清除所有缓存吗？')) return;
+
+            try {
+                const cacheNames = await caches.keys();
+                for (const name of cacheNames) {
+                    await caches.delete(name);
+                }
+                toast(`已清除 ${cacheNames.length} 个缓存`, 'success');
+                checkPWAStatus();
+            } catch (e) {
+                toast('清除缓存失败: ' + e.message, 'error');
+            }
+        }
+
         // Search
         function searchMemories() {
             renderMemories();
@@ -2019,6 +2148,41 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             return dateStr.substring(0, 10);
         }
     </script>
+
+    <!-- PWA Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', async () => {
+                try {
+                    const reg = await navigator.serviceWorker.register('/sw.js');
+                    console.log('✅ Service Worker registered:', reg.scope);
+                } catch (e) {
+                    console.log('❌ Service Worker registration failed:', e);
+                }
+            });
+        }
+
+        // PWA Install Prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Show install button
+            const installBtn = document.getElementById('install-btn');
+            if (installBtn) {
+                installBtn.style.display = 'flex';
+                installBtn.onclick = async () => {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    if (outcome === 'accepted') {
+                        console.log('✅ PWA installed');
+                    }
+                    deferredPrompt = null;
+                    installBtn.style.display = 'none';
+                };
+            }
+        });
+    </script>
 </body>
 </html>
 '''
@@ -2058,6 +2222,14 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
             self.handle_api_push_settings()
         elif self.path == '/api/push/reminders':
             self.handle_api_push_reminders()
+        elif self.path == '/manifest.json':
+            self.handle_pwa_manifest()
+        elif self.path == '/sw.js':
+            self.handle_pwa_sw()
+        elif self.path == '/icon-192.png':
+            self.handle_pwa_icon(192)
+        elif self.path == '/icon-512.png':
+            self.handle_pwa_icon(512)
         elif self.path.startswith('/api/memories/'):
             memory_id = self.path.split('/')[-1]
             self.handle_api_get_memory(memory_id)
@@ -2617,15 +2789,215 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
         except Exception as e:
             self.send_json({"error": str(e)})
 
+    def handle_pwa_manifest(self):
+        """返回 PWA manifest.json"""
+        manifest = {
+            "name": "Unified Memory",
+            "short_name": "Memory",
+            "description": "AI Agent 智能记忆系统",
+            "start_url": "/",
+            "display": "standalone",
+            "background_color": "#0f172a",
+            "theme_color": "#3b82f6",
+            "orientation": "portrait-primary",
+            "icons": [
+                {
+                    "src": "/icon-192.png",
+                    "sizes": "192x192",
+                    "type": "image/png",
+                    "purpose": "any maskable"
+                },
+                {
+                    "src": "/icon-512.png",
+                    "sizes": "512x512",
+                    "type": "image/png",
+                    "purpose": "any maskable"
+                }
+            ],
+            "categories": ["productivity", "utilities"],
+            "shortcuts": [
+                {
+                    "name": "新建记忆",
+                    "short_name": "新建",
+                    "description": "创建新记忆",
+                    "url": "/?action=new",
+                    "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]
+                },
+                {
+                    "name": "设置",
+                    "short_name": "设置",
+                    "description": "打开设置",
+                    "url": "/?tab=settings",
+                    "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]
+                }
+            ]
+        }
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps(manifest, ensure_ascii=False, indent=2).encode('utf-8'))
+
+    def handle_pwa_sw(self):
+        """返回 Service Worker 脚本"""
+        sw_code = '''
+// Unified Memory Service Worker v0.3.7
+const CACHE_NAME = 'memory-v0.3.7';
+const STATIC_ASSETS = [
+    '/',
+    '/manifest.json'
+];
+
+// Install - 缓存静态资源
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(CACHE_NAME).then((cache) => {
+            console.log('📦 Caching static assets');
+            return cache.addAll(STATIC_ASSETS);
+        })
+    );
+    self.skipWaiting();
+});
+
+// Activate - 清理旧缓存
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames
+                    .filter((name) => name !== CACHE_NAME)
+                    .map((name) => {
+                        console.log('🗑️ Deleting old cache:', name);
+                        return caches.delete(name);
+                    })
+            );
+        })
+    );
+    self.clients.claim();
+});
+
+// Fetch - 网络优先，缓存回退
+self.addEventListener('fetch', (event) => {
+    const { request } = event;
+    const url = new URL(request.url);
+
+    // API 请求 - 网络优先
+    if (url.pathname.startsWith('/api/')) {
+        event.respondWith(
+            fetch(request)
+                .then((response) => {
+                    // 缓存成功的响应
+                    if (response.ok) {
+                        const responseClone = response.clone();
+                        caches.open(CACHE_NAME).then((cache) => {
+                            cache.put(request, responseClone);
+                        });
+                    }
+                    return response;
+                })
+                .catch(() => {
+                    // 网络失败，尝试缓存
+                    return caches.match(request);
+                })
+        );
+        return;
+    }
+
+    // 静态资源 - 缓存优先
+    event.respondWith(
+        caches.match(request).then((cached) => {
+            if (cached) {
+                return cached;
+            }
+            return fetch(request).then((response) => {
+                if (response.ok) {
+                    const responseClone = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(request, responseClone);
+                    });
+                }
+                return response;
+            });
+        })
+    );
+});
+
+// 后台同步
+self.addEventListener('sync', (event) => {
+    if (event.tag === 'sync-memories') {
+        event.waitUntil(syncMemories());
+    }
+});
+
+async function syncMemories() {
+    console.log('🔄 Syncing memories in background...');
+    // 实际同步逻辑
+}
+
+// 推送通知
+self.addEventListener('push', (event) => {
+    const data = event.data ? event.data.json() : {};
+    const title = data.title || '📚 Memory';
+    const options = {
+        body: data.body || '有新的记忆提醒',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        vibrate: [100, 50, 100],
+        data: data.url || '/'
+    };
+    event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// 点击通知
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    event.waitUntil(
+        clients.matchAll({ type: 'window' }).then((clientList) => {
+            for (const client of clientList) {
+                if (client.url === event.data && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            if (clients.openWindow) {
+                return clients.openWindow(event.data);
+            }
+        })
+    );
+});
+'''
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/javascript')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(sw_code.encode('utf-8'))
+
+    def handle_pwa_icon(self, size):
+        """生成简单的 PWA 图标 (SVG 转 PNG 占位符)"""
+        # 使用简单的 SVG 作为图标 (蓝色背景 + 白色书本图标)
+        import base64
+
+        # 简单的 SVG 图标
+        svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}">
+            <rect width="{size}" height="{size}" fill="#3b82f6" rx="{size // 8}"/>
+            <text x="50%" y="55%" text-anchor="middle" font-size="{size // 2}" fill="white">📚</text>
+        </svg>'''
+
+        # 返回 SVG (浏览器会处理)
+        self.send_response(200)
+        self.send_header('Content-Type', 'image/svg+xml')
+        self.send_header('Cache-Control', 'public, max-age=31536000')
+        self.end_headers()
+        self.wfile.write(svg.encode('utf-8'))
+
 
 def main():
-    parser = argparse.ArgumentParser(description="Memory Web UI v0.3.6")
+    parser = argparse.ArgumentParser(description="Memory Web UI v0.3.7")
     parser.add_argument("--port", "-p", type=int, default=38080)
     parser.add_argument("--open", "-o", action="store_true", help="自动打开浏览器")
 
     args = parser.parse_args()
 
-    print(f"🌐 Memory Web UI v0.3.6")
+    print(f"🌐 Memory Web UI v0.3.7")
     print(f"   地址: http://localhost:{args.port}")
     print(f"   按 Ctrl+C 停止")
     
