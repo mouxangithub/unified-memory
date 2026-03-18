@@ -1,0 +1,228 @@
+{
+  "name": "unified-memory",
+  "version": "0.0.7",
+  "description": "Intelligent memory system for AI Agents with hierarchical caching, knowledge merging, and predictive loading",
+  "author": "mouxangithub",
+  "license": "MIT",
+  "keywords": [
+    "memory",
+    "ai-agent",
+    "vector-database",
+    "knowledge-graph",
+    "semantic-search",
+    "hierarchical-cache",
+    "auto-extraction",
+    "quality-metrics"
+  ],
+  "categories": ["Core", "Memory"],
+  
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mouxangithub/unified-memory"
+  },
+  
+  "bugs": {
+    "url": "https://github.com/mouxangithub/unified-memory/issues"
+  },
+  
+  "homepage": "https://github.com/mouxangithub/unified-memory#readme",
+  
+  "engines": {
+    "python": ">=3.8",
+    "openclaw": ">=0.1.0"
+  },
+  
+  "dependencies": {
+    "required": [
+      "requests>=2.28.0"
+    ],
+    "optional": [
+      "lancedb>=0.3.0"
+    ]
+  },
+  
+  "integrations": {
+    "skills": [
+      {
+        "name": "memory-lancedb-pro",
+        "required": true,
+        "version": ">=1.1.0",
+        "autoInstall": true,
+        "source": "clawhub",
+        "fallback": "git+https://github.com/CortexReach/memory-lancedb-pro.git",
+        "usage": "Provides LanceDB storage, hybrid retrieval (Vector + BM25), and reranking"
+      }
+    ],
+    "builtin": [
+      {
+        "name": "ontology",
+        "required": false,
+        "usage": "Knowledge graph for structured entity relationships"
+      }
+    ],
+    "external": [
+      {
+        "name": "ollama",
+        "required": false,
+        "type": "service",
+        "config": {
+          "host_env": "OLLAMA_HOST",
+          "default_host": "http://localhost:11434",
+          "models": {
+            "llm": {
+              "env": "OLLAMA_LLM_MODEL",
+              "default": "deepseek-v3.2:cloud"
+            },
+            "embedding": {
+              "env": "OLLAMA_EMBED_MODEL",
+              "default": "nomic-embed-text:latest"
+            }
+          }
+        },
+        "fallback": "Disable auto-extraction and use rule-based extraction only"
+      }
+    ]
+  },
+  
+  "scripts": {
+    "main": "scripts/memory_v7.py",
+    "install": "scripts/install.sh",
+    "uninstall": "scripts/uninstall.sh",
+    "post_install": "scripts/post_install.sh"
+  },
+  
+  "config": {
+    "env": {
+      "OLLAMA_HOST": {
+        "default": "http://localhost:11434",
+        "description": "Ollama server URL for embeddings and LLM",
+        "required": false
+      },
+      "OLLAMA_LLM_MODEL": {
+        "default": "deepseek-v3.2:cloud",
+        "description": "LLM model for memory extraction",
+        "required": false
+      },
+      "OLLAMA_EMBED_MODEL": {
+        "default": "nomic-embed-text:latest",
+        "description": "Embedding model for vector search",
+        "required": false
+      }
+    },
+    "parameters": {
+      "L1_HOT_HOURS": {
+        "default": 24,
+        "type": "integer",
+        "description": "L1 hot memory time window in hours",
+        "min": 1,
+        "max": 168
+      },
+      "L2_WARM_DAYS": {
+        "default": 7,
+        "type": "integer",
+        "description": "L2 warm memory time window in days",
+        "min": 1,
+        "max": 30
+      },
+      "L1_MAX_SIZE": {
+        "default": 20,
+        "type": "integer",
+        "description": "Maximum L1 hot memory items",
+        "min": 5,
+        "max": 100
+      },
+      "L2_MAX_SIZE": {
+        "default": 100,
+        "type": "integer",
+        "description": "Maximum L2 warm memory items",
+        "min": 10,
+        "max": 500
+      },
+      "SIMILARITY_THRESHOLD": {
+        "default": 0.85,
+        "type": "float",
+        "description": "Similarity threshold for knowledge merging",
+        "min": 0.5,
+        "max": 1.0
+      },
+      "STALE_DAYS": {
+        "default": 30,
+        "type": "integer",
+        "description": "Days before memory is considered stale"
+      },
+      "FORGET_IMPORTANCE": {
+        "default": 0.1,
+        "type": "float",
+        "description": "Importance threshold for forgetting",
+        "min": 0.0,
+        "max": 0.5
+      }
+    }
+  },
+  
+  "triggers": {
+    "keywords": [
+      "记住", "记录", "查一下", "有什么", "记忆", "知识库",
+      "memory", "remember", "recall", "forget"
+    ],
+    "commands": [
+      "/memory",
+      "/remember",
+      "/recall",
+      "/forget"
+    ]
+  },
+  
+  "capabilities": [
+    "memory:read",
+    "memory:write",
+    "memory:search",
+    "memory:export",
+    "memory:import",
+    "memory:delete",
+    "memory:validate",
+    "memory:quality"
+  ],
+  
+  "compatibility": {
+    "openclaw": ">=0.1.0",
+    "python": ">=3.8",
+    "os": ["linux", "macos", "windows"]
+  },
+  
+  "fallbacks": {
+    "no_lancedb": {
+      "description": "Use JSON file storage instead of vector database",
+      "behavior": "Store memories in memories.json, disable vector search"
+    },
+    "no_ollama": {
+      "description": "Use rule-based extraction only",
+      "behavior": "Disable LLM-powered auto-extraction, use regex patterns"
+    },
+    "no_ontology": {
+      "description": "Disable knowledge graph integration",
+      "behavior": "Use pure vector search without entity relationships"
+    }
+  },
+  
+  "changelog": [
+    {
+      "version": "0.0.7",
+      "date": "2026-03-18",
+      "changes": [
+        "Added hierarchical cache (L1/L2/L3)",
+        "Added knowledge merging",
+        "Added predictive loading",
+        "Added confidence validation",
+        "Added feedback learning",
+        "Added smart forget",
+        "Added auto extraction with sensitive filter",
+        "Added quality metrics",
+        "Added import/export",
+        "Added advanced search",
+        "Added agent integration hooks"
+      ],
+      "breaking": []
+    }
+  ]
+}
