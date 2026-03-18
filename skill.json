@@ -85,7 +85,7 @@
   },
   
   "scripts": {
-    "main": "scripts/memory_v7.py",
+    "main": "scripts/memory.py",
     "install": "scripts/install.sh",
     "uninstall": "scripts/uninstall.sh",
     "post_install": "scripts/post_install.sh"

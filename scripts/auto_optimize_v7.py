@@ -69,7 +69,7 @@ def main():
     # 合并为知识块
     if feishu_mems:
         print("\n🔄 合并为知识块...")
-        merged_text = "【协作偏好】刘总使用飞书作为主要协作平台进行团队协作和项目管理，偏好简洁的沟通风格，不使用微信进行项目管理"
+        merged_text = "【协作偏好】用户使用飞书作为主要协作平台进行团队协作和项目管理，偏好简洁的沟通风格"
         
         knowledge_block = {
             "id": f"kb_{int(datetime.now().timestamp() * 1000)}",
@@ -172,7 +172,7 @@ def main():
     
     test_queries = [
         "龙宫项目进度",
-        "刘总的飞书偏好",
+        "用户的飞书偏好",
         "记忆系统优化"
     ]
     

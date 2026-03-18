@@ -165,7 +165,7 @@ class AutoExtractor:
         
         # 提取偏好
         pref_patterns = [
-            r'(?:我|用户|刘总)?(?:偏好|喜欢|想要)([^。！？\n]+)',
+            r'(?:我|用户)?(?:偏好|喜欢|想要)([^。！？\n]+)',
             r'(?:I|user)?\s*(?:prefer|like|want)\s+([^.!?\n]+)',
         ]
         

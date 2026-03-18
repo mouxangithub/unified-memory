@@ -25,7 +25,7 @@ SCRIPT_DIR = Path(__file__).parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 # 导入模块
-from memory_v7 import MemorySystemV7
+from memory import MemorySystemV7
 from auto_extractor import AutoExtractor
 from memory_quality import MemoryQuality
 

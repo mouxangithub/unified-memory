@@ -27,7 +27,7 @@
 | Feature | Status | Implementation |
 |---------|--------|----------------|
 | Lifecycle Hooks | ✅ Complete | `agent_integration.py` |
-| Auto Context Loading | ✅ Complete | Integrated into memory_v7.py |
+| Auto Context Loading | ✅ Complete | Integrated into memory.py |
 | Session Management | ✅ Complete | Auto session logging |
 
 ---
@@ -52,7 +52,7 @@ unified-memory/
 ├── VERSION.md              # Version history
 ├── SKILL.md                # Skill usage guide
 ├── scripts/
-│   ├── memory_v7.py        # Unified entry (✅ Updated)
+│   ├── memory.py        # Unified entry (✅ Updated)
 │   ├── memory_hierarchy.py # Hierarchical cache
 │   ├── knowledge_merger.py # Knowledge merging
 │   ├── predictive_loader.py# Predictive loading

@@ -11,7 +11,7 @@ Memory Search - 高级搜索 v0.0.7
 Usage:
     memory_search.py search --query "飞书" --category preference
     memory_search.py search --query "项目" --from 2026-03-01 --to 2026-03-18
-    memory_search.py search --query "刘总" --fuzzy --threshold 0.7
+    memory_search.py search --query "用户" --fuzzy --threshold 0.7
     memory_search.py search --query "重要" --min-importance 0.7
 """
 

@@ -302,7 +302,7 @@ class FallbackManager:
         if self.deps["lancedb"]:
             # 向量搜索
             try:
-                from memory_v7 import MemorySystemV7
+                from memory import MemorySystemV7
                 memory = MemorySystemV7()
                 return memory.get_context(query, max_memories=limit)
             except:

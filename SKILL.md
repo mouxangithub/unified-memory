@@ -76,34 +76,34 @@
 
 ```bash
 # 查看系统状态
-python3 memory_v7.py status
+python3 memory.py status
 
 # 初始化系统
-python3 memory_v7.py init
+python3 memory.py init
 
 # 获取上下文记忆
-python3 memory_v7.py context --query "龙宫项目"
+python3 memory.py context --query "项目进度"
 
 # 分析并预加载
-python3 memory_v7.py analyze --query "当前任务"
+python3 memory.py analyze --query "当前任务"
 
 # 验证记忆（检测过时/矛盾）
-python3 memory_v7.py validate
+python3 memory.py validate
 
 # 应用反馈调整
-python3 memory_v7.py feedback
+python3 memory.py feedback
 
 # 智能遗忘（预览）
-python3 memory_v7.py forget --dry-run
+python3 memory.py forget --dry-run
 
 # 智能遗忘（执行）
-python3 memory_v7.py forget
+python3 memory.py forget
 
 # 合并知识块
-python3 memory_v7.py merge
+python3 memory.py merge
 
 # 详细统计
-python3 memory_v7.py stats
+python3 memory.py stats
 ```
 
 ---
@@ -112,15 +112,15 @@ python3 memory_v7.py stats
 
 **合并前** (4 条零散记忆):
 ```
-- 刘总偏好飞书
-- 刘总不喜欢微信
-- 刘总用飞书管理项目
+- 用户偏好飞书
+- 用户不喜欢微信
+- 用户用飞书管理项目
 - 飞书是主要协作平台
 ```
 
 **合并后** (1 条知识块):
 ```
-[协作偏好]: 刘总使用飞书作为主要协作平台，
+[协作偏好]: 用户使用飞书作为主要协作平台，
 不使用微信，用于项目管理
 ```
 
@@ -181,7 +181,7 @@ python3 memory_v7.py stats
 │   └── archive/                # 归档记忆
 ├── skills/unified-memory/
 │   ├── scripts/
-│   │   ├── memory_v7.py        # 统一入口
+│   │   ├── memory.py        # 统一入口
 │   │   ├── memory_hierarchy.py # 分层缓存
 │   │   ├── knowledge_merger.py # 知识合并
 │   │   ├── predictive_loader.py# 主动预测

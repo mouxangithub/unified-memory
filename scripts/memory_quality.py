@@ -193,7 +193,7 @@ class MemoryQuality:
             recommendations.append({
                 "priority": "high",
                 "issue": "准确率较低",
-                "action": "运行 memory_v7.py validate 验证记忆"
+                "action": "运行 memory.py validate 验证记忆"
             })
         
         if timeliness < 0.7:
@@ -214,7 +214,7 @@ class MemoryQuality:
             recommendations.append({
                 "priority": "high",
                 "issue": "冗余率高",
-                "action": "运行 memory_v7.py merge 合并重复记忆"
+                "action": "运行 memory.py merge 合并重复记忆"
             })
         
         return recommendations

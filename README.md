@@ -123,22 +123,22 @@ pip install -r requirements.txt
 
 ```bash
 # View system status
-python3 scripts/memory_v7.py status
+python3 scripts/memory.py status
 
 # Initialize system
-python3 scripts/memory_v7.py init
+python3 scripts/memory.py init
 
 # Get context for current task
-python3 scripts/memory_v7.py context --query "my project"
+python3 scripts/memory.py context --query "my project"
 
 # Auto extract from conversation
-python3 scripts/memory_v7.py extract --conversation "User prefers using Feishu for collaboration"
+python3 scripts/memory.py extract --conversation "User prefers using Feishu for collaboration"
 
 # Search memories
-python3 scripts/memory_v7.py search --query "preferences" --category preference
+python3 scripts/memory.py search --query "preferences" --category preference
 
 # Export backup
-python3 scripts/memory_v7.py export --format json --output backup.json
+python3 scripts/memory.py export --format json --output backup.json
 ```
 
 ---
@@ -218,49 +218,49 @@ python3 scripts/memory_v7.py export --format json --output backup.json
 
 ```bash
 # System
-memory_v7.py status              # View system status
-memory_v7.py init                # Initialize system
-memory_v7.py stats               # Detailed statistics
+memory.py status              # View system status
+memory.py init                # Initialize system
+memory.py stats               # Detailed statistics
 
 # Context & Search
-memory_v7.py context --query "q" # Get relevant memories
-memory_v7.py search --query "q"  # Advanced search
-memory_v7.py analyze --query "q" # Predictive analysis
+memory.py context --query "q" # Get relevant memories
+memory.py search --query "q"  # Advanced search
+memory.py analyze --query "q" # Predictive analysis
 
 # Maintenance
-memory_v7.py validate            # Validate memories
-memory_v7.py feedback            # Apply feedback adjustments
-memory_v7.py forget --dry-run    # Preview deletions
-memory_v7.py forget              # Execute smart forget
+memory.py validate            # Validate memories
+memory.py feedback            # Apply feedback adjustments
+memory.py forget --dry-run    # Preview deletions
+memory.py forget              # Execute smart forget
 
 # Extraction
-memory_v7.py extract --conversation "text"  # Auto extract
-memory_v7.py extract --file chat.txt        # From file
+memory.py extract --conversation "text"  # Auto extract
+memory.py extract --file chat.txt        # From file
 
 # Data
-memory_v7.py export --format json --output backup.json
-memory_v7.py import --file backup.json
-memory_v7.py reset --confirm    # ⚠️ Deletes all data
+memory.py export --format json --output backup.json
+memory.py import --file backup.json
+memory.py reset --confirm    # ⚠️ Deletes all data
 
 # Quality
-memory_v7.py quality report      # Quality report
-memory_v7.py quality health      # Health check
+memory.py quality report      # Quality report
+memory.py quality health      # Health check
 ```
 
 ### Search Options
 
 ```bash
 # Category search
-memory_v7.py search --query "飞书" --category preference
+memory.py search --query "飞书" --category preference
 
 # Time range search
-memory_v7.py search --query "项目" --from 2026-03-01 --to 2026-03-18
+memory.py search --query "项目" --from 2026-03-01 --to 2026-03-18
 
 # Fuzzy search
-memory_v7.py search --query "刘总" --fuzzy --threshold 0.7
+memory.py search --query "用户偏好" --fuzzy --threshold 0.7
 
 # Importance filter
-memory_v7.py search --query "重要" --min-importance 0.7
+memory.py search --query "重要" --min-importance 0.7
 ```
 
 ---
@@ -310,7 +310,7 @@ OLLAMA_EMBED_MODEL=nomic-embed-text:latest
 │   └── sessions/               # Session logs
 └── skills/unified-memory/
     ├── scripts/
-    │   ├── memory_v7.py        # Unified entry
+    │   ├── memory.py        # Unified entry
     │   ├── memory_hierarchy.py # Hierarchical cache
     │   ├── knowledge_merger.py # Knowledge merge
     │   ├── predictive_loader.py# Predictive load
@@ -372,7 +372,7 @@ extractor.auto_store(memories)
 ### Example 2: Quality Report
 
 ```bash
-$ python3 memory_v7.py quality report
+$ python3 memory.py quality report
 
 📊 Memory Quality Report
 ==================================================

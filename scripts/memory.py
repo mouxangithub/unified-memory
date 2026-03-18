@@ -17,33 +17,33 @@ Features:
 
 Usage:
     # Core
-    memory_v7.py status                 # System status
-    memory_v7.py init                   # Initialize
-    memory_v7.py rebuild                # Rebuild hierarchy
-    memory_v7.py merge                  # Merge knowledge
-    memory_v7.py stats                  # Detailed stats
+    memory.py status                 # System status
+    memory.py init                   # Initialize
+    memory.py rebuild                # Rebuild hierarchy
+    memory.py merge                  # Merge knowledge
+    memory.py stats                  # Detailed stats
     
     # Context & Search
-    memory_v7.py context --query "query" # Get context
-    memory_v7.py analyze --query "query" # Analyze & preload
-    memory_v7.py search --query "query"  # Advanced search
+    memory.py context --query "query" # Get context
+    memory.py analyze --query "query" # Analyze & preload
+    memory.py search --query "query"  # Advanced search
     
     # Quality & Validation
-    memory_v7.py validate               # Validate memories
-    memory_v7.py quality                # Quality report
-    memory_v7.py feedback               # Feedback learning
+    memory.py validate               # Validate memories
+    memory.py quality                # Quality report
+    memory.py feedback               # Feedback learning
     
     # Maintenance
-    memory_v7.py forget                 # Smart forget
-    memory_v7.py extract --conversation "text" # Auto extract
+    memory.py forget                 # Smart forget
+    memory.py extract --conversation "text" # Auto extract
     
     # Data
-    memory_v7.py export --format json   # Export memories
-    memory_v7.py import --file backup.json # Import memories
+    memory.py export --format json   # Export memories
+    memory.py import --file backup.json # Import memories
     
     # Agent Integration
-    memory_v7.py agent-start --context "task"   # Agent start
-    memory_v7.py agent-end                     # Agent end
+    memory.py agent-start --context "task"   # Agent start
+    memory.py agent-end                     # Agent end
 """
 
 import argparse
