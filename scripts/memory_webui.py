@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-Memory Web UI - Web 可视化界面 v0.3.2
+Memory Web UI - Web 可视化界面 v0.3.3
 
 功能:
 - 记忆浏览、搜索、创建、编辑、删除
 - 统计仪表盘 + 健康状态
-- 知识图谱可视化
+- 知识图谱可视化 (vis.js)
+- 成本监控面板
 - 云同步状态
 - 响应式设计 + 暗色模式
 
@@ -478,7 +479,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         <div class="header">
             <div class="logo">
                 <h1>📚 Unified Memory</h1>
-                <span class="version">v0.3.2</span>
+                <span class="version">v0.3.3</span>
             </div>
             <div class="header-actions">
                 <button class="btn btn-ghost" onclick="toggleTheme()">🌙</button>
@@ -505,6 +506,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             <button class="tab" onclick="switchTab('fact')">事实</button>
             <button class="tab" onclick="switchTab('decision')">决策</button>
             <button class="tab" onclick="switchTab('learning')">学习</button>
+            <button class="tab" onclick="switchTab('graph')">📊 图谱</button>
         </div>
         
         <!-- Search -->
@@ -514,6 +516,15 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         
         <!-- Memory List -->
         <div class="memory-list" id="memories"></div>
+        
+        <!-- Graph Container (hidden by default) -->
+        <div id="graph-container" style="display: none; background: var(--card); border-radius: 12px; box-shadow: var(--shadow); height: 600px; position: relative;">
+            <div style="position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.7); color: white; padding: 15px 20px; border-radius: 10px; z-index: 100;">
+                <h3 style="margin: 0; font-size: 16px;">📊 知识图谱</h3>
+                <p style="margin: 5px 0 0 0; font-size: 13px; color: #aaa;" id="graph-stats">加载中...</p>
+            </div>
+            <div id="graph-network" style="width: 100%; height: 100%;"></div>
+        </div>
     </div>
     
     <!-- Modal -->
@@ -551,6 +562,9 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
     
     <!-- Toast Container -->
     <div class="toast-container" id="toasts"></div>
+    
+    <!-- vis.js for Graph -->
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     
     <script>
         // State
@@ -692,7 +706,20 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             currentTab = tab;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             event.target.classList.add('active');
-            renderMemories();
+            
+            // Show/hide graph container
+            const graphContainer = document.getElementById('graph-container');
+            const memoriesContainer = document.getElementById('memories');
+            
+            if (tab === 'graph') {
+                graphContainer.style.display = 'block';
+                memoriesContainer.style.display = 'none';
+                loadGraph();
+            } else {
+                graphContainer.style.display = 'none';
+                memoriesContainer.style.display = 'block';
+                renderMemories();
+            }
         }
         
         // Search
@@ -800,8 +827,79 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             setTimeout(() => el.remove(), 3000);
         }
         
-        // Helpers
-        function escapeHtml(text) {
+        // Load graph
+        let graphNetwork = null;
+        
+        async function loadGraph() {
+            try {
+                const res = await fetch('/api/graph');
+                const data = await res.json();
+                
+                // Update stats
+                document.getElementById('graph-stats').innerHTML = 
+                    `实体: ${data.nodes.length} | 关系: ${data.edges.length} | 记忆: ${data.memories_count || '?'}`;
+                
+                // Prepare data
+                const nodes = new vis.DataSet(data.nodes);
+                const edges = new vis.DataSet(data.edges);
+                
+                const container = document.getElementById('graph-network');
+                
+                // Destroy previous network
+                if (graphNetwork) {
+                    graphNetwork.destroy();
+                }
+                
+                const options = {
+                    nodes: {
+                        shape: 'dot',
+                        size: 20,
+                        font: { size: 14, color: '#fff' },
+                        borderWidth: 2,
+                        shadow: true
+                    },
+                    edges: {
+                        width: 2,
+                        color: { color: '#848484', highlight: '#6366f1' },
+                        arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+                        font: { size: 12, color: '#ccc', align: 'middle' },
+                        smooth: { type: 'dynamic' }
+                    },
+                    physics: {
+                        forceAtlas2Based: {
+                            gravitationalConstant: -50,
+                            centralGravity: 0.01,
+                            springLength: 100,
+                            springConstant: 0.08
+                        },
+                        maxVelocity: 50,
+                        solver: 'forceAtlas2Based',
+                        timestep: 0.35,
+                        stabilization: { iterations: 150 }
+                    },
+                    interaction: {
+                        hover: true,
+                        tooltipDelay: 200,
+                        hideEdgesOnDrag: true
+                    }
+                };
+                
+                graphNetwork = new vis.Network(container, { nodes, edges }, options);
+                
+                graphNetwork.on("click", function (params) {
+                    if (params.nodes.length > 0) {
+                        const nodeId = params.nodes[0];
+                        console.log('Clicked node:', nodeId);
+                    }
+                });
+                
+            } catch (e) {
+                console.error('Failed to load graph:', e);
+                document.getElementById('graph-network').innerHTML = 
+                    '<div style="padding: 40px; text-align: center; color: var(--text-muted);">' +
+                    '<p>图谱加载失败</p><p style="font-size: 12px;">' + e.message + '</p></div>';
+            }
+        }
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
@@ -837,6 +935,8 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
             self.handle_api_health()
         elif self.path == '/api/memories':
             self.handle_api_memories()
+        elif self.path == '/api/graph':
+            self.handle_api_graph()
         elif self.path.startswith('/api/memories/'):
             memory_id = self.path.split('/')[-1]
             self.handle_api_get_memory(memory_id)
@@ -1080,6 +1180,105 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
             self.send_json({"success": True})
         except Exception as e:
             self.send_json({"error": str(e)}, 500)
+    
+    def handle_api_graph(self):
+        """获取知识图谱数据"""
+        try:
+            import lancedb
+            
+            db = lancedb.connect(str(VECTOR_DB_DIR))
+            table = db.open_table("memories")
+            result = table.to_lance().to_table().to_pydict()
+            
+            # 提取实体
+            ENTITY_TYPES = {
+                "person": ["用户", "刘总", "我", "你", "他", "她"],
+                "project": ["项目", "龙宫", "官网", "重构", "开发"],
+                "tool": ["飞书", "微信", "QQ", "钉钉", "Slack"],
+                "time": ["今天", "明天", "下周", "月", "日"],
+                "action": ["喜欢", "使用", "决定", "创建", "完成"]
+            }
+            
+            ENTITY_COLORS = {
+                "person": "#667eea",
+                "project": "#10b981",
+                "tool": "#f59e0b",
+                "time": "#ef4444",
+                "action": "#8b5cf6"
+            }
+            
+            nodes = {}
+            edges = []
+            
+            count = len(result.get("id", []))
+            
+            for i in range(count):
+                text = result["text"][i] if i < len(result.get("text", [])) else ""
+                memory_id = str(result["id"][i]) if i < len(result.get("id", [])) else ""
+                
+                # 提取实体
+                found_entities = []
+                for entity_type, keywords in ENTITY_TYPES.items():
+                    for keyword in keywords:
+                        if keyword in text:
+                            found_entities.append({
+                                "name": keyword,
+                                "type": entity_type
+                            })
+                            if keyword not in nodes:
+                                nodes[keyword] = {
+                                    "id": keyword,
+                                    "label": keyword,
+                                    "type": entity_type,
+                                    "color": ENTITY_COLORS.get(entity_type, "#94a3b8"),
+                                    "title": f"类型: {entity_type}"
+                                }
+                
+                # 提取关系
+                if "喜欢" in text or "偏好" in text:
+                    persons = [e for e in found_entities if e["type"] == "person"]
+                    tools = [e for e in found_entities if e["type"] == "tool"]
+                    for p in persons:
+                        for t in tools:
+                            edges.append({
+                                "from": p["name"],
+                                "to": t["name"],
+                                "label": "喜欢",
+                                "title": text[:50]
+                            })
+                
+                if "使用" in text or "用" in text:
+                    persons = [e for e in found_entities if e["type"] == "person"]
+                    tools = [e for e in found_entities if e["type"] == "tool"]
+                    projects = [e for e in found_entities if e["type"] == "project"]
+                    for p in persons:
+                        for t in (tools + projects):
+                            edges.append({
+                                "from": p["name"],
+                                "to": t["name"],
+                                "label": "使用",
+                                "title": text[:50]
+                            })
+            
+            # 去重边
+            seen_edges = set()
+            unique_edges = []
+            for e in edges:
+                key = f"{e['from']}-{e['to']}-{e['label']}"
+                if key not in seen_edges:
+                    seen_edges.add(key)
+                    unique_edges.append(e)
+            
+            self.send_json({
+                "nodes": list(nodes.values()),
+                "edges": unique_edges,
+                "memories_count": count
+            })
+        except Exception as e:
+            print(f"Error loading graph: {e}")
+            import traceback
+            traceback.print_exc()
+            self.send_json({"nodes": [], "edges": [], "error": str(e)})
 
 
 def main():
