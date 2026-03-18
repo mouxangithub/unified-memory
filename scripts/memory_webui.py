@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Memory Web UI - Web 可视化界面 v0.3.6
+Memory Web UI - Web 可视化界面 v0.3.5
 
 功能:
 - 记忆浏览、搜索、创建、编辑、删除
@@ -2088,13 +2088,13 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Memory Web UI v0.3.2")
+    parser = argparse.ArgumentParser(description="Memory Web UI v0.3.5")
     parser.add_argument("--port", "-p", type=int, default=38080)
     parser.add_argument("--open", "-o", action="store_true", help="自动打开浏览器")
     
     args = parser.parse_args()
     
-    print(f"🌐 Memory Web UI v0.3.2")
+    print(f"🌐 Memory Web UI v0.3.5")
     print(f"   地址: http://localhost:{args.port}")
     print(f"   按 Ctrl+C 停止")
     
