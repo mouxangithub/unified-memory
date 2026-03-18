@@ -85,7 +85,6 @@ case "$1" in
   
   feedback)
     # 记忆反馈
-    # mem feedback [memory_id] [helpful|irrelevant|wrong|outdated]
     python3 "$SCRIPTS_DIR/memory_adaptive.py" update --id "$2" --feedback "$3"
     ;;
   
@@ -129,37 +128,75 @@ case "$1" in
     python3 "$SCRIPTS_DIR/memory_integration.py" detect-topic --conversation "${2:-对话内容}"
     ;;
   
+  usage)
+    # 使用分析
+    python3 "$SCRIPTS_DIR/memory_usage.py" ${2:-analyze}
+    ;;
+  
+  template)
+    # 记忆模板
+    python3 "$SCRIPTS_DIR/memory_templates.py" ${2:-list} ${3:+--type "$3"}
+    ;;
+  
+  optimize)
+    # 记忆优化
+    python3 "$SCRIPTS_DIR/memory_optimization.py" ${2:-report}
+    ;;
+  
+  score)
+    # 记忆评分
+    python3 "$SCRIPTS_DIR/memory_usage.py" score --id "$2"
+    ;;
+  
+  cleanup)
+    # 清理建议
+    python3 "$SCRIPTS_DIR/memory_optimization.py" suggest
+    ;;
+  
   *)
-    echo "Memory Quick Commands v0.2.4"
+    echo "Memory Quick Commands v0.3.0"
     echo ""
-    echo "Usage:"
+    echo "=== 核心功能 ==="
     echo "  mem start [context]     # 会话开始，加载上下文"
     echo "  mem end \"对话内容\"     # 会话结束，存储记忆"
-    echo "  mem heartbeat           # 心跳检查"
     echo "  mem store \"内容\"       # 快速存储"
     echo "  mem load [query] [k]    # 加载记忆"
-    echo "  mem remind              # 检查提醒"
-    echo "  mem health              # 健康报告"
-    echo "  mem webui [port]        # 启动 Web UI"
-    echo "  mem ask \"问题\"         # 智能问答"
-    echo "  mem graph [cmd]         # 知识图谱"
-    echo "  mem insights [cmd]      # 智能洞察"
-    echo "  mem backup              # 云备份"
-    echo "  mem privacy             # 隐私扫描"
+    echo "  mem heartbeat           # 心跳检查"
     echo ""
-    echo "  # 新增功能 v0.2.4:"
+    echo "=== 智能功能 ==="
     echo "  mem recommend [query] [k] # 智能推荐"
     echo "  mem hot [k]               # 热点记忆"
-    echo "  mem feedback [id] [type]  # 记忆反馈 (helpful/irrelevant/wrong)"
-    echo "  mem confidence            # 置信度统计"
-    echo "  mem audit [limit]         # 审计日志"
-    echo "  mem report [days]         # 合规报告"
-    echo "  mem sync                  # 多Agent同步"
-    echo "  mem nodes                 # 节点列表"
+    echo "  mem ask \"问题\"           # 智能问答"
     echo "  mem summary [id] [style]  # 生成摘要"
     echo "  mem inject [context]      # 主动上下文注入"
     echo "  mem topic [conversation]  # 主题检测"
     echo ""
-    echo "Total features: 40+"
+    echo "=== 反馈与质量 ==="
+    echo "  mem feedback [id] [type]  # 记忆反馈 (helpful/irrelevant/wrong)"
+    echo "  mem confidence            # 置信度统计"
+    echo "  mem score [id]            # 记忆评分"
+    echo ""
+    echo "=== 分析与优化 ==="
+    echo "  mem usage [cmd]           # 使用分析 (analyze/cleanup-suggest/usage-report)"
+    echo "  mem optimize [cmd]        # 记忆优化 (analyze/suggest/report)"
+    echo "  mem cleanup               # 清理建议"
+    echo "  mem insights [cmd]        # 智能洞察"
+    echo "  mem health                # 健康报告"
+    echo ""
+    echo "=== 同步与审计 ==="
+    echo "  mem audit [limit]         # 审计日志"
+    echo "  mem report [days]         # 合规报告"
+    echo "  mem sync                  # 多Agent同步"
+    echo "  mem nodes                 # 节点列表"
+    echo ""
+    echo "=== 工具 ==="
+    echo "  mem template [list|get|create|prompt] [type] # 记忆模板"
+    echo "  mem graph [cmd]           # 知识图谱"
+    echo "  mem backup                # 云备份"
+    echo "  mem privacy               # 隐私扫描"
+    echo "  mem webui [port]          # 启动 Web UI"
+    echo "  mem remind                # 检查提醒"
+    echo ""
+    echo "Total features: 50+"
     ;;
 esac
