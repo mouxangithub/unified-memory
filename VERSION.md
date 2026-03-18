@@ -128,3 +128,10 @@
 - [ ] 更新 `VERSION.md` 变更日志
 - [ ] `git commit && git push`
 - [ ] `clawhub publish . --version x.x.x`
+
+### 0.1.7 (2026-03-18)
+- ✨ 新增自动存储 (`memory_autostore.py`)
+- ✨ 新增智能提醒 (`memory_reminder.py`)
+- ✨ 新增健康检测 (`memory_health.py`)
+- ✨ 新增 Agent 接口 (`memory_agent.py`)
+- ✨ 新增集成钩子 (`memory_integration.py`)
