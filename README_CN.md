@@ -1,6 +1,6 @@
 # Unified Memory - AI Agent 记忆系统
 
-> **版本 0.2.2** | 专为 AI Agent 设计的智能记忆系统，支持分层缓存、知识合并、预测加载、自动维护和多云同步。
+> **版本 0.3.1** | 专为 AI Agent 设计的智能记忆系统，支持分层缓存、知识合并、预测加载、自动维护、主动注入、自适应置信度、审计日志和多代理同步。
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-已发布-green)](https://clawhub.com)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://python.org)
@@ -347,7 +347,7 @@ pip install google-api-python-client google-auth-oauthlib  # Google Drive
 
 ## 🗺️ 路线图
 
-### v0.2.2 (当前)
+### v0.3.1 (当前)
 - ✅ 多云同步支持 (S3/WebDAV/Dropbox/GDrive)
 - ✅ 双语文档
 
