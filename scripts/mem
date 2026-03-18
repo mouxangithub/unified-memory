@@ -1,0 +1,64 @@
+#!/bin/bash
+# Memory Quick Commands - 记忆系统快捷命令
+
+SCRIPTS_DIR="$HOME/.openclaw/workspace/skills/unified-memory/scripts"
+
+case "$1" in
+  start)
+    # 会话开始 - 加载上下文
+    python3 "$SCRIPTS_DIR/memory_integration.py" session-start --context "${2:-当前任务}"
+    ;;
+  
+  end)
+    # 会话结束 - 存储记忆
+    if [ -z "$2" ]; then
+      echo "请提供对话内容"
+      exit 1
+    fi
+    python3 "$SCRIPTS_DIR/memory_integration.py" session-end --conversation "$2"
+    ;;
+  
+  heartbeat)
+    # 心跳检查
+    python3 "$SCRIPTS_DIR/memory_integration.py" heartbeat
+    ;;
+  
+  store)
+    # 快速存储
+    python3 "$SCRIPTS_DIR/memory_agent.py" quick-store "$2"
+    ;;
+  
+  load)
+    # 加载上下文
+    python3 "$SCRIPTS_DIR/memory_agent.py" load "${2:-}" --top-k ${3:-10}
+    ;;
+  
+  remind)
+    # 检查提醒
+    python3 "$SCRIPTS_DIR/memory_reminder.py" check
+    ;;
+  
+  health)
+    # 健康报告
+    python3 "$SCRIPTS_DIR/memory_health.py" report
+    ;;
+  
+  webui)
+    # 启动 Web UI
+    python3 "$SCRIPTS_DIR/memory.py" webui --port ${2:-38080}
+    ;;
+  
+  *)
+    echo "Memory Quick Commands"
+    echo ""
+    echo "Usage:"
+    echo "  mem start [context]     # 会话开始，加载上下文"
+    echo "  mem end \"对话内容\"     # 会话结束，存储记忆"
+    echo "  mem heartbeat           # 心跳检查"
+    echo "  mem store \"内容\"       # 快速存储"
+    echo "  mem load [query] [k]    # 加载记忆"
+    echo "  mem remind              # 检查提醒"
+    echo "  mem health              # 健康报告"
+    echo "  mem webui [port]        # 启动 Web UI"
+    ;;
+esac
