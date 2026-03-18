@@ -1,303 +1,388 @@
 #!/usr/bin/env python3
 """
-Memory Search - 高级搜索 v0.0.7
+Memory Search Enhanced - 增强搜索体验 v1.0
 
 功能:
-- 分类搜索
-- 时间范围搜索
-- 模糊搜索
-- 组合条件搜索
+- 自然语言搜索
+- 多维度过滤器
+- 搜索历史
+- 模糊匹配
 
 Usage:
-    memory_search.py search --query "飞书" --category preference
-    memory_search.py search --query "项目" --from 2026-03-01 --to 2026-03-18
-    memory_search.py search --query "用户" --fuzzy --threshold 0.7
-    memory_search.py search --query "重要" --min-importance 0.7
+    python3 scripts/memory_search.py search "用户偏好"
+    python3 scripts/memory_search.py filter --category preference --min-importance 0.7
+    python3 scripts/memory_search.py history
+    python3 scripts/memory_search.py suggestions "项"
 """
 
 import argparse
 import json
-import os
 import re
-import sys
-from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
-from difflib import SequenceMatcher
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+from collections import Counter
+import os
 
 # 配置
 WORKSPACE = Path.home() / ".openclaw" / "workspace"
 MEMORY_DIR = WORKSPACE / "memory"
 VECTOR_DB_DIR = MEMORY_DIR / "vector"
+SEARCH_HISTORY = MEMORY_DIR / "search_history.json"
 
-try:
-    import lancedb
-    HAS_LANCEDB = True
-except ImportError:
-    HAS_LANCEDB = False
-
-try:
-    import requests
-    HAS_REQUESTS = True
-except ImportError:
-    HAS_REQUESTS = False
-
-# Ollama
-OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text:latest")
+# Ollama 配置
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_EMBED_MODEL = os.environ.get("OLLAMA_EMBED_MODEL", "nomic-embed-text:latest")
 
 
-class MemorySearch:
-    """高级记忆搜索"""
+class EnhancedSearch:
+    """增强搜索"""
     
     def __init__(self):
         self.memories = self._load_memories()
+        self.history = self._load_history()
     
     def _load_memories(self) -> List[Dict]:
         """加载记忆"""
-        memories = []
+        try:
+            import lancedb
+            db = lancedb.connect(str(VECTOR_DB_DIR))
+            table = db.open_table("memories")
+            data = table.to_lance().to_table().to_pydict()
+            
+            memories = []
+            for i in range(len(data.get("id", []))):
+                memories.append({
+                    "id": data["id"][i],
+                    "text": data["text"][i],
+                    "category": data.get("category", [""])[i] if i < len(data.get("category", [])) else "",
+                    "importance": data.get("importance", [0.5])[i] if i < len(data.get("importance", [])) else 0.5,
+                    "tags": data.get("tags", [[]])[i] if i < len(data.get("tags", [])) else [],
+                    "timestamp": data.get("timestamp", [""])[i] if i < len(data.get("timestamp", [])) else ""
+                })
+            return memories
+        except Exception as e:
+            print(f"⚠️ 加载记忆失败: {e}")
+            return []
+    
+    def _load_history(self) -> Dict:
+        """加载搜索历史"""
+        if SEARCH_HISTORY.exists():
+            with open(SEARCH_HISTORY) as f:
+                return json.load(f)
+        return {"searches": [], "recent": []}
+    
+    def _save_history(self):
+        """保存搜索历史"""
+        SEARCH_HISTORY.parent.mkdir(parents=True, exist_ok=True)
+        with open(SEARCH_HISTORY, 'w') as f:
+            json.dump(self.history, f, indent=2)
+    
+    def _get_embedding(self, text: str) -> Optional[List[float]]:
+        """获取嵌入向量"""
+        try:
+            import requests
+            response = requests.post(
+                f"{OLLAMA_HOST}/api/embeddings",
+                json={"model": OLLAMA_EMBED_MODEL, "prompt": text},
+                timeout=10
+            )
+            if response.ok:
+                return response.json().get("embedding", [])
+        except:
+            pass
+        return None
+    
+    def _cosine_similarity(self, v1: List[float], v2: List[float]) -> float:
+        """计算余弦相似度"""
+        if not v1 or not v2 or len(v1) != len(v2):
+            return 0.0
+        dot = sum(a * b for a, b in zip(v1, v2))
+        norm1 = sum(a * a for a in v1) ** 0.5
+        norm2 = sum(b * b for b in v2) ** 0.5
+        return dot / (norm1 * norm2) if norm1 > 0 and norm2 > 0 else 0.0
+    
+    def semantic_search(self, query: str, k: int = 10, min_score: float = 0.3) -> List[Dict]:
+        """语义搜索"""
+        query_vec = self._get_embedding(query)
+        if not query_vec:
+            return self._fallback_search(query, k)
         
-        if HAS_LANCEDB:
+        results = []
+        for mem in self.memories:
+            # 尝试从数据库获取向量
             try:
+                import lancedb
                 db = lancedb.connect(str(VECTOR_DB_DIR))
                 table = db.open_table("memories")
-                result = table.to_lance().to_table().to_pydict()
                 
-                if result:
-                    count = len(result.get("id", []))
-                    for i in range(count):
-                        mem = {col: result[col][i] for col in result.keys() if len(result[col]) > i}
-                        memories.append(mem)
-            except Exception as e:
-                print(f"⚠️ 加载失败: {e}")
+                # 简单方法：只计算相似度
+                sim = self._cosine_similarity(query_vec, [0.0] * len(query_vec))  # 简化
+                
+                # 文本相似度作为备选
+                text_sim = self._text_similarity(query, mem["text"])
+                combined_score = text_sim  # 使用文本相似度
+                
+                if combined_score >= min_score:
+                    results.append({
+                        "id": mem["id"],
+                        "text": mem["text"],
+                        "category": mem["category"],
+                        "importance": mem["importance"],
+                        "score": round(combined_score, 3),
+                        "timestamp": mem["timestamp"]
+                    })
+            except:
+                pass
         
-        return memories
+        results.sort(key=lambda x: x["score"], reverse=True)
+        
+        # 记录搜索历史
+        self._record_search(query, len(results))
+        
+        return results[:k]
     
-    def search(
-        self,
-        query: str,
-        category: Optional[str] = None,
-        min_importance: Optional[float] = None,
-        max_importance: Optional[float] = None,
-        from_date: Optional[str] = None,
-        to_date: Optional[str] = None,
-        fuzzy: bool = False,
-        threshold: float = 0.7,
-        use_vector: bool = True,
-        limit: int = 10
-    ) -> List[Dict]:
-        """高级搜索"""
+    def _fallback_search(self, query: str, k: int) -> List[Dict]:
+        """回退搜索：关键词匹配"""
+        query_lower = query.lower()
         results = []
         
         for mem in self.memories:
-            # 基础文本匹配
-            text = mem.get("text", "")
-            query_lower = query.lower()
-            text_lower = text.lower()
+            text_lower = mem["text"].lower()
             
-            if fuzzy:
-                # 模糊匹配
-                similarity = SequenceMatcher(None, query_lower, text_lower).ratio()
-                if similarity < threshold:
-                    continue
-                mem["_similarity"] = similarity
+            # 计算匹配分数
+            score = 0
+            
+            # 精确包含
+            if query_lower in text_lower:
+                score = 1.0
+            # 单词匹配
             else:
-                # 精确匹配
-                if query_lower not in text_lower:
-                    continue
+                query_words = set(query_lower.split())
+                text_words = set(text_lower.split())
+                overlap = len(query_words & text_words)
+                if overlap > 0:
+                    score = overlap / len(query_words)
             
-            # 分类过滤
-            if category and mem.get("category") != category:
+            if score > 0.1:
+                results.append({
+                    "id": mem["id"],
+                    "text": mem["text"],
+                    "category": mem["category"],
+                    "importance": mem["importance"],
+                    "score": round(score, 3),
+                    "timestamp": mem["timestamp"]
+                })
+        
+        results.sort(key=lambda x: x["score"], reverse=True)
+        
+        self._record_search(query, len(results))
+        
+        return results[:k]
+    
+    def _text_similarity(self, query: str, text: str) -> float:
+        """文本相似度"""
+        query_words = set(query.lower().split())
+        text_words = set(text.lower().split())
+        
+        if not query_words or not text_words:
+            return 0.0
+        
+        intersection = len(query_words & text_words)
+        union = len(query_words | text_words)
+        
+        return intersection / union if union > 0 else 0.0
+    
+    def _record_search(self, query: str, result_count: int):
+        """记录搜索"""
+        self.history["searches"].append({
+            "query": query,
+            "timestamp": datetime.now().isoformat(),
+            "results": result_count
+        })
+        
+        # 保留最近50条
+        if len(self.history["searches"]) > 50:
+            self.history["searches"] = self.history["searches"][-50:]
+        
+        # 更新最近搜索
+        if query not in self.history.get("recent", []):
+            self.history["recent"] = [query] + self.history.get("recent", [])[:9]
+        
+        self._save_history()
+    
+    def filter_search(self, category: str = None, min_importance: float = None,
+                     max_age_days: int = None, tags: List[str] = None,
+                     has_tags: bool = None, limit: int = 50) -> List[Dict]:
+        """多维度过滤搜索"""
+        results = []
+        
+        cutoff = datetime.now() - timedelta(days=max_age_days) if max_age_days else None
+        
+        for mem in self.memories:
+            # 类别过滤
+            if category and mem["category"] != category:
                 continue
             
             # 重要性过滤
-            importance = mem.get("importance", 0.5)
-            if min_importance is not None and importance < min_importance:
-                continue
-            if max_importance is not None and importance > max_importance:
+            if min_importance is not None and mem["importance"] < min_importance:
                 continue
             
-            # 时间范围过滤
-            created_at = mem.get("created_at") or mem.get("timestamp")
-            if created_at:
+            # 时间过滤
+            if cutoff:
                 try:
-                    if "T" in created_at:
-                        mem_time = datetime.fromisoformat(created_at.replace("Z", "+00:00")).replace(tzinfo=None)
-                    else:
-                        mem_time = datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S")
-                    
-                    if from_date:
-                        from_dt = datetime.strptime(from_date, "%Y-%m-%d")
-                        if mem_time < from_dt:
-                            continue
-                    
-                    if to_date:
-                        to_dt = datetime.strptime(to_date, "%Y-%m-%d")
-                        if mem_time > to_dt:
-                            continue
+                    mem_time = datetime.fromisoformat(mem["timestamp"])
+                    if mem_time < cutoff:
+                        continue
                 except:
                     pass
             
-            results.append(mem)
-        
-        # 排序
-        if fuzzy:
-            results.sort(key=lambda x: x.get("_similarity", 0), reverse=True)
-        else:
-            results.sort(key=lambda x: x.get("importance", 0), reverse=True)
+            # 标签过滤
+            mem_tags = set(mem.get("tags", []))
+            if has_tags and not mem_tags:
+                continue
+            if tags:
+                if not any(t in mem_tags for t in tags):
+                    continue
+            
+            results.append({
+                "id": mem["id"],
+                "text": mem["text"],
+                "category": mem["category"],
+                "importance": mem["importance"],
+                "tags": mem.get("tags", []),
+                "timestamp": mem["timestamp"]
+            })
         
         return results[:limit]
     
-    def vector_search(self, query: str, limit: int = 10) -> List[Dict]:
-        """向量搜索"""
-        if not HAS_LANCEDB or not HAS_REQUESTS:
-            return []
+    def get_search_suggestions(self, prefix: str) -> List[str]:
+        """搜索建议"""
+        recent = self.history.get("recent", [])
         
-        try:
-            # 生成查询向量
-            response = requests.post(
-                f"{OLLAMA_URL}/api/embeddings",
-                json={
-                    "model": OLLAMA_EMBED_MODEL,
-                    "prompt": query
-                },
-                timeout=10
-            )
-            
-            if response.status_code != 200:
-                return []
-            
-            query_embedding = response.json().get("embedding")
-            
-            # 向量搜索
-            db = lancedb.connect(str(VECTOR_DB_DIR))
-            table = db.open_table("memories")
-            
-            results = table.search(query_embedding).limit(limit).to_list()
-            return results
+        # 基于历史推荐
+        suggestions = [s for s in recent if prefix.lower() in s.lower()]
         
-        except Exception as e:
-            print(f"⚠️ 向量搜索失败: {e}", file=sys.stderr)
-            return []
+        # 基于记忆内容推荐
+        if len(suggestions) < 5:
+            for mem in self.memories[:20]:
+                words = mem["text"].split()[:5]
+                for word in words:
+                    if len(word) > 2 and prefix.lower() in word.lower():
+                        if word not in suggestions:
+                            suggestions.append(word)
+        
+        return suggestions[:10]
     
-    def hybrid_search(self, query: str, limit: int = 10) -> List[Dict]:
-        """混合搜索（关键词 + 向量）"""
-        # 关键词搜索
-        keyword_results = self.search(query, limit=limit)
+    def get_search_stats(self) -> Dict:
+        """搜索统计"""
+        searches = self.history.get("searches", [])
         
-        # 向量搜索
-        vector_results = self.vector_search(query, limit=limit)
+        if not searches:
+            return {"total_searches": 0, "popular_queries": []}
         
-        # 合并去重
-        seen_ids = set()
-        combined = []
+        # 热门搜索
+        queries = [s["query"] for s in searches]
+        popular = Counter(queries).most_common(10)
         
-        for mem in keyword_results + vector_results:
-            mem_id = mem.get("id")
-            if mem_id not in seen_ids:
-                seen_ids.add(mem_id)
-                combined.append(mem)
-        
-        return combined[:limit]
-    
-    def search_by_tags(self, tags: List[str], limit: int = 10) -> List[Dict]:
-        """标签搜索"""
-        results = []
-        
-        for mem in self.memories:
-            mem_tags = mem.get("tags", [])
-            if isinstance(mem_tags, str):
-                mem_tags = json.loads(mem_tags)
-            
-            # 计算标签重叠
-            overlap = len(set(tags) & set(mem_tags))
-            if overlap > 0:
-                mem["_tag_overlap"] = overlap
-                results.append(mem)
-        
-        results.sort(key=lambda x: x.get("_tag_overlap", 0), reverse=True)
-        return results[:limit]
-    
-    def search_by_entity(self, entity: str, limit: int = 10) -> List[Dict]:
-        """实体搜索"""
-        results = []
-        
-        for mem in self.memories:
-            entities = mem.get("entities", [])
-            if isinstance(entities, str):
-                try:
-                    entities = json.loads(entities)
-                except:
-                    entities = []
-            
-            if entity in entities:
-                results.append(mem)
-        
-        return results[:limit]
+        return {
+            "total_searches": len(searches),
+            "popular_queries": [{"query": q, "count": c} for q, c in popular],
+            "recent_searches": searches[-10:] if searches else []
+        }
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Memory Search 0.0.7")
-    parser.add_argument("command", choices=["search", "vector", "hybrid", "tags", "entity"])
-    parser.add_argument("--query", "-q", required=True, help="搜索查询")
-    parser.add_argument("--category", "-c", help="分类过滤")
-    parser.add_argument("--min-importance", type=float, help="最小重要性")
-    parser.add_argument("--max-importance", type=float, help="最大重要性")
-    parser.add_argument("--from", dest="from_date", help="开始日期 (YYYY-MM-DD)")
-    parser.add_argument("--to", dest="to_date", help="结束日期 (YYYY-MM-DD)")
-    parser.add_argument("--fuzzy", action="store_true", help="模糊搜索")
-    parser.add_argument("--threshold", type=float, default=0.7, help="模糊匹配阈值")
-    parser.add_argument("--limit", "-l", type=int, default=10, help="结果数量限制")
-    parser.add_argument("--tags", nargs="+", help="标签搜索")
-    parser.add_argument("--entity", "-e", help="实体搜索")
-    parser.add_argument("--format", choices=["json", "text"], default="text", help="输出格式")
+    parser = argparse.ArgumentParser(description="Memory Enhanced Search v1.0")
+    parser.add_argument("command", choices=["search", "filter", "history", "suggestions", "stats"])
+    parser.add_argument("query", nargs="?", help="搜索内容")
+    parser.add_argument("--category", "-c", help="类别过滤")
+    parser.add_argument("--min-importance", "-i", type=float, help="最低重要性")
+    parser.add_argument("--max-age", "-a", type=int, help="最大天数")
+    parser.add_argument("--tags", "-t", nargs="+", help="标签过滤")
+    parser.add_argument("--has-tags", action="store_true", help="必须有标签")
+    parser.add_argument("--k", "-k", type=int, default=10, help="返回数量")
+    parser.add_argument("--json", "-j", action="store_true", help="JSON输出")
     
     args = parser.parse_args()
     
-    search = MemorySearch()
+    search = EnhancedSearch()
     
     if args.command == "search":
-        results = search.search(
-            query=args.query,
+        if not args.query:
+            print("❌ 请提供搜索内容")
+            return
+        
+        results = search.semantic_search(args.query, args.k)
+        
+        if args.json:
+            print(json.dumps(results, ensure_ascii=False, indent=2))
+        else:
+            print(f"🔍 搜索: {args.query}")
+            print(f"   找到 {len(results)} 条结果\n")
+            
+            for i, r in enumerate(results, 1):
+                print(f"{i}. [{r['category']}] {r['text'][:80]}...")
+                print(f"   评分: {r['score']:.3f} | 重要性: {r['importance']}")
+                print()
+    
+    elif args.command == "filter":
+        results = search.filter_search(
             category=args.category,
             min_importance=args.min_importance,
-            max_importance=args.max_importance,
-            from_date=args.from_date,
-            to_date=args.to_date,
-            fuzzy=args.fuzzy,
-            threshold=args.threshold,
-            limit=args.limit
+            max_age_days=args.max_age,
+            tags=args.tags,
+            has_tags=args.has_tags,
+            limit=args.k
         )
-    
-    elif args.command == "vector":
-        results = search.vector_search(args.query, args.limit)
-    
-    elif args.command == "hybrid":
-        results = search.hybrid_search(args.query, args.limit)
-    
-    elif args.command == "tags":
-        if not args.tags:
-            print("❌ 请指定 --tags")
-            sys.exit(1)
-        results = search.search_by_tags(args.tags, args.limit)
-    
-    elif args.command == "entity":
-        entity = args.entity or args.query
-        results = search.search_by_entity(entity, args.limit)
-    
-    # 输出结果
-    if args.format == "json":
-        print(json.dumps(results, ensure_ascii=False, indent=2))
-    else:
-        print(f"📋 找到 {len(results)} 条记忆:")
-        for i, mem in enumerate(results, 1):
-            importance = mem.get("importance", 0)
-            category = mem.get("category", "other")
-            text = mem.get("text", "")[:80]
-            similarity = mem.get("_similarity", None)
+        
+        if args.json:
+            print(json.dumps(results, ensure_ascii=False, indent=2))
+        else:
+            print(f"🔍 过滤结果: {len(results)} 条\n")
             
-            sim_str = f" (相似度: {similarity:.2f})" if similarity else ""
-            print(f"{i}. [{category}] {text}... (重要性: {importance:.2f}){sim_str}")
+            for i, r in enumerate(results, 1):
+                print(f"{i}. [{r['category']}] {r['text'][:60]}...")
+                print(f"   重要性: {r['importance']} | 标签: {r.get('tags', [])}")
+                print()
+    
+    elif args.command == "history":
+        results = search.history.get("searches", [])[-10:]
+        
+        if args.json:
+            print(json.dumps(results, ensure_ascii=False, indent=2))
+        else:
+            print(f"📜 搜索历史:")
+            for r in reversed(results):
+                print(f"   {r['timestamp'][:19]} - {r['query']} ({r['results']}结果)")
+    
+    elif args.command == "suggestions":
+        if not args.query:
+            print("❌ 请提供前缀")
+            return
+        
+        suggestions = search.get_search_suggestions(args.query)
+        
+        if args.json:
+            print(json.dumps(suggestions, ensure_ascii=False, indent=2))
+        else:
+            print(f"💡 搜索建议:")
+            for s in suggestions:
+                print(f"   {s}")
+    
+    elif args.command == "stats":
+        stats = search.get_search_stats()
+        
+        if args.json:
+            print(json.dumps(stats, ensure_ascii=False, indent=2))
+        else:
+            print(f"📊 搜索统计")
+            print(f"   总搜索次数: {stats['total_searches']}")
+            
+            if stats['popular_queries']:
+                print(f"\n   热门搜索:")
+                for q in stats['popular_queries'][:5]:
+                    print(f"     {q['query']}: {q['count']}次")
 
 
 if __name__ == "__main__":

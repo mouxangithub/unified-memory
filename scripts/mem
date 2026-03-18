@@ -153,8 +153,38 @@ case "$1" in
     python3 "$SCRIPTS_DIR/memory_optimization.py" suggest
     ;;
   
+  search)
+    # 增强搜索
+    python3 "$SCRIPTS_DIR/memory_search.py" search "${2:-}"
+    ;;
+  
+  filter)
+    # 多维度过滤
+    python3 "$SCRIPTS_DIR/memory_search.py" filter --category "${3:-}" --min-importance "${4:-0.7}"
+    ;;
+  
+  visualize)
+    # 可视化
+    python3 "$SCRIPTS_DIR/memory_visualize.py" ${2:-report}
+    ;;
+  
+  export)
+    # 导出
+    python3 "$SCRIPTS_DIR/memory_export.py" ${2:-all}
+    ;;
+  
+  timeline)
+    # 时间线
+    python3 "$SCRIPTS_DIR/memory_visualize.py" timeline --days ${2:-30}
+    ;;
+  
+  wordcloud)
+    # 词云
+    python3 "$SCRIPTS_DIR/memory_visualize.py" wordcloud
+    ;;
+  
   *)
-    echo "Memory Quick Commands v0.3.0"
+    echo "Memory Quick Commands v0.3.1"
     echo ""
     echo "=== 核心功能 ==="
     echo "  mem start [context]     # 会话开始，加载上下文"
@@ -163,25 +193,35 @@ case "$1" in
     echo "  mem load [query] [k]    # 加载记忆"
     echo "  mem heartbeat           # 心跳检查"
     echo ""
-    echo "=== 智能功能 ==="
+    echo "=== 搜索与发现 ==="
+    echo "  mem search \"内容\"      # 增强搜索"
+    echo "  mem filter [cat] [imp]  # 多维度过滤"
     echo "  mem recommend [query] [k] # 智能推荐"
     echo "  mem hot [k]               # 热点记忆"
+    echo ""
+    echo "=== 智能功能 ==="
     echo "  mem ask \"问题\"           # 智能问答"
     echo "  mem summary [id] [style]  # 生成摘要"
     echo "  mem inject [context]      # 主动上下文注入"
     echo "  mem topic [conversation]  # 主题检测"
     echo ""
     echo "=== 反馈与质量 ==="
-    echo "  mem feedback [id] [type]  # 记忆反馈 (helpful/irrelevant/wrong)"
+    echo "  mem feedback [id] [type]  # 记忆反馈"
     echo "  mem confidence            # 置信度统计"
     echo "  mem score [id]            # 记忆评分"
     echo ""
     echo "=== 分析与优化 ==="
-    echo "  mem usage [cmd]           # 使用分析 (analyze/cleanup-suggest/usage-report)"
-    echo "  mem optimize [cmd]        # 记忆优化 (analyze/suggest/report)"
+    echo "  mem usage [cmd]           # 使用分析"
+    echo "  mem optimize [cmd]        # 记忆优化"
     echo "  mem cleanup               # 清理建议"
     echo "  mem insights [cmd]        # 智能洞察"
     echo "  mem health                # 健康报告"
+    echo ""
+    echo "=== 可视化与导出 ==="
+    echo "  mem visualize [cmd]       # 可视化 (timeline/wordcloud/distribution/report)"
+    echo "  mem timeline [days]       # 时间线视图"
+    echo "  mem wordcloud             # 词云生成"
+    echo "  mem export [fmt]          # 导出 (markdown/html/json/csv/all)"
     echo ""
     echo "=== 同步与审计 ==="
     echo "  mem audit [limit]         # 审计日志"
@@ -190,13 +230,13 @@ case "$1" in
     echo "  mem nodes                 # 节点列表"
     echo ""
     echo "=== 工具 ==="
-    echo "  mem template [list|get|create|prompt] [type] # 记忆模板"
+    echo "  mem template [cmd] [type] # 记忆模板"
     echo "  mem graph [cmd]           # 知识图谱"
     echo "  mem backup                # 云备份"
     echo "  mem privacy               # 隐私扫描"
     echo "  mem webui [port]          # 启动 Web UI"
     echo "  mem remind                # 检查提醒"
     echo ""
-    echo "Total features: 50+"
+    echo "Total features: 60+"
     ;;
 esac
