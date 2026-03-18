@@ -1,6 +1,6 @@
 # Unified Memory - AI Agent Memory System
 
-> **Version 0.3.1** | An intelligent memory system designed for AI Agents with hierarchical caching, knowledge merging, predictive loading, automatic maintenance, proactive injection, adaptive confidence, audit logging, and multi-agent sync.
+> **Version 0.3.2** | An intelligent memory system designed for AI Agents with hierarchical caching, knowledge merging, predictive loading, automatic maintenance, proactive injection, adaptive confidence, audit logging, and multi-agent sync.
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-Publish-green)](https://clawhub.com)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://python.org)
@@ -304,7 +304,7 @@ pip install google-api-python-client google-auth-oauthlib  # Google Drive
 
 ## 🗺️ Roadmap
 
-### v0.3.1 (Current)
+### v0.3.2 (Current)
 - ✅ Proactive context injection (主动上下文注入)
 - ✅ Adaptive confidence with feedback (动态置信度自适应)
 - ✅ Smart recommendations (智能关联推荐)
