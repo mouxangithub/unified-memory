@@ -333,11 +333,12 @@ def main():
     parser = argparse.ArgumentParser(description="Memory System 0.1.0 (完整版)")
     parser.add_argument("command", choices=[
         "status", "init", "rebuild", "merge", "analyze", "context", 
-        "validate", "feedback", "forget", "stats"
+        "validate", "feedback", "forget", "stats", "webui"
     ])
     parser.add_argument("--query", "-q", help="查询内容")
     parser.add_argument("--max", type=int, default=10, help="最大记忆数")
     parser.add_argument("--dry-run", action="store_true", help="仅预览")
+    parser.add_argument("--port", "-p", type=int, default=38080, help="Web UI 端口")
     
     args = parser.parse_args()
     
@@ -389,6 +390,31 @@ def main():
     elif args.command == "stats":
         stats = mem.stats()
         print(json.dumps(stats, ensure_ascii=False, indent=2))
+    
+    elif args.command == "webui":
+        import subprocess
+        import webbrowser
+        import os
+        
+        port = args.port
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        webui_script = os.path.join(script_dir, "memory_webui.py")
+        
+        print(f"🌐 启动 Memory Web UI...")
+        print(f"   端口: {port}")
+        print(f"   地址: http://localhost:{port}")
+        
+        # 后台启动
+        subprocess.Popen(
+            ["python3", webui_script, "--port", str(port)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        
+        # 自动打开浏览器
+        webbrowser.open(f"http://localhost:{port}")
+        
+        print("✅ Web UI 已启动，浏览器已打开")
     
     else:
         print(f"未知命令: {args.command}")

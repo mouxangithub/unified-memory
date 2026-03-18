@@ -169,7 +169,8 @@
   "scripts": {
     "main": "scripts/memory.py",
     "install": "scripts/install.sh",
-    "uninstall": "scripts/uninstall.sh"
+    "uninstall": "scripts/uninstall.sh",
+    "webui": "scripts/memory_webui.py"
   },
   
   "triggers": {

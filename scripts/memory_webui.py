@@ -441,7 +441,7 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
 
 def main():
     parser = argparse.ArgumentParser(description="Memory Web UI 0.1.4")
-    parser.add_argument("--port", "-p", type=int, default=8080)
+    parser.add_argument("--port", "-p", type=int, default=38080)
     parser.add_argument("--api", "-a", help="API 基础 URL")
     parser.add_argument("--open", "-o", action="store_true", help="自动打开浏览器")
     
