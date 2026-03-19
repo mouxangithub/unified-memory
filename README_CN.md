@@ -1,6 +1,6 @@
 # Unified Memory - AI Agent 记忆系统
 
-> **版本 0.3.8** | 专为 AI Agent 设计的智能记忆系统，支持分层缓存、知识合并、预测加载、自动维护、主动注入、自适应置信度、审计日志和多代理同步。
+> **版本 0.3.9** | 专为 AI Agent 设计的智能记忆系统，支持分层缓存、知识合并、预测加载、自动维护、主动注入、自适应置信度、审计日志和多代理同步。
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-已发布-green)](https://clawhub.com)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://python.org)
@@ -153,6 +153,49 @@ python3 scripts/memory_cloud.py restore --timestamp TIMESTAMP
 
 # 禁用云同步
 python3 scripts/memory_cloud.py disable
+```
+
+---
+
+## 🤖 Ollama 集成（可选）
+
+### ✨ 亮点：无 Ollama 也能用！
+
+本系统采用**优雅降级**设计，即使没有 Ollama 也能完美运行！
+
+| 模式 | Ollama 状态 | 搜索方式 | 功能完整性 |
+|------|------------|---------|-----------|
+| **完整模式** | ✅ 在线 | 向量语义搜索 | 全功能 |
+| **降级模式** | ❌ 离线 | 关键词匹配 | 核心功能可用 |
+
+### 有 Ollama vs 无 Ollama 对比
+
+| 功能 | 有 Ollama | 无 Ollama |
+|------|-----------|-----------|
+| **搜索质量** | 语义理解（找到相关概念） | 关键词匹配（找精确词） |
+| **自动提取** | AI 智能提取 | 规则提取 |
+| **记忆摘要** | LLM 生成摘要 | 模板摘要 |
+| **重要性评分** | ML 智能评分 | 规则评分 |
+| **存储与 CRUD** | ✅ 完整支持 | ✅ 完整支持 |
+| **WebUI 管理** | ✅ 完整支持 | ✅ 完整支持 |
+| **备份/恢复** | ✅ 完整支持 | ✅ 完整支持 |
+
+### Ollama 配置
+
+```bash
+# 设置 Ollama 主机（默认：http://localhost:11434）
+export OLLAMA_HOST=http://192.168.2.155:11434
+
+# 必需：embedding 模型
+ollama pull nomic-embed-text:latest
+
+# 可选：LLM 模型（高级功能）
+ollama pull deepseek-v3.2:cloud
+```
+
+**网络访问**：如果 Ollama 在其他机器上（如 NAS Docker），使用局内网络 IP：
+```bash
+export OLLAMA_HOST=http://192.168.2.155:11434
 ```
 
 ---

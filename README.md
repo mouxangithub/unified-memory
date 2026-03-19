@@ -1,6 +1,6 @@
 # Unified Memory - AI Agent Memory System
 
-> **Version 0.3.8** | An intelligent memory system designed for AI Agents with hierarchical caching, knowledge merging, predictive loading, automatic maintenance, proactive injection, adaptive confidence, audit logging, and multi-agent sync.
+> **Version 0.3.9** | An intelligent memory system designed for AI Agents with hierarchical caching, knowledge merging, predictive loading, automatic maintenance, proactive injection, adaptive confidence, audit logging, and multi-agent sync.
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-Publish-green)](https://clawhub.com)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://python.org)
@@ -104,6 +104,49 @@ See [examples/memory_cloud_usage.md](./examples/memory_cloud_usage.md) for:
 - Multi-device sync workflow
 - Troubleshooting tips
 - Security recommendations
+
+---
+
+## 🤖 Ollama Integration (Optional)
+
+### ✨ Highlight: Works Without Ollama!
+
+This system is designed with **graceful fallback** - it works perfectly even without Ollama!
+
+| Mode | Ollama Status | Search Method | Functionality |
+|------|---------------|---------------|---------------|
+| **Full Mode** | ✅ Online | Vector semantic search | Full features |
+| **Fallback Mode** | ❌ Offline | Keyword matching | Core features work |
+
+### With vs Without Ollama
+
+| Feature | With Ollama | Without Ollama |
+|---------|-------------|----------------|
+| **Search Quality** | Semantic understanding (finds related concepts) | Keyword matching (finds exact words) |
+| **Auto Extraction** | AI-powered intelligent extraction | Rule-based extraction |
+| **Memory Summarization** | LLM-generated summaries | Template-based summaries |
+| **Importance Scoring** | ML-based scoring | Rule-based scoring |
+| **Storage & CRUD** | ✅ Full support | ✅ Full support |
+| **WebUI** | ✅ Full support | ✅ Full support |
+| **Backup/Restore** | ✅ Full support | ✅ Full support |
+
+### Ollama Configuration
+
+```bash
+# Set Ollama host (default: http://localhost:11434)
+export OLLAMA_HOST=http://192.168.2.155:11434
+
+# Required embedding model
+ollama pull nomic-embed-text:latest
+
+# Optional LLM for advanced features
+ollama pull deepseek-v3.2:cloud
+```
+
+**Network Access**: If your Ollama is on another machine (e.g., NAS Docker), use LAN IP:
+```bash
+export OLLAMA_HOST=http://192.168.2.155:11434
+```
 
 ---
 
