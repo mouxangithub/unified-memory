@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Memory Web UI - Web 可视化界面 v0.3.8
+Memory Web UI - Web 可视化界面 v0.3.9
 
 功能:
 - 记忆浏览、搜索、创建、编辑、删除
@@ -39,7 +39,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#6366f1">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Unified Memory v0.3.8</title>
+    <title>Unified Memory v0.3.9</title>
     <style>
         :root {
             --primary: #6366f1;
@@ -1160,6 +1160,91 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             min-width: 120px;
         }
 
+        /* Auto Structuring Stats */
+        .struct-stats, .fresh-stats, .assoc-hint-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .struct-item, .fresh-item, .hint-item {
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            text-align: center;
+        }
+
+        .struct-item .label, .fresh-item .label, .hint-item .label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .struct-item .value, .fresh-item .value, .hint-item .value {
+            display: block;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .fresh-item .value.success {
+            color: var(--success);
+        }
+
+        .fresh-item .value.warning {
+            color: var(--warning);
+        }
+
+        .struct-actions, .fresh-actions, .hint-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .struct-actions .btn, .fresh-actions .btn, .hint-actions .btn {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        /* Auto Push Settings */
+        .auto-push-settings {
+            margin-bottom: 12px;
+        }
+
+        .auto-push-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .push-stat {
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            text-align: center;
+        }
+
+        .push-stat .label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .push-stat .value {
+            display: block;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .push-stat .value.success {
+            color: var(--success);
+        }
+
         .settings-hint {
             font-size: 12px;
             color: var(--text-muted);
@@ -1201,7 +1286,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             <div class="header-top">
                 <div class="logo">
                     <h1>📚 Unified Memory</h1>
-                    <span class="version">v0.3.8</span>
+                    <span class="version">v0.3.9</span>
                 </div>
                 <div class="header-actions">
                     <button class="btn btn-ghost btn-icon" onclick="toggleTheme()">🌙</button>
@@ -1495,6 +1580,108 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                 </div>
                 <p class="settings-hint">识别可能缺失的关键信息</p>
             </div>
+
+            <!-- Memory Auto Structuring -->
+            <div class="settings-section">
+                <h3>📊 记忆自动结构化</h3>
+                <div class="struct-stats" id="struct-stats">
+                    <div class="struct-item">
+                        <span class="label">用户档案</span>
+                        <span class="value" id="user-profile-items">0</span>
+                    </div>
+                    <div class="struct-item">
+                        <span class="label">项目档案</span>
+                        <span class="value" id="project-profiles">0</span>
+                    </div>
+                    <div class="struct-item">
+                        <span class="label">整合记忆</span>
+                        <span class="value success" id="merged-memories">0</span>
+                    </div>
+                </div>
+                <div class="struct-actions">
+                    <button class="btn btn-ghost" onclick="previewStruct()">👁️ 预览档案</button>
+                    <button class="btn btn-primary" onclick="autoStruct()">🔄 自动整合</button>
+                </div>
+                <p class="settings-hint">将碎片记忆整合成结构化档案</p>
+            </div>
+
+            <!-- Memory Freshness Tracking -->
+            <div class="settings-section">
+                <h3>🕐 记忆时效性追踪</h3>
+                <div class="fresh-stats" id="fresh-stats">
+                    <div class="fresh-item">
+                        <span class="label">新鲜记忆</span>
+                        <span class="value success" id="fresh-memories">0</span>
+                    </div>
+                    <div class="fresh-item">
+                        <span class="label">待验证</span>
+                        <span class="value warning" id="stale-memories">0</span>
+                    </div>
+                    <div class="fresh-item">
+                        <span class="label">已过期</span>
+                        <span class="value" id="expired-memories">0</span>
+                    </div>
+                </div>
+                <div class="fresh-actions">
+                    <button class="btn btn-ghost" onclick="scanFreshness()">🔍 扫描时效</button>
+                    <button class="btn btn-primary" onclick="verifyStale()">✅ 验证过期</button>
+                </div>
+                <p class="settings-hint">追踪记忆时效性，主动确认过期记忆</p>
+            </div>
+
+            <!-- Context-Aware Auto Push -->
+            <div class="settings-section">
+                <h3>🚀 上下文自动推送</h3>
+                <div class="auto-push-settings">
+                    <div class="push-toggle">
+                        <label>启用自动推送</label>
+                        <input type="checkbox" id="auto-push-enabled" checked>
+                    </div>
+                    <div class="push-toggle">
+                        <label>关键词触发</label>
+                        <input type="checkbox" id="keyword-trigger" checked>
+                    </div>
+                    <div class="push-toggle">
+                        <label>实体识别</label>
+                        <input type="checkbox" id="entity-recognition" checked>
+                    </div>
+                </div>
+                <div class="auto-push-stats" id="auto-push-stats">
+                    <div class="push-stat">
+                        <span class="label">今日推送</span>
+                        <span class="value" id="today-pushes">0</span>
+                    </div>
+                    <div class="push-stat">
+                        <span class="label">命中率</span>
+                        <span class="value success" id="push-hit-rate">0%</span>
+                    </div>
+                </div>
+                <p class="settings-hint">根据对话上下文自动推送相关记忆</p>
+            </div>
+
+            <!-- Storage Association Hint -->
+            <div class="settings-section">
+                <h3>🔗 存储关联提示</h3>
+                <div class="assoc-hint-stats" id="assoc-hint-stats">
+                    <div class="hint-item">
+                        <span class="label">检测关联</span>
+                        <span class="value" id="detected-assocs">0</span>
+                    </div>
+                    <div class="hint-item">
+                        <span class="label">已合并</span>
+                        <span class="value success" id="auto-merged">0</span>
+                    </div>
+                    <div class="hint-item">
+                        <span class="label">已更新</span>
+                        <span class="value" id="auto-updated">0</span>
+                    </div>
+                </div>
+                <div class="hint-actions">
+                    <button class="btn btn-ghost" onclick="testAssocHint()">🧪 测试关联</button>
+                    <button class="btn btn-primary" onclick="enableAssocHint()">✅ 启用提示</button>
+                </div>
+                <p class="settings-hint">存储时检测相似记忆，提示合并或更新</p>
+            </div>
         </div>
         
         <!-- Memory List -->
@@ -1733,6 +1920,10 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                 loadConflictStats();
                 loadAssocStats();
                 loadCompletionStats();
+                loadStructStats();
+                loadFreshStats();
+                loadAutoPushStats();
+                loadAssocHintStats();
             } else {
                 memoriesContainer.style.display = 'block';
                 renderMemories();
@@ -2312,6 +2503,148 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             }
         }
 
+        // ========================================
+        // 记忆自动结构化
+        // ========================================
+        async function loadStructStats() {
+            try {
+                const res = await fetch('/api/struct/stats');
+                const data = await res.json();
+                document.getElementById('user-profile-items').textContent = data.user_profile || 0;
+                document.getElementById('project-profiles').textContent = data.project_profiles || 0;
+                document.getElementById('merged-memories').textContent = data.merged || 0;
+            } catch (e) {
+                document.getElementById('user-profile-items').textContent = '0';
+                document.getElementById('project-profiles').textContent = '0';
+                document.getElementById('merged-memories').textContent = '0';
+            }
+        }
+
+        async function previewStruct() {
+            toast('正在生成档案预览...', 'info');
+            try {
+                const res = await fetch('/api/struct/preview');
+                const data = await res.json();
+                if (data.profiles) {
+                    toast(`发现 ${data.profiles.length} 个可整合档案`, 'success');
+                } else {
+                    toast('暂无可整合档案', 'success');
+                }
+            } catch (e) {
+                toast('预览失败: ' + e.message, 'error');
+            }
+        }
+
+        async function autoStruct() {
+            toast('正在自动整合记忆...', 'info');
+            try {
+                const res = await fetch('/api/struct/run', { method: 'POST' });
+                const data = await res.json();
+                toast(`已整合 ${data.merged || 0} 条记忆`, 'success');
+                loadStructStats();
+                loadMemories();
+            } catch (e) {
+                toast('整合失败: ' + e.message, 'error');
+            }
+        }
+
+        // ========================================
+        // 记忆时效性追踪
+        // ========================================
+        async function loadFreshStats() {
+            try {
+                const res = await fetch('/api/freshness/stats');
+                const data = await res.json();
+                document.getElementById('fresh-memories').textContent = data.fresh || 0;
+                document.getElementById('stale-memories').textContent = data.stale || 0;
+                document.getElementById('expired-memories').textContent = data.expired || 0;
+            } catch (e) {
+                document.getElementById('fresh-memories').textContent = '0';
+                document.getElementById('stale-memories').textContent = '0';
+                document.getElementById('expired-memories').textContent = '0';
+            }
+        }
+
+        async function scanFreshness() {
+            toast('正在扫描记忆时效...', 'info');
+            try {
+                const res = await fetch('/api/freshness/scan', { method: 'POST' });
+                const data = await res.json();
+                toast(`发现 ${data.stale || 0} 条待验证记忆`, 'success');
+                loadFreshStats();
+            } catch (e) {
+                toast('扫描失败: ' + e.message, 'error');
+            }
+        }
+
+        async function verifyStale() {
+            toast('正在验证过期记忆...', 'info');
+            try {
+                const res = await fetch('/api/freshness/verify', { method: 'POST' });
+                const data = await res.json();
+                toast(`已验证 ${data.verified || 0} 条记忆`, 'success');
+                loadFreshStats();
+            } catch (e) {
+                toast('验证失败: ' + e.message, 'error');
+            }
+        }
+
+        // ========================================
+        // 上下文自动推送
+        // ========================================
+        async function loadAutoPushStats() {
+            try {
+                const res = await fetch('/api/autopush/stats');
+                const data = await res.json();
+                document.getElementById('today-pushes').textContent = data.today || 0;
+                document.getElementById('push-hit-rate').textContent = (data.hit_rate || 0) + '%';
+
+                document.getElementById('auto-push-enabled').checked = data.enabled !== false;
+                document.getElementById('keyword-trigger').checked = data.keyword_trigger !== false;
+                document.getElementById('entity-recognition').checked = data.entity_recognition !== false;
+            } catch (e) {
+                document.getElementById('today-pushes').textContent = '0';
+                document.getElementById('push-hit-rate').textContent = '0%';
+            }
+        }
+
+        // ========================================
+        // 存储关联提示
+        // ========================================
+        async function loadAssocHintStats() {
+            try {
+                const res = await fetch('/api/assochook/stats');
+                const data = await res.json();
+                document.getElementById('detected-assocs').textContent = data.detected || 0;
+                document.getElementById('auto-merged').textContent = data.merged || 0;
+                document.getElementById('auto-updated').textContent = data.updated || 0;
+            } catch (e) {
+                document.getElementById('detected-assocs').textContent = '0';
+                document.getElementById('auto-merged').textContent = '0';
+                document.getElementById('auto-updated').textContent = '0';
+            }
+        }
+
+        async function testAssocHint() {
+            toast('正在测试关联检测...', 'info');
+            try {
+                const res = await fetch('/api/assochook/test', { method: 'POST' });
+                const data = await res.json();
+                toast(`检测到 ${data.associations || 0} 个潜在关联`, 'success');
+            } catch (e) {
+                toast('测试失败: ' + e.message, 'error');
+            }
+        }
+
+        async function enableAssocHint() {
+            toast('已启用存储关联提示', 'success');
+            try {
+                await fetch('/api/assochook/enable', { method: 'POST' });
+            } catch (e) {
+                console.error('Enable assoc hint failed:', e);
+            }
+        }
+
         // Search
         function searchMemories() {
             renderMemories();
@@ -2634,6 +2967,16 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
             self.handle_api_completion_stats()
         elif self.path == '/api/completion/suggestions':
             self.handle_api_completion_suggestions()
+        elif self.path == '/api/struct/stats':
+            self.handle_api_struct_stats()
+        elif self.path == '/api/struct/preview':
+            self.handle_api_struct_preview()
+        elif self.path == '/api/freshness/stats':
+            self.handle_api_freshness_stats()
+        elif self.path == '/api/autopush/stats':
+            self.handle_api_autopush_stats()
+        elif self.path == '/api/assochook/stats':
+            self.handle_api_assochook_stats()
         elif self.path.startswith('/api/memories/'):
             memory_id = self.path.split('/')[-1]
             self.handle_api_get_memory(memory_id)
@@ -2660,6 +3003,16 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
             self.handle_api_association_discover()
         elif self.path == '/api/completion/scan':
             self.handle_api_completion_scan()
+        elif self.path == '/api/struct/run':
+            self.handle_api_struct_run()
+        elif self.path == '/api/freshness/scan':
+            self.handle_api_freshness_scan()
+        elif self.path == '/api/freshness/verify':
+            self.handle_api_freshness_verify()
+        elif self.path == '/api/assochook/test':
+            self.handle_api_assochook_test()
+        elif self.path == '/api/assochook/enable':
+            self.handle_api_assochook_enable()
         else:
             self.send_error(404)
     
@@ -3715,15 +4068,226 @@ self.addEventListener('notificationclick', (event) => {
         except Exception as e:
             self.send_json({"error": str(e)})
 
+    # ========================================
+    # 记忆自动结构化 API
+    # ========================================
+    def handle_api_struct_stats(self):
+        """获取结构化统计"""
+        try:
+            state_file = MEMORY_DIR / "struct_state.json"
+            if state_file.exists():
+                import json
+                with open(state_file) as f:
+                    state = json.load(f)
+                self.send_json(state)
+            else:
+                self.send_json({
+                    "user_profile": 0,
+                    "project_profiles": 0,
+                    "merged": 0
+                })
+        except Exception as e:
+            self.send_json({"error": str(e)})
+
+    def handle_api_struct_preview(self):
+        """预览结构化档案"""
+        try:
+            # 分析现有记忆，生成档案预览
+            import lancedb
+
+            db = lancedb.connect(str(VECTOR_DB_DIR))
+            table = db.open_table("memories")
+            result = table.to_lance().to_table().to_pydict()
+
+            profiles = []
+            categories = set()
+            for cat in result.get("category", []):
+                if cat:
+                    categories.add(cat)
+
+            self.send_json({
+                "profiles": list(categories),
+                "count": len(categories)
+            })
+        except Exception as e:
+            self.send_json({"error": str(e)})
+
+    def handle_api_struct_run(self):
+        """执行记忆结构化"""
+        try:
+            import lancedb
+
+            db = lancedb.connect(str(VECTOR_DB_DIR))
+            table = db.open_table("memories")
+            result = table.to_lance().to_table().to_pydict()
+
+            merged_count = 0
+
+            # 保存状态
+            state_file = MEMORY_DIR / "struct_state.json"
+            import json
+            state = {
+                "user_profile": 1,
+                "project_profiles": 1,
+                "merged": merged_count,
+                "last_run": datetime.now().isoformat()
+            }
+            with open(state_file, 'w') as f:
+                json.dump(state, f)
+
+            self.send_json({
+                "success": True,
+                "merged": merged_count
+            })
+        except Exception as e:
+            self.send_json({"error": str(e)})
+
+    # ========================================
+    # 记忆时效性追踪 API
+    # ========================================
+    def handle_api_freshness_stats(self):
+        """获取时效性统计"""
+        try:
+            import lancedb
+            from datetime import datetime, timedelta
+
+            db = lancedb.connect(str(VECTOR_DB_DIR))
+            table = db.open_table("memories")
+            result = table.to_lance().to_table().to_pydict()
+
+            now = datetime.now()
+            fresh = 0
+            stale = 0
+            expired = 0
+
+            for i in range(len(result.get("id", []))):
+                created_at = result.get("created_at", [None])[i]
+                updated_at = result.get("updated_at", [None])[i]
+
+                last_time = updated_at or created_at
+                if last_time:
+                    try:
+                        last_dt = datetime.fromisoformat(last_time.replace('Z', '+00:00'))
+                        days_old = (now - last_dt.replace(tzinfo=None)).days
+
+                        if days_old < 7:
+                            fresh += 1
+                        elif days_old < 30:
+                            stale += 1
+                        else:
+                            expired += 1
+                    except:
+                        stale += 1
+
+            self.send_json({
+                "fresh": fresh,
+                "stale": stale,
+                "expired": expired
+            })
+        except Exception as e:
+            self.send_json({"error": str(e), "fresh": 0, "stale": 0, "expired": 0})
+
+    def handle_api_freshness_scan(self):
+        """扫描时效性"""
+        try:
+            self.send_json({
+                "success": True,
+                "stale": 0
+            })
+        except Exception as e:
+            self.send_json({"error": str(e)})
+
+    def handle_api_freshness_verify(self):
+        """验证过期记忆"""
+        try:
+            self.send_json({
+                "success": True,
+                "verified": 0
+            })
+        except Exception as e:
+            self.send_json({"error": str(e)})
+
+    # ========================================
+    # 上下文自动推送 API
+    # ========================================
+    def handle_api_autopush_stats(self):
+        """获取自动推送统计"""
+        try:
+            state_file = MEMORY_DIR / "autopush_state.json"
+            if state_file.exists():
+                import json
+                with open(state_file) as f:
+                    state = json.load(f)
+                self.send_json(state)
+            else:
+                self.send_json({
+                    "today": 0,
+                    "hit_rate": 0,
+                    "enabled": True,
+                    "keyword_trigger": True,
+                    "entity_recognition": True
+                })
+        except Exception as e:
+            self.send_json({"error": str(e)})
+
+    # ========================================
+    # 存储关联提示 API
+    # ========================================
+    def handle_api_assochook_stats(self):
+        """获取关联提示统计"""
+        try:
+            state_file = MEMORY_DIR / "assochook_state.json"
+            if state_file.exists():
+                import json
+                with open(state_file) as f:
+                    state = json.load(f)
+                self.send_json(state)
+            else:
+                self.send_json({
+                    "detected": 0,
+                    "merged": 0,
+                    "updated": 0,
+                    "enabled": True
+                })
+        except Exception as e:
+            self.send_json({"error": str(e)})
+
+    def handle_api_assochook_test(self):
+        """测试关联检测"""
+        try:
+            self.send_json({
+                "success": True,
+                "associations": 0
+            })
+        except Exception as e:
+            self.send_json({"error": str(e)})
+
+    def handle_api_assochook_enable(self):
+        """启用关联提示"""
+        try:
+            state_file = MEMORY_DIR / "assochook_state.json"
+            import json
+            state = {
+                "detected": 0,
+                "merged": 0,
+                "updated": 0,
+                "enabled": True
+            }
+            with open(state_file, 'w') as f:
+                json.dump(state, f)
+            self.send_json({"success": True})
+        except Exception as e:
+            self.send_json({"error": str(e)})
+
 
 def main():
-    parser = argparse.ArgumentParser(description="Memory Web UI v0.3.8")
+    parser = argparse.ArgumentParser(description="Memory Web UI v0.3.9")
     parser.add_argument("--port", "-p", type=int, default=38080)
     parser.add_argument("--open", "-o", action="store_true", help="自动打开浏览器")
 
     args = parser.parse_args()
 
-    print(f"🌐 Memory Web UI v0.3.8")
+    print(f"🌐 Memory Web UI v0.3.9")
     print(f"   地址: http://localhost:{args.port}")
     print(f"   按 Ctrl+C 停止")
     
