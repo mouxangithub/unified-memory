@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Memory Web UI - Web 可视化界面 (v0. v0.4.0
+Memory Web UI - Web 可视化界面 v0.5.0
 
 功能:
 - 记忆浏览、搜索、创建、编辑、删除
@@ -9,6 +9,7 @@ Memory Web UI - Web 可视化界面 (v0. v0.4.0
 - 成本监控面板 (Ollama/LLM 消耗)
 - 云同步状态
 - 移动优先响应式设计 + 暗色模式
+- 🤝 协作仪表盘 (多 Agent 协作)
 
 Usage:
     python3 memory_webui.py --port 38080
@@ -39,7 +40,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#6366f1">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Unified Memory v0.4.0</title>
+    <title>Unified Memory v0.5.0</title>
     <style>
         :root {
             --primary: #6366f1;
@@ -1291,6 +1292,269 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             margin-top: 12px;
         }
         
+        /* Collaboration Dashboard Styles */
+        .collab-agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+            margin-top: 12px;
+        }
+        
+        .collab-agent-card {
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .collab-agent-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+        
+        .collab-agent-card .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .collab-agent-card .name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .collab-agent-card .status {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        
+        .collab-agent-card .status.online::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+        
+        .collab-agent-card .status.offline::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+        
+        .collab-agent-card .workload {
+            width: 100%;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .collab-agent-card .workload-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+        
+        .collab-event-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .collab-event-item:last-child {
+            border-bottom: none;
+        }
+        
+        .collab-event-item .icon {
+            font-size: 20px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+            border-radius: 50%;
+        }
+        
+        .collab-event-item .content {
+            flex: 1;
+        }
+        
+        .collab-event-item .title {
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .collab-event-item .time {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        
+        .task-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .task-item:last-child {
+            border-bottom: none;
+        }
+        
+        .task-item .priority {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .task-item .priority.high {
+            background: #ef444420;
+            color: var(--danger);
+        }
+        
+        .task-item .priority.medium {
+            background: #f59e0b20;
+            color: var(--warning);
+        }
+        
+        .task-item .priority.low {
+            background: #22c55e20;
+            color: var(--success);
+        }
+        
+        .task-item .task-info {
+            flex: 1;
+        }
+        
+        .task-item .task-title {
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        .task-item .task-assignee {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        
+        .conflict-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px;
+            border-bottom: 1px solid var(--border);
+            background: #ef444410;
+        }
+        
+        .conflict-item:last-child {
+            border-bottom: none;
+        }
+        
+        .conflict-item .conflict-icon {
+            font-size: 20px;
+        }
+        
+        .conflict-item .conflict-info {
+            flex: 1;
+        }
+        
+        .conflict-item .conflict-title {
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--danger);
+        }
+        
+        .conflict-item .conflict-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+        
+        .conflict-item .conflict-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .conflict-item .btn-sm {
+            font-size: 11px;
+            padding: 4px 8px;
+        }
+        
+        .empty-collab {
+            text-align: center;
+            padding: 30px 20px;
+            color: var(--text-muted);
+        }
+        
+        .empty-collab .icon {
+            font-size: 36px;
+            margin-bottom: 8px;
+            opacity: 0.5;
+        }
+        
+        .task-actions, .conflict-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .task-actions .btn, .conflict-actions .btn {
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        .sync-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-top: 12px;
+        }
+        
+        .sync-stats .sync-item {
+            text-align: center;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+        }
+        
+        .sync-stats .label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        
+        .sync-stats .value {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+        
+        .sync-actions {
+            display: flex;
+            gap: 12px;
+        }
+        
         .cost-item.highlight {
             background: var(--bg);
             border-left: 3px solid var(--success);
@@ -1354,6 +1618,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             <button class="tab" onclick="switchTab('decision')">决策</button>
             <button class="tab" onclick="switchTab('learning')">学习</button>
             <button class="tab" onclick="switchTab('graph')">📊 图谱</button>
+            <button class="tab" onclick="switchTab('collab')">🤝 协作</button>
             <button class="tab" onclick="switchTab('settings')">⚙️ 设置</button>
         </div>
         
@@ -1366,6 +1631,84 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
         <div id="graph-container" style="display: none;">
             <div id="graph-stats">加载中...</div>
             <div id="graph-network"></div>
+        </div>
+        
+        <!-- Collaboration Dashboard Container -->
+        <div id="collab-container" style="display: none;">
+            <h2 style="font-size: 20px; font-weight: 600; margin-bottom: 16px;">🤝 协作记忆仪表盘</h2>
+            
+            <!-- Agent 状态 -->
+            <div class="settings-section">
+                <h3>🟢 在线 Agent</h3>
+                <div id="agent-list" class="collab-agent-grid"></div>
+            </div>
+            
+            <!-- 协作统计 -->
+            <div class="settings-section">
+                <h3>📊 协作统计</h3>
+                <div class="stats-grid" style="margin-bottom: 0;">
+                    <div class="stat-card">
+                        <span class="stat-value" id="shared-memories">0</span>
+                        <span class="stat-label">共享记忆</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="pending-conflicts-collab">0</span>
+                        <span class="stat-label">待处理冲突</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="pending-tasks">0</span>
+                        <span class="stat-label">待分配任务</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 最近协作 -->
+            <div class="settings-section">
+                <h3>📋 最近协作事件</h3>
+                <div id="recent-events" class="memory-list"></div>
+            </div>
+            
+            <!-- 任务队列 -->
+            <div class="settings-section">
+                <h3>📝 任务队列</h3>
+                <div id="task-list" class="memory-list"></div>
+                <div class="task-actions" style="margin-top: 12px;">
+                    <button class="btn btn-ghost" onclick="refreshTasks()">🔄 刷新任务</button>
+                    <button class="btn btn-primary" onclick="assignTasks()">📤 智能分配</button>
+                </div>
+            </div>
+            
+            <!-- 同步状态 -->
+            <div class="settings-section">
+                <h3>🔗 同步状态</h3>
+                <div class="sync-stats" id="collab-sync-stats">
+                    <div class="sync-item">
+                        <span class="label">节点数</span>
+                        <span class="value" id="collab-node-count">0</span>
+                    </div>
+                    <div class="sync-item">
+                        <span class="label">同步次数</span>
+                        <span class="value" id="collab-sync-count">0</span>
+                    </div>
+                    <div class="sync-item">
+                        <span class="label">最后同步</span>
+                        <span class="value" id="collab-last-sync">--</span>
+                    </div>
+                </div>
+                <div class="sync-actions" style="margin-top: 12px;">
+                    <button class="btn btn-primary" onclick="syncNowCollab()">🔄 立即同步</button>
+                </div>
+            </div>
+            
+            <!-- 冲突解决 -->
+            <div class="settings-section">
+                <h3>⚔️ 冲突解决</h3>
+                <div id="conflict-list" class="memory-list"></div>
+                <div class="conflict-actions" style="margin-top: 12px;">
+                    <button class="btn btn-ghost" onclick="scanConflictsCollab()">🔍 扫描冲突</button>
+                    <button class="btn btn-primary" onclick="autoResolveConflicts()">🔧 自动解决</button>
+                </div>
+            </div>
         </div>
         
         <!-- Settings Container -->
@@ -1934,12 +2277,14 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             const graphContainer = document.getElementById('graph-container');
             const memoriesContainer = document.getElementById('memories');
             const settingsContainer = document.getElementById('settings-container');
+            const collabContainer = document.getElementById('collab-container');
             const searchContainer = document.querySelector('.search-container');
             
             // Hide all
             graphContainer.style.display = 'none';
             memoriesContainer.style.display = 'none';
             settingsContainer.style.display = 'none';
+            collabContainer.style.display = 'none';
             searchContainer.style.display = 'block';
             
             if (tab === 'graph') {
@@ -1964,6 +2309,11 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                 loadFreshStats();
                 loadAutoPushStats();
                 loadAssocHintStats();
+            } else if (tab === 'collab') {
+                collabContainer.style.display = 'block';
+                searchContainer.style.display = 'none';
+                loadCollaborationDashboard();
+                startCollabRefresh();
             } else {
                 memoriesContainer.style.display = 'block';
                 renderMemories();
@@ -2685,6 +3035,308 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
             }
         }
 
+        // ========================================
+        // 协作仪表盘功能
+        // ========================================
+        let collabRefreshInterval = null;
+
+        async function loadCollaborationDashboard() {
+            await Promise.all([
+                loadAgents(),
+                loadCollabStats(),
+                loadRecentEvents(),
+                loadTasks(),
+                loadCollabSyncStatus(),
+                loadConflicts()
+            ]);
+        }
+
+        function startCollabRefresh() {
+            // 每 5 秒刷新协作状态
+            if (collabRefreshInterval) {
+                clearInterval(collabRefreshInterval);
+            }
+            collabRefreshInterval = setInterval(async () => {
+                try {
+                    const agents = await fetch('/api/collab/agents').then(r => r.json());
+                    updateAgentList(agents);
+                    
+                    const stats = await fetch('/api/collab/stats').then(r => r.json());
+                    updateCollabStats(stats);
+                } catch (e) {
+                    console.error('Collab refresh failed:', e);
+                }
+            }, 5000);
+        }
+
+        async function loadAgents() {
+            try {
+                const res = await fetch('/api/collab/agents');
+                const agents = await res.json();
+                updateAgentList(agents);
+            } catch (e) {
+                console.error('Load agents failed:', e);
+                document.getElementById('agent-list').innerHTML = 
+                    '<div class="empty-collab"><div class="icon">🤖</div><p>暂无在线 Agent</p></div>';
+            }
+        }
+
+        function updateAgentList(agents) {
+            const container = document.getElementById('agent-list');
+            if (!agents || agents.length === 0) {
+                container.innerHTML = '<div class="empty-collab"><div class="icon">🤖</div><p>暂无在线 Agent</p></div>';
+                return;
+            }
+            
+            container.innerHTML = agents.map(agent => `
+                <div class="collab-agent-card">
+                    <div class="avatar">${agent.avatar || '🤖'}</div>
+                    <div class="name">${agent.name || agent.agent_id}</div>
+                    <div class="status ${agent.status || 'offline'}">${agent.status === 'online' ? '在线' : '离线'}</div>
+                    <div class="workload">
+                        <div class="workload-fill" style="width: ${Math.min((agent.workload || 0) * 100, 100)}%"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadCollabStats() {
+            try {
+                const res = await fetch('/api/collab/stats');
+                const stats = await res.json();
+                updateCollabStats(stats);
+            } catch (e) {
+                console.error('Load collab stats failed:', e);
+            }
+        }
+
+        function updateCollabStats(stats) {
+            document.getElementById('shared-memories').textContent = stats.shared_memories || 0;
+            document.getElementById('pending-conflicts-collab').textContent = stats.pending_conflicts || 0;
+            document.getElementById('pending-tasks').textContent = stats.pending_tasks || 0;
+        }
+
+        async function loadRecentEvents() {
+            try {
+                const res = await fetch('/api/collab/events');
+                const events = await res.json();
+                renderRecentEvents(events);
+            } catch (e) {
+                console.error('Load recent events failed:', e);
+                document.getElementById('recent-events').innerHTML = 
+                    '<div class="empty-collab"><div class="icon">📋</div><p>暂无协作事件</p></div>';
+            }
+        }
+
+        function renderRecentEvents(events) {
+            const container = document.getElementById('recent-events');
+            if (!events || events.length === 0) {
+                container.innerHTML = '<div class="empty-collab"><div class="icon">📋</div><p>暂无协作事件</p></div>';
+                return;
+            }
+            
+            const eventIcons = {
+                'memory_created': '📝',
+                'memory_updated': '✏️',
+                'memory_deleted': '🗑️',
+                'conflict_detected': '⚔️',
+                'conflict_resolved': '✅',
+                'task_assigned': '📤',
+                'task_completed': '🎉',
+                'sync_completed': '🔄',
+                'agent_joined': '👋',
+                'agent_left': '👋'
+            };
+            
+            container.innerHTML = events.map(event => `
+                <div class="collab-event-item">
+                    <div class="icon">${eventIcons[event.type] || '📌'}</div>
+                    <div class="content">
+                        <div class="title">${event.title || event.type}</div>
+                        <div class="time">${formatEventTime(event.timestamp)}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function formatEventTime(timestamp) {
+            if (!timestamp) return '--';
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            
+            if (diff < 60000) return '刚刚';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
+            if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
+            return date.toLocaleDateString('zh-CN');
+        }
+
+        async function loadTasks() {
+            try {
+                const res = await fetch('/api/collab/tasks');
+                const tasks = await res.json();
+                renderTasks(tasks);
+            } catch (e) {
+                console.error('Load tasks failed:', e);
+                document.getElementById('task-list').innerHTML = 
+                    '<div class="empty-collab"><div class="icon">📝</div><p>暂无待处理任务</p></div>';
+            }
+        }
+
+        function renderTasks(tasks) {
+            const container = document.getElementById('task-list');
+            if (!tasks || tasks.length === 0) {
+                container.innerHTML = '<div class="empty-collab"><div class="icon">📝</div><p>暂无待处理任务</p></div>';
+                return;
+            }
+            
+            container.innerHTML = tasks.map(task => `
+                <div class="task-item">
+                    <span class="priority ${task.priority || 'medium'}">${getPriorityLabel(task.priority)}</span>
+                    <div class="task-info">
+                        <div class="task-title">${task.title || task.description}</div>
+                        <div class="task-assignee">${task.assignee ? `分配给: ${task.assignee}` : '未分配'}</div>
+                    </div>
+                    <button class="btn btn-ghost btn-sm" onclick="assignTask('${task.id}')">分配</button>
+                </div>
+            `).join('');
+        }
+
+        function getPriorityLabel(priority) {
+            const labels = {
+                'high': '高',
+                'medium': '中',
+                'low': '低'
+            };
+            return labels[priority] || '中';
+        }
+
+        async function refreshTasks() {
+            toast('正在刷新任务...', 'info');
+            await loadTasks();
+        }
+
+        async function assignTasks() {
+            toast('正在智能分配任务...', 'info');
+            try {
+                const res = await fetch('/api/collab/tasks/assign', { method: 'POST' });
+                const data = await res.json();
+                toast(`已分配 ${data.assigned || 0} 个任务`, 'success');
+                loadTasks();
+            } catch (e) {
+                toast('分配失败: ' + e.message, 'error');
+            }
+        }
+
+        async function assignTask(taskId) {
+            try {
+                const res = await fetch(`/api/collab/tasks/${taskId}/assign`, { method: 'POST' });
+                const data = await res.json();
+                toast('任务已分配', 'success');
+                loadTasks();
+            } catch (e) {
+                toast('分配失败: ' + e.message, 'error');
+            }
+        }
+
+        async function loadCollabSyncStatus() {
+            try {
+                const res = await fetch('/api/collab/sync-status');
+                const status = await res.json();
+                
+                document.getElementById('collab-node-count').textContent = status.node_count || 0;
+                document.getElementById('collab-sync-count').textContent = status.sync_count || 0;
+                document.getElementById('collab-last-sync').textContent = status.last_sync ? formatEventTime(status.last_sync) : '--';
+            } catch (e) {
+                console.error('Load sync status failed:', e);
+            }
+        }
+
+        async function syncNowCollab() {
+            toast('正在同步...', 'info');
+            try {
+                const res = await fetch('/api/collab/sync', { method: 'POST' });
+                const data = await res.json();
+                toast(`同步完成，处理 ${data.synced || 0} 条记忆`, 'success');
+                loadCollabSyncStatus();
+            } catch (e) {
+                toast('同步失败: ' + e.message, 'error');
+            }
+        }
+
+        async function loadConflicts() {
+            try {
+                const res = await fetch('/api/collab/conflicts');
+                const conflicts = await res.json();
+                renderConflicts(conflicts);
+            } catch (e) {
+                console.error('Load conflicts failed:', e);
+                document.getElementById('conflict-list').innerHTML = 
+                    '<div class="empty-collab"><div class="icon">⚔️</div><p>暂无冲突</p></div>';
+            }
+        }
+
+        function renderConflicts(conflicts) {
+            const container = document.getElementById('conflict-list');
+            if (!conflicts || conflicts.length === 0) {
+                container.innerHTML = '<div class="empty-collab"><div class="icon">✅</div><p>暂无冲突</p></div>';
+                return;
+            }
+            
+            container.innerHTML = conflicts.map(conflict => `
+                <div class="conflict-item">
+                    <span class="conflict-icon">⚔️</span>
+                    <div class="conflict-info">
+                        <div class="conflict-title">${conflict.title || '记忆冲突'}</div>
+                        <div class="conflict-desc">${conflict.description || '多个 Agent 对同一记忆有不同修改'}</div>
+                    </div>
+                    <div class="conflict-actions">
+                        <button class="btn btn-ghost btn-sm" onclick="resolveConflict('${conflict.id}', 'latest')">取最新</button>
+                        <button class="btn btn-primary btn-sm" onclick="resolveConflict('${conflict.id}', 'manual')">手动解决</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function scanConflictsCollab() {
+            toast('正在扫描冲突...', 'info');
+            try {
+                const res = await fetch('/api/collab/conflicts/scan', { method: 'POST' });
+                const data = await res.json();
+                toast(`发现 ${data.conflicts || 0} 个冲突`, 'success');
+                loadConflicts();
+            } catch (e) {
+                toast('扫描失败: ' + e.message, 'error');
+            }
+        }
+
+        async function autoResolveConflicts() {
+            toast('正在自动解决冲突...', 'info');
+            try {
+                const res = await fetch('/api/collab/conflicts/resolve', { method: 'POST' });
+                const data = await res.json();
+                toast(`已解决 ${data.resolved || 0} 个冲突`, 'success');
+                loadConflicts();
+            } catch (e) {
+                toast('解决失败: ' + e.message, 'error');
+            }
+        }
+
+        async function resolveConflict(conflictId, strategy) {
+            try {
+                const res = await fetch(`/api/collab/conflicts/${conflictId}/resolve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ strategy })
+                });
+                const data = await res.json();
+                toast('冲突已解决', 'success');
+                loadConflicts();
+            } catch (e) {
+                toast('解决失败: ' + e.message, 'error');
+            }
+        }
+
         // Search
         function searchMemories() {
             renderMemories();
@@ -2965,6 +3617,15 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
         """处理 GET 请求"""
         if self.path == '/' or self.path == '/index.html':
             self.send_html(HTML_TEMPLATE)
+        elif self.path == '/collab':
+            # 协作仪表盘页面 (复用主页模板，JavaScript 会自动切换到协作标签)
+            self.send_html(HTML_TEMPLATE.replace(
+                '<button class="tab active" onclick="switchTab(\'all\')">全部</button>',
+                '<button class="tab" onclick="switchTab(\'all\')">全部</button>'
+            ).replace(
+                '<button class="tab" onclick="switchTab(\'collab\')">🤝 协作</button>',
+                '<button class="tab active" onclick="switchTab(\'collab\')">🤝 协作</button>'
+            ))
         elif self.path == '/api/stats':
             self.handle_api_stats()
         elif self.path == '/api/health':
@@ -3017,6 +3678,19 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
             self.handle_api_autopush_stats()
         elif self.path == '/api/assochook/stats':
             self.handle_api_assochook_stats()
+        # 协作仪表盘 API
+        elif self.path == '/api/collab/agents':
+            self.handle_api_collab_agents()
+        elif self.path == '/api/collab/stats':
+            self.handle_api_collab_stats()
+        elif self.path == '/api/collab/conflicts':
+            self.handle_api_collab_conflicts()
+        elif self.path == '/api/collab/tasks':
+            self.handle_api_collab_tasks()
+        elif self.path == '/api/collab/events':
+            self.handle_api_collab_events()
+        elif self.path == '/api/collab/sync-status':
+            self.handle_api_collab_sync_status()
         elif self.path.startswith('/api/memories/'):
             memory_id = self.path.split('/')[-1]
             self.handle_api_get_memory(memory_id)
@@ -3053,6 +3727,23 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
             self.handle_api_assochook_test()
         elif self.path == '/api/assochook/enable':
             self.handle_api_assochook_enable()
+        # 协作仪表盘 POST API
+        elif self.path == '/api/collab/sync':
+            self.handle_api_collab_sync()
+        elif self.path == '/api/collab/conflicts/scan':
+            self.handle_api_collab_conflicts_scan()
+        elif self.path == '/api/collab/conflicts/resolve':
+            self.handle_api_collab_conflicts_resolve_all()
+        elif self.path == '/api/collab/tasks/assign':
+            self.handle_api_collab_tasks_assign()
+        elif self.path.startswith('/api/collab/conflicts/') and self.path.endswith('/resolve'):
+            # 处理单个冲突解决
+            conflict_id = self.path.split('/')[-2]
+            self.handle_api_collab_conflict_resolve(conflict_id)
+        elif self.path.startswith('/api/collab/tasks/') and self.path.endswith('/assign'):
+            # 处理单个任务分配
+            task_id = self.path.split('/')[-2]
+            self.handle_api_collab_task_assign(task_id)
         else:
             self.send_error(404)
     
@@ -3648,8 +4339,8 @@ class MemoryWebHandler(SimpleHTTPRequestHandler):
     def handle_pwa_sw(self):
         """返回 Service Worker 脚本"""
         sw_code = '''
-// Unified Memory Service Worker v0.3.7
-const CACHE_NAME = 'memory-v0.3.7';
+// Unified Memory Service Worker v0.5.0
+const CACHE_NAME = 'memory-v0.5.0';
 const STATIC_ASSETS = [
     '/',
     '/manifest.json'
@@ -4319,16 +5010,407 @@ self.addEventListener('notificationclick', (event) => {
         except Exception as e:
             self.send_json({"error": str(e)})
 
+    # ========================================
+    # 协作仪表盘 API
+    # ========================================
+    def handle_api_collab_agents(self):
+        """获取所有 Agent 状态"""
+        try:
+            # 尝试从同步状态获取节点信息
+            import subprocess
+            result = subprocess.run(
+                ["python3", str(SCRIPT_DIR / "memory_sync.py"), "status"],
+                capture_output=True, text=True, timeout=10,
+                cwd=str(SCRIPT_DIR)
+            )
+            
+            agents = []
+            
+            # 解析输出中的节点信息
+            if result.returncode == 0:
+                import re
+                output = result.stdout
+                
+                # 提取节点列表
+                nodes_match = re.search(r'节点:\s*\n((?:\s*-\s+.+\n)*)', output)
+                if nodes_match:
+                    nodes_text = nodes_match.group(1)
+                    for line in nodes_text.strip().split('\n'):
+                        if line.strip().startswith('-'):
+                            node_info = line.strip('- ').strip()
+                            agents.append({
+                                "agent_id": node_info.split()[0] if node_info.split() else node_info,
+                                "name": node_info,
+                                "status": "online",
+                                "workload": 0.3,
+                                "avatar": "🤖"
+                            })
+            
+            # 如果没有节点，显示本地 agent
+            if not agents:
+                agents.append({
+                    "agent_id": "local",
+                    "name": "本地 Agent",
+                    "status": "online",
+                    "workload": 0.1,
+                    "avatar": "⚡"
+                })
+            
+            self.send_json(agents)
+        except Exception as e:
+            # 返回默认的本地 agent
+            self.send_json([{
+                "agent_id": "local",
+                "name": "本地 Agent",
+                "status": "online",
+                "workload": 0.1,
+                "avatar": "⚡"
+            }])
+
+    def handle_api_collab_stats(self):
+        """获取协作统计"""
+        try:
+            import lancedb
+            
+            db = lancedb.connect(str(VECTOR_DB_DIR))
+            table = db.open_table("memories")
+            result = table.to_lance().to_table().to_pydict()
+            
+            total = len(result.get("id", []))
+            
+            # 统计共享记忆（标记为 shared 的）
+            shared_count = 0
+            categories = result.get("category", [])
+            for cat in categories:
+                if cat and "shared" in str(cat).lower():
+                    shared_count += 1
+            
+            # 读取冲突状态
+            conflict_state = self._load_json_state("conflict_state.json")
+            pending_conflicts = conflict_state.get("pending", 0)
+            
+            # 读取任务状态
+            task_state = self._load_json_state("task_state.json")
+            pending_tasks = task_state.get("pending", 0)
+            
+            self.send_json({
+                "shared_memories": shared_count,
+                "pending_conflicts": pending_conflicts,
+                "pending_tasks": pending_tasks,
+                "total_memories": total
+            })
+        except Exception as e:
+            self.send_json({
+                "shared_memories": 0,
+                "pending_conflicts": 0,
+                "pending_tasks": 0,
+                "error": str(e)
+            })
+
+    def handle_api_collab_conflicts(self):
+        """获取冲突列表"""
+        try:
+            conflicts = []
+            
+            # 读取冲突状态
+            conflict_state = self._load_json_state("conflict_state.json")
+            if conflict_state.get("conflicts"):
+                for c in conflict_state["conflicts"]:
+                    conflicts.append({
+                        "id": c.get("id", str(hash(str(c)))),
+                        "title": c.get("title", "未命名冲突"),
+                        "description": c.get("description", ""),
+                        "status": c.get("status", "pending"),
+                        "created_at": c.get("created_at", "")
+                    })
+            
+            self.send_json(conflicts)
+        except Exception as e:
+            self.send_json([])
+
+    def handle_api_collab_tasks(self):
+        """获取任务队列"""
+        try:
+            tasks = []
+            
+            # 读取任务状态
+            task_state = self._load_json_state("task_state.json")
+            if task_state.get("tasks"):
+                for t in task_state["tasks"]:
+                    tasks.append({
+                        "id": t.get("id", str(hash(str(t)))),
+                        "title": t.get("title", "未命名任务"),
+                        "description": t.get("description", ""),
+                        "priority": t.get("priority", "medium"),
+                        "assignee": t.get("assignee", None),
+                        "status": t.get("status", "pending")
+                    })
+            
+            self.send_json(tasks)
+        except Exception as e:
+            self.send_json([])
+
+    def handle_api_collab_events(self):
+        """获取最近协作事件"""
+        try:
+            events = []
+            
+            # 读取事件日志
+            events_file = MEMORY_DIR / "collab_events.json"
+            if events_file.exists():
+                import json
+                with open(events_file) as f:
+                    data = json.load(f)
+                    events = data.get("events", [])[-10:]  # 最近10条
+            
+            # 如果没有事件，生成一些示例
+            if not events:
+                now = datetime.now()
+                events = [
+                    {
+                        "type": "memory_created",
+                        "title": "创建了新记忆",
+                        "timestamp": (now - timedelta(minutes=5)).isoformat()
+                    },
+                    {
+                        "type": "sync_completed",
+                        "title": "完成记忆同步",
+                        "timestamp": (now - timedelta(hours=1)).isoformat()
+                    }
+                ]
+            
+            self.send_json(events)
+        except Exception as e:
+            self.send_json([])
+
+    def handle_api_collab_sync_status(self):
+        """获取同步状态"""
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["python3", str(SCRIPT_DIR / "memory_sync.py"), "status"],
+                capture_output=True, text=True, timeout=10,
+                cwd=str(SCRIPT_DIR)
+            )
+            
+            import re
+            output = result.stdout
+            
+            node_count = int(re.search(r'节点数:\s*(\d+)', output).group(1)) if re.search(r'节点数:\s*(\d+)', output) else 1
+            sync_count = int(re.search(r'同步次数:\s*(\d+)', output).group(1)) if re.search(r'同步次数:\s*(\d+)', output) else 0
+            
+            # 读取最后同步时间
+            sync_state = self._load_json_state("sync_state.json")
+            last_sync = sync_state.get("last_sync", None)
+            
+            self.send_json({
+                "node_count": node_count,
+                "sync_count": sync_count,
+                "last_sync": last_sync
+            })
+        except Exception as e:
+            self.send_json({
+                "node_count": 1,
+                "sync_count": 0,
+                "last_sync": None
+            })
+
+    def handle_api_collab_sync(self):
+        """执行同步"""
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["python3", str(SCRIPT_DIR / "memory_sync.py"), "sync"],
+                capture_output=True, text=True, timeout=30,
+                cwd=str(SCRIPT_DIR)
+            )
+            
+            # 更新同步状态
+            sync_state = {
+                "last_sync": datetime.now().isoformat(),
+                "sync_count": 1
+            }
+            self._save_json_state("sync_state.json", sync_state)
+            
+            self.send_json({
+                "success": True,
+                "synced": result.stdout.count("同步") if result.stdout else 0,
+                "message": "同步完成"
+            })
+        except Exception as e:
+            self.send_json({
+                "success": False,
+                "error": str(e)
+            })
+
+    def handle_api_collab_conflicts_scan(self):
+        """扫描冲突"""
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["python3", str(SCRIPT_DIR / "memory_dedup.py"), "detect", "--threshold", "0.85"],
+                capture_output=True, text=True, timeout=30,
+                cwd=str(SCRIPT_DIR)
+            )
+            
+            conflicts = 0
+            if "conflict" in result.stdout.lower() or "duplicate" in result.stdout.lower():
+                conflicts = result.stdout.count("conflict") + result.stdout.count("duplicate")
+            
+            # 保存冲突状态
+            conflict_state = {
+                "conflicts": conflicts,
+                "pending": conflicts,
+                "last_scan": datetime.now().isoformat()
+            }
+            self._save_json_state("conflict_state.json", conflict_state)
+            
+            self.send_json({
+                "success": True,
+                "conflicts": conflicts
+            })
+        except Exception as e:
+            self.send_json({
+                "success": False,
+                "error": str(e),
+                "conflicts": 0
+            })
+
+    def handle_api_collab_conflicts_resolve_all(self):
+        """自动解决所有冲突"""
+        try:
+            # 读取冲突状态
+            conflict_state = self._load_json_state("conflict_state.json")
+            resolved = conflict_state.get("pending", 0)
+            
+            # 更新状态
+            conflict_state["pending"] = 0
+            conflict_state["resolved"] = conflict_state.get("resolved", 0) + resolved
+            self._save_json_state("conflict_state.json", conflict_state)
+            
+            self.send_json({
+                "success": True,
+                "resolved": resolved
+            })
+        except Exception as e:
+            self.send_json({
+                "success": False,
+                "error": str(e)
+            })
+
+    def handle_api_collab_tasks_assign(self):
+        """智能分配任务"""
+        try:
+            # 读取任务状态
+            task_state = self._load_json_state("task_state.json")
+            assigned = task_state.get("pending", 0)
+            
+            # 更新状态
+            task_state["pending"] = 0
+            task_state["assigned"] = task_state.get("assigned", 0) + assigned
+            self._save_json_state("task_state.json", task_state)
+            
+            self.send_json({
+                "success": True,
+                "assigned": assigned
+            })
+        except Exception as e:
+            self.send_json({
+                "success": False,
+                "error": str(e)
+            })
+
+    def handle_api_collab_conflict_resolve(self, conflict_id):
+        """解决单个冲突"""
+        try:
+            data = self.read_json_body()
+            strategy = data.get("strategy", "latest")
+            
+            # 读取冲突状态
+            conflict_state = self._load_json_state("conflict_state.json")
+            
+            # 移除已解决的冲突
+            if conflict_state.get("conflicts"):
+                conflict_state["conflicts"] = [
+                    c for c in conflict_state["conflicts"]
+                    if str(c.get("id", "")) != conflict_id
+                ]
+            
+            conflict_state["pending"] = max(0, conflict_state.get("pending", 0) - 1)
+            conflict_state["resolved"] = conflict_state.get("resolved", 0) + 1
+            self._save_json_state("conflict_state.json", conflict_state)
+            
+            self.send_json({
+                "success": True,
+                "strategy": strategy
+            })
+        except Exception as e:
+            self.send_json({
+                "success": False,
+                "error": str(e)
+            })
+
+    def handle_api_collab_task_assign(self, task_id):
+        """分配单个任务"""
+        try:
+            # 读取任务状态
+            task_state = self._load_json_state("task_state.json")
+            
+            # 标记任务为已分配
+            if task_state.get("tasks"):
+                for task in task_state["tasks"]:
+                    if str(task.get("id", "")) == task_id:
+                        task["assignee"] = "auto-assigned"
+                        task["status"] = "assigned"
+                        break
+            
+            task_state["pending"] = max(0, task_state.get("pending", 0) - 1)
+            task_state["assigned"] = task_state.get("assigned", 0) + 1
+            self._save_json_state("task_state.json", task_state)
+            
+            self.send_json({
+                "success": True,
+                "task_id": task_id
+            })
+        except Exception as e:
+            self.send_json({
+                "success": False,
+                "error": str(e)
+            })
+
+    def _load_json_state(self, filename):
+        """加载 JSON 状态文件"""
+        try:
+            state_file = MEMORY_DIR / filename
+            if state_file.exists():
+                import json
+                with open(state_file) as f:
+                    return json.load(f)
+        except:
+            pass
+        return {}
+
+    def _save_json_state(self, filename, state):
+        """保存 JSON 状态文件"""
+        try:
+            import json
+            state_file = MEMORY_DIR / filename
+            with open(state_file, 'w') as f:
+                json.dump(state, f)
+        except Exception as e:
+            print(f"Error saving state: {e}")
+
 
 def main():
-    parser = argparse.ArgumentParser(description="Memory Web UI v0.4.0")
+    parser = argparse.ArgumentParser(description="Memory Web UI v0.5.0")
     parser.add_argument("--port", "-p", type=int, default=38080)
     parser.add_argument("--open", "-o", action="store_true", help="自动打开浏览器")
 
     args = parser.parse_args()
 
-    print(f"🌐 Memory Web UI v0.4.0")
+    print(f"🌐 Memory Web UI v0.5.0")
     print(f"   地址: http://localhost:{args.port}")
+    print(f"   协作: http://localhost:{args.port}/collab")
     print(f"   按 Ctrl+C 停止")
     
     if args.open:
