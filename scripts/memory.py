@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Memory System 0.1.0 - Unified Entry (Complete)
+Memory System 0.4.1 - Unified Entry (Complete)
 
 Features:
 - Hierarchical Cache (MemoryHierarchy)
@@ -14,6 +14,7 @@ Features:
 - Data Import/Export (MemoryIO)
 - Advanced Search (MemorySearch)
 - Agent Integration (AgentIntegration)
+- Multi-Agent Perspective (v0.4.1)
 
 Usage:
     # Core
@@ -27,6 +28,11 @@ Usage:
     memory.py context --query "query" # Get context
     memory.py analyze --query "query" # Analyze & preload
     memory.py search --query "query"  # Advanced search
+    
+    # Multi-Agent Perspective (v0.4.1)
+    memory.py store "content" [--agent xiao-zhi]    # Store memory
+    memory.py search "query" [--agent xiao-zhi] [--shared-only]  # Search with perspective
+    memory.py stats                                 # Stats with perspective breakdown
     
     # Quality & Validation
     memory.py validate               # Validate memories
@@ -262,6 +268,173 @@ class MemorySystemV7:
         
         return result
     
+    def store(self, content: str, metadata: Dict = None, agent_perspective: str = None) -> Dict:
+        """
+        存储记忆，支持多 Agent 视角
+        
+        Args:
+            content: 记忆内容
+            metadata: 元数据
+            agent_perspective: Agent 视角
+                - None: 共享记忆 (默认)
+                - "xiao-zhi": 小智视角
+                - "xiao-liu": 小刘视角
+        
+        Returns:
+            存储结果
+        """
+        import uuid
+        
+        # 创建记忆条目
+        memory_id = str(uuid.uuid4())
+        timestamp = datetime.now().isoformat()
+        
+        memory_entry = {
+            "id": memory_id,
+            "content": content,
+            "timestamp": timestamp,
+            "metadata": metadata or {}
+        }
+        
+        # 添加视角标记
+        if agent_perspective:
+            memory_entry["agent_perspective"] = agent_perspective
+        
+        # 存储到向量数据库
+        stored_to_vector = False
+        if HAS_LANCEDB:
+            try:
+                db = lancedb.connect(str(VECTOR_DB_DIR))
+                try:
+                    table = db.open_table("memories")
+                except:
+                    # 创建新表
+                    import pyarrow as pa
+                    schema = pa.schema([
+                        pa.field("id", pa.string()),
+                        pa.field("content", pa.string()),
+                        pa.field("timestamp", pa.string()),
+                        pa.field("agent_perspective", pa.string()),
+                        pa.field("metadata", pa.string()),
+                    ])
+                    table = db.create_table("memories", schema=schema)
+                
+                # 添加记录
+                table.add([{
+                    "id": memory_id,
+                    "content": content,
+                    "timestamp": timestamp,
+                    "agent_perspective": agent_perspective or "",
+                    "metadata": json.dumps(metadata or {}, ensure_ascii=False)
+                }])
+                stored_to_vector = True
+            except Exception as e:
+                print(f"⚠️ 向量存储失败: {e}", file=sys.stderr)
+        
+        # 存储到 JSON 文件
+        self.memories.append(memory_entry)
+        try:
+            MEMORY_FILE.write_text(json.dumps(self.memories, ensure_ascii=False, indent=2))
+        except Exception as e:
+            print(f"⚠️ JSON 存储失败: {e}", file=sys.stderr)
+        
+        return {
+            "success": True,
+            "id": memory_id,
+            "content": content[:50] + "..." if len(content) > 50 else content,
+            "agent_perspective": agent_perspective,
+            "stored_to_vector": stored_to_vector,
+            "timestamp": timestamp
+        }
+    
+    def search(self, query: str, agent_perspective: str = None, 
+               shared_only: bool = False, limit: int = 10, **kwargs) -> List[Dict]:
+        """
+        搜索记忆，支持按视角过滤
+        
+        Args:
+            query: 搜索查询
+            agent_perspective: Agent 视角过滤
+                - None: 不过滤视角
+                - "xiao-zhi": 只看小智视角
+                - "xiao-liu": 只看小刘视角
+            shared_only: 是否只看共享记忆
+            limit: 返回结果数量
+        
+        Returns:
+            匹配的记忆列表
+        """
+        results = []
+        query_lower = query.lower()
+        
+        # 过滤记忆
+        filtered_memories = self.memories
+        
+        if shared_only:
+            # 只看共享记忆（没有 agent_perspective 字段的）
+            filtered_memories = [m for m in filtered_memories 
+                               if not m.get("agent_perspective")]
+        elif agent_perspective:
+            # 只看特定视角的记忆
+            filtered_memories = [m for m in filtered_memories 
+                               if m.get("agent_perspective") == agent_perspective]
+        
+        # 简单的关键词匹配搜索
+        for memory in filtered_memories:
+            # 兼容不同的字段名 (text 或 content)
+            content = memory.get("content", "") or memory.get("text", "")
+            if query_lower in content.lower():
+                # 添加置信度信息
+                memory_copy = dict(memory)
+                # 确保 content 字段存在
+                if "content" not in memory_copy and "text" in memory_copy:
+                    memory_copy["content"] = memory_copy["text"]
+                memory_copy["confidence"] = self.validator.get_confidence(memory.get("id"))
+                memory_copy["score"] = self.learner.get_memory_score(memory.get("id"))
+                results.append(memory_copy)
+                
+                if len(results) >= limit:
+                    break
+        
+        return results
+    
+    def stats_by_perspective(self) -> Dict:
+        """按视角统计"""
+        perspectives = {}
+        
+        for memory in self.memories:
+            perspective = memory.get("agent_perspective", "shared")
+            if perspective not in perspectives:
+                perspectives[perspective] = {
+                    "count": 0,
+                    "latest": None,
+                    "avg_confidence": 0
+                }
+            
+            perspectives[perspective]["count"] += 1
+            
+            # 更新最新时间
+            timestamp = memory.get("timestamp")
+            if timestamp:
+                if perspectives[perspective]["latest"] is None or timestamp > perspectives[perspective]["latest"]:
+                    perspectives[perspective]["latest"] = timestamp
+        
+        # 计算平均置信度
+        for perspective, stats in perspectives.items():
+            perspective_memories = [m for m in self.memories 
+                                  if m.get("agent_perspective", "shared") == perspective]
+            if perspective_memories:
+                confidences = []
+                for m in perspective_memories:
+                    conf = self.validator.get_confidence(m.get("id"))
+                    try:
+                        confidences.append(float(conf) if conf else 0.0)
+                    except (ValueError, TypeError):
+                        confidences.append(0.0)
+                stats["avg_confidence"] = sum(confidences) / len(confidences) if confidences else 0.0
+        
+        return perspectives
+    
     def stats(self) -> Dict:
         """详细统计"""
         hierarchy_stats = self.hierarchy.stats()
@@ -270,11 +443,13 @@ class MemorySystemV7:
         validator_stats = self.validator.stats()
         learner_stats = self.learner.stats()
         forgetter_stats = self.forgetter.stats()
+        perspective_stats = self.stats_by_perspective()
         
         return {
-            "system": "Memory 0.1.0",
-            "version": "0.4.0",
+            "system": "Memory 0.4.1",
+            "version": "0.4.1",
             "total_memories": len(self.memories),
+            "perspectives": perspective_stats,
             "hierarchy": hierarchy_stats,
             "knowledge_merger": merger_stats,
             "predictor": predictor_status,
@@ -291,11 +466,28 @@ class MemorySystemV7:
         v = self.validator.stats()
         l = self.learner.stats()
         f = self.forgetter.stats()
+        p = self.stats_by_perspective()
+        
+        # 视角统计
+        perspective_lines = []
+        for perspective, stats in p.items():
+            label = perspective if perspective != "shared" else "共享"
+            perspective_lines.append(f"  - {label}: {stats['count']} 条")
         
         lines = [
-            "🧠 Memory 0.1.0 完整状态",
+            "🧠 Memory 0.4.1 完整状态",
             "=" * 50,
             f"📚 总记忆: {len(self.memories)} 条",
+            "",
+            "👥 Agent 视角:",
+        ]
+        
+        if perspective_lines:
+            lines.extend(perspective_lines)
+        else:
+            lines.append("  暂无视角数据")
+        
+        lines.extend([
             "",
             "📊 分层缓存:",
             f"  🔥 L1 热: {h['L1_hot']['count']}/{h['L1_hot']['max_size']} (avg: {h['L1_hot']['avg_importance']})",
@@ -320,7 +512,7 @@ class MemorySystemV7:
             f"  已归档: {f['state'].get('archived_count', 0)}",
             f"  已压缩: {f['state'].get('compressed_count', 0)}",
             "=" * 50
-        ]
+        ])
         
         return "\n".join(lines)
 
@@ -330,19 +522,26 @@ class MemorySystemV7:
 # ============================================================
 
 def main():
-    parser = argparse.ArgumentParser(description="Memory System 0.1.0 (完整版)")
+    parser = argparse.ArgumentParser(description="Memory System 0.4.1 (完整版 + 多 Agent 视角)")
     parser.add_argument("command", choices=[
         "status", "init", "rebuild", "merge", "analyze", "context", 
-        "validate", "feedback", "forget", "stats", "webui"
+        "validate", "feedback", "forget", "stats", "webui",
+        "store", "search"  # v0.4.1 新增
     ])
+    # v0.4.1 新增：位置参数用于 store/search
+    parser.add_argument("content", nargs="?", help="内容 (store/search)")
     parser.add_argument("--query", "-q", help="查询内容")
     parser.add_argument("--max", type=int, default=10, help="最大记忆数")
     parser.add_argument("--dry-run", action="store_true", help="仅预览")
     parser.add_argument("--port", "-p", type=int, default=38080, help="Web UI 端口")
+    # v0.4.1 新增：Agent 视角参数
+    parser.add_argument("--agent", "-a", help="Agent 视角 (xiao-zhi, xiao-liu)")
+    parser.add_argument("--shared-only", action="store_true", help="只看共享记忆")
+    parser.add_argument("--metadata", "-m", help="元数据 (JSON 格式)")
     
     args = parser.parse_args()
     
-    print("🚀 启动 Memory 0.1.0 (完整版)...")
+    print("🚀 启动 Memory 0.4.1 (完整版 + 多 Agent 视角)...")
     mem = MemorySystemV7()
     
     if args.command == "status":
@@ -356,6 +555,76 @@ def main():
     
     elif args.command == "merge":
         mem.merge_knowledge()
+    
+    elif args.command == "store":
+        # v0.4.1 新增：存储记忆
+        if not args.content and not args.query:
+            print("❌ 请提供内容")
+            sys.exit(1)
+        
+        content = args.content or args.query
+        metadata = None
+        if args.metadata:
+            try:
+                metadata = json.loads(args.metadata)
+            except json.JSONDecodeError:
+                print("❌ 元数据格式错误，需要 JSON 格式")
+                sys.exit(1)
+        
+        result = mem.store(content, metadata=metadata, agent_perspective=args.agent)
+        
+        perspective_label = args.agent or "共享"
+        print(f"✅ 已存储记忆 [{perspective_label}]: {result['content']}")
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    
+    elif args.command == "search":
+        # v0.4.1 新增：搜索记忆
+        if not args.content and not args.query:
+            print("❌ 请提供查询内容")
+            sys.exit(1)
+        
+        query = args.content or args.query
+        
+        # 参数校验
+        if args.agent and args.shared_only:
+            print("⚠️ 同时指定 --agent 和 --shared-only，将只看共享记忆")
+        
+        results = mem.search(
+            query, 
+            agent_perspective=args.agent,
+            shared_only=args.shared_only,
+            limit=args.max
+        )
+        
+        # 输出结果
+        perspective_label = args.agent or ("共享" if args.shared_only else "全部")
+        print(f"🔍 搜索 [{perspective_label}]: {query}")
+        print(f"找到 {len(results)} 条匹配记忆:\n")
+        
+        for i, result in enumerate(results, 1):
+            perspective = result.get("agent_perspective", "shared")
+            confidence = result.get("confidence", 0)
+            score = result.get("score", 0)
+            timestamp = result.get("timestamp", "")
+            
+            # 确保数值类型
+            try:
+                confidence = float(confidence) if confidence else 0.0
+            except (ValueError, TypeError):
+                confidence = 0.0
+            try:
+                score = float(score) if score else 0.0
+            except (ValueError, TypeError):
+                score = 0.0
+            
+            print(f"{i}. [{perspective}] (置信度: {confidence:.2f}, 评分: {score:.2f})")
+            print(f"   {result.get('content', '')[:100]}...")
+            if timestamp:
+                print(f"   时间: {timestamp}")
+            print()
+        
+        if not results:
+            print("未找到匹配的记忆")
     
     elif args.command == "analyze":
         if not args.query:
@@ -389,6 +658,19 @@ def main():
     
     elif args.command == "stats":
         stats = mem.stats()
+        
+        # 显示视角统计
+        print("📊 视角统计:")
+        perspectives = stats.get("perspectives", {})
+        for perspective, pstats in perspectives.items():
+            perspective_label = perspective if perspective != "shared" else "共享记忆"
+            print(f"  - {perspective_label}: {pstats['count']} 条")
+            if pstats.get("latest"):
+                print(f"    最新: {pstats['latest']}")
+            if pstats.get("avg_confidence"):
+                print(f"    平均置信度: {pstats['avg_confidence']:.2f}")
+        print()
+        
         print(json.dumps(stats, ensure_ascii=False, indent=2))
     
     elif args.command == "webui":
