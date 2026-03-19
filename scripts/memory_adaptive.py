@@ -318,12 +318,12 @@ def main():
             print(f"   反馈: {args.feedback}")
     
     elif args.command == "decay":
-        print(f"⏳ 应用时间衰减 ({args.days} 天未更新)")
         results = adaptive.apply_time_decay(args.days)
         
         if args.json:
             print(json.dumps(results, ensure_ascii=False, indent=2))
         else:
+            print(f"⏳ 应用时间衰减 ({args.days} 天未更新)")
             print(f"   影响 {len(results)} 条记忆")
             for r in results[:5]:
                 print(f"   - {r['mem_id'][:8]}...: {r['before']:.3f} → {r['after']:.3f}")

@@ -2076,7 +2076,7 @@ HTML_TEMPLATE = '''<!DOCTYPE html>
                 const memories = await res.json();
                 
                 const backup = {
-                    version: '0.3.7',
+                    version: '0.4.0',
                     exported_at: new Date().toISOString(),
                     count: memories.length,
                     memories: memories

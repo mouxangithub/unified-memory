@@ -273,7 +273,7 @@ class MemorySystemV7:
         
         return {
             "system": "Memory 0.1.0",
-            "version": "0.1.0",
+            "version": "0.4.0",
             "total_memories": len(self.memories),
             "hierarchy": hierarchy_stats,
             "knowledge_merger": merger_stats,
