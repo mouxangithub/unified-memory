@@ -183,6 +183,23 @@ case "$1" in
     python3 "$SCRIPTS_DIR/memory_visualize.py" wordcloud
     ;;
   
+  task)
+    # 任务管理
+    python3 "$SCRIPTS_DIR/agent_task.py" ${2:-list} ${3:+--title "$3"} ${4:+--assignee "$4"}
+    ;;
+  
+  source)
+    # 来源存储
+    shift
+    python3 "$SCRIPTS_DIR/memory_source.py" "$@"
+    ;;
+  
+  collab)
+    # 协作日志
+    shift
+    python3 "$SCRIPTS_DIR/agent_collab.py" "$@"
+    ;;
+  
   *)
     echo "Memory Quick Commands v0.3.1"
     echo ""
@@ -236,6 +253,11 @@ case "$1" in
     echo "  mem privacy               # 隐私扫描"
     echo "  mem webui [port]          # 启动 Web UI"
     echo "  mem remind                # 检查提醒"
+    echo ""
+    echo "=== 协作功能 ==="
+    echo "  mem task [cmd] [title] [assignee]  # 任务管理"
+    echo "  mem source store --text --agent    # 来源存储"
+    echo "  mem collab [cmd]                   # 协作日志"
     echo ""
     echo "Total features: 60+"
     ;;

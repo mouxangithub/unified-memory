@@ -98,6 +98,12 @@ mem end "对话摘要"
 | **质量** | 置信度验证 | `mem validate` |
 | | 反馈学习 | `mem feedback` |
 | | 健康检查 | `mem health` |
+| **协作** | 多Agent共享 | `mem sync add-node --node-id "xiaoliu"` |
+| | 实时同步 | `mem realtime push --text "内容"` |
+| | 协作日志 | `mem collab log --from main --to xiaoliu` |
+| | 任务分配 | `mem task create --title "任务" --assignee "xiaoliu"` |
+| | 来源溯源 | `mem source store --text "内容" --agent "main"` |
+| | 同步状态 | `mem sync status` |
 | **高级** | 智能问答 | `mem ask "问题"` |
 | | 多模态记忆 | `mem store-image file.png` |
 | | 知识卡片 | `mem export --format card` |
@@ -147,6 +153,38 @@ mem load "查询"        # 加载记忆
 mem ask "问题"         # 智能问答
 mem health             # 健康报告
 mem webui 38080        # Web UI
+
+# 多Agent协作
+mem sync status        # 同步状态
+mem sync add-node -n "xiaoliu"  # 添加节点
+mem collab stats       # 协作统计
+
+# 实时同步
+mem realtime push --text "内容"  # 推送记忆
+mem realtime pull --node-id "main"  # 拉取记忆
+mem realtime status    # 同步状态
+mem realtime daemon    # 后台守护进程
+
+# 任务分配
+mem task create --title "任务" --assignee "xiaoliu" --creator "main"
+mem task list --agent "main"
+mem task update --task-id "xxx" --status "completed"
+mem task stats
+
+# 来源溯源
+mem source store --text "内容" --agent "main" --category "preference"
+mem source trace --memory-id "xxx"
+mem source stats
+
+# 智能协作建议
+mem suggest analyze --text "对话内容"
+mem suggest suggest --agent "main"
+mem suggest patterns
+
+# 协作效率分析
+mem analytics report
+mem analytics metrics
+mem analytics bottlenecks
 ```
 
 ---
