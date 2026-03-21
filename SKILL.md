@@ -1,4 +1,4 @@
-# unified-memory - 统一记忆系统 v0.6.0
+# unified-memory - 统一记忆系统 v0.7.0
 
 > 专为 AI Agent 设计的智能记忆系统，分层缓存、知识合并、主动预测、自动维护
 

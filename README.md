@@ -1,6 +1,6 @@
 # Unified Memory - AI Agent Memory System
 
-> **Version 0.6.0** | An intelligent memory system designed for AI Agents with hierarchical caching, knowledge merging, predictive loading, automatic maintenance, proactive injection, adaptive confidence, audit logging, multi-agent sync, and collaboration analytics.
+> **Version 0.7.0** | An intelligent memory system designed for AI Agents with hierarchical caching, knowledge merging, predictive loading, automatic maintenance, proactive injection, adaptive confidence, audit logging, multi-agent sync, and collaboration analytics.
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-Publish-green)](https://clawhub.com)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://python.org)
