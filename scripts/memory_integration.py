@@ -331,6 +331,21 @@ def session_end(conversation: str) -> Dict:
             except Exception as e:
                 log(f"⚠️ 建立关联失败: {e}")
         
+        # ===== 新增：去重检测 =====
+        try:
+            dedup_result = subprocess.run(
+                ["python3", str(WORKSPACE / "skills/unified-memory/scripts/memory_dedup.py"),
+                 "--json"],
+                capture_output=True, text=True, timeout=30
+            )
+            if dedup_result.returncode == 0:
+                dedup_data = json.loads(dedup_result.stdout)
+                if dedup_data:
+                    result["duplicates_found"] = len(dedup_data)
+                    log(f"✅ 发现 {len(dedup_data)} 条重复记忆")
+        except Exception as e:
+            log(f"⚠️ 去重检测失败: {e}")
+        
         # ===== 新增：应用衰减 =====
         try:
             from memory_decay import apply_decay_to_memories, get_decay_stats
@@ -392,7 +407,6 @@ def heartbeat() -> Dict:
             result["actions"].append(f"有 {len(result['reminders'])} 个即将到来的提醒")
         
         # ===== 新增：定期重建关联图谱 =====
-        # 每次心跳都尝试建立关联（内部有去重逻辑）
         try:
             assoc_result = subprocess.run(
                 ["python3", str(WORKSPACE / "skills/unified-memory/scripts/memory_association.py"),
@@ -404,6 +418,21 @@ def heartbeat() -> Dict:
                 result["actions"].append("关联图谱已更新")
         except Exception as e:
             log(f"⚠️ 关联构建失败: {e}")
+        
+        # ===== 新增：去重检测 =====
+        try:
+            dedup_result = subprocess.run(
+                ["python3", str(WORKSPACE / "skills/unified-memory/scripts/memory_dedup.py"),
+                 "--json"],
+                capture_output=True, text=True, timeout=30
+            )
+            if dedup_result.returncode == 0 and dedup_result.stdout.strip():
+                dedup_data = json.loads(dedup_result.stdout)
+                if dedup_data:
+                    result["duplicates_found"] = len(dedup_data)
+                    result["actions"].append(f"发现 {len(dedup_data)} 条重复记忆")
+        except Exception as e:
+            log(f"⚠️ 去重检测失败: {e}")
         
         # 应用置信度衰减（可选）
         try:
