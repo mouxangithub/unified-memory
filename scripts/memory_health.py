@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Memory Health - 记忆健康度检测 v0.4.1
+Memory Health - 记忆健康度检测 v0.5.1
 
 功能:
 - 自动验证记忆
 - 矛盾检测
 - 过时检测
 - 质量评分
-- 自动修复功能 (v0.4.1 新增)
+- 自动修复功能 (v0.5.1 新增)
 
 Usage:
     python3 scripts/memory_health.py report        # 健康报告
@@ -628,7 +628,7 @@ def validate_memories(memories: List[Dict]) -> Dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Memory Health v0.4.1")
+    parser = argparse.ArgumentParser(description="Memory Health v0.5.1")
     parser.add_argument("command", choices=["report", "validate", "conflicts", "fix", "auto-fix"])
     parser.add_argument("--fix", action="store_true", help="自动修复 (fix 命令)")
     parser.add_argument("--dry-run", action="store_true", default=True, help="预览模式，不实际执行 (auto-fix 默认)")
@@ -644,7 +644,7 @@ def main():
     # 创建检查器
     checker = MemoryHealthChecker()
     
-    print("🏥 Memory 健康检测 v0.4.1\n")
+    print("🏥 Memory 健康检测 v0.5.1\n")
     
     if args.command == "report":
         memories = checker.load_memories()
