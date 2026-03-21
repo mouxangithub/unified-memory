@@ -1,30 +1,35 @@
 #!/usr/bin/env python3
 """
-Memory Integration Hook - Agent 集成钩子 v0.1.8
+Memory Integration Hook - Agent 集成钩子 v0.2.0
 
-功能:
-- 对话开始时加载上下文
-- 对话结束时自动存储
-- 定期健康检查
-- 自动提醒检测
-- 主动上下文注入 (NEW)
-- 主题切换检测 (NEW)
-- 智能推荐集成 (NEW)
-- 置信度自适应 (NEW)
-- 审计日志 (NEW)
+完整集成所有记忆系统功能：
+- 对话开始时加载上下文 + 推荐 + 洞察
+- 对话结束时自动存储 + 关联 + 去重 + 衰减
+- 定期健康检查 + 提醒 + 统计
+- 主动上下文注入
+- 主题切换检测
+- 审计日志
 
-集成到 OpenClaw Agent:
-  1. 对话开始 → 加载相关上下文 + 推荐
-  2. 对话进行 → 主题检测 + 主动注入
-  3. 对话结束 → 提取并存储重要信息 + 审计
-  4. 定时任务 → 健康检查 + 提醒 + 置信度衰减
+集成模块（P0-P2 全部）：
+  ✅ memory_qmd_search - QMD 风格搜索
+  ✅ memory_association - 关联推荐
+  ✅ memory_decay - 置信度衰减
+  ✅ memory_dedup - 去重合并
+  ✅ memory_health - 健康检测
+  ✅ memory_insights - 用户洞察
+  ✅ memory_reminder - 智能提醒
+  ✅ memory_export - 导出备份
+  ✅ memory_graph - 知识图谱
+  ✅ memory_qa - 智能问答
+  ✅ memory_usage_stats - 使用统计
+  ✅ memory_templates - 记忆模板
 
 Usage:
     python3 scripts/memory_integration.py session-start --context "用户询问项目进度"
     python3 scripts/memory_integration.py session-end --conversation "对话内容"
     python3 scripts/memory_integration.py heartbeat
-    python3 scripts/memory_integration.py detect-topic --conversation "对话内容"
-    python3 scripts/memory_integration.py proactive-inject --context "新主题"
+    python3 scripts/memory_integration.py export
+    python3 scripts/memory_integration.py graph
 """
 
 import argparse
@@ -45,6 +50,7 @@ CACHE_DIR = MEMORY_DIR / "cache"
 LOG_FILE = MEMORY_DIR / "integration.log"
 CONTEXT_FILE = MEMORY_DIR / "current_context.json"
 TOPIC_HISTORY = MEMORY_DIR / "topic_history.json"
+SCRIPTS_DIR = Path(__file__).parent
 
 # Ollama 配置
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
@@ -572,16 +578,178 @@ def proactive_inject(context: str, k: int = 5) -> Dict:
     return result
 
 
+def export_memories(format: str = "json", output: str = None) -> Dict:
+    """导出记忆"""
+    result = {
+        "success": False,
+        "output": "",
+        "count": 0
+    }
+    
+    try:
+        output_file = output or str(MEMORY_DIR / f"export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{format}")
+        
+        export_result = subprocess.run(
+            ["python3", str(SCRIPTS_DIR / "memory_export.py"),
+             "--format", format, "--output", output_file],
+            capture_output=True, text=True, timeout=30
+        )
+        
+        if export_result.returncode == 0:
+            result["success"] = True
+            result["output"] = output_file
+            log(f"✅ 导出成功: {output_file}")
+        else:
+            result["error"] = export_result.stderr
+            
+    except Exception as e:
+        result["error"] = str(e)
+        log(f"❌ 导出失败: {e}")
+    
+    return result
+
+
+def generate_graph(html: bool = True, output: str = None) -> Dict:
+    """生成知识图谱"""
+    result = {
+        "success": False,
+        "nodes": 0,
+        "edges": 0,
+        "output": ""
+    }
+    
+    try:
+        output_file = output or str(MEMORY_DIR / "graph.html" if html else "graph.json")
+        
+        cmd = ["python3", str(SCRIPTS_DIR / "memory_graph.py")]
+        if html:
+            cmd.extend(["--html", output_file])
+        else:
+            cmd.append("--json")
+        
+        graph_result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        
+        if graph_result.returncode == 0:
+            result["success"] = True
+            result["output"] = output_file
+            
+            if not html:
+                data = json.loads(graph_result.stdout)
+                result["nodes"] = len(data.get("nodes", {}))
+                result["edges"] = len(data.get("edges", {}))
+            
+            log(f"✅ 图谱生成成功: {output_file}")
+        else:
+            result["error"] = graph_result.stderr
+            
+    except Exception as e:
+        result["error"] = str(e)
+        log(f"❌ 图谱生成失败: {e}")
+    
+    return result
+
+
+def ask_question(question: str) -> Dict:
+    """智能问答"""
+    result = {
+        "question": question,
+        "answer": "",
+        "sources": []
+    }
+    
+    try:
+        qa_result = subprocess.run(
+            ["python3", str(SCRIPTS_DIR / "memory_qa.py"),
+             "ask", "-q", question],
+            capture_output=True, text=True, timeout=60
+        )
+        
+        if qa_result.returncode == 0:
+            result["answer"] = qa_result.stdout.strip()
+            log(f"✅ 问答成功")
+        else:
+            result["error"] = qa_result.stderr
+            
+    except Exception as e:
+        result["error"] = str(e)
+        log(f"❌ 问答失败: {e}")
+    
+    return result
+
+
+def get_usage_stats() -> Dict:
+    """使用统计"""
+    result = {
+        "total_memories": 0,
+        "categories": {},
+        "recent_activity": []
+    }
+    
+    try:
+        stats_result = subprocess.run(
+            ["python3", str(SCRIPTS_DIR / "memory_usage_stats.py")],
+            capture_output=True, text=True, timeout=30
+        )
+        
+        if stats_result.returncode == 0:
+            # 解析输出
+            result["raw"] = stats_result.stdout
+            log(f"✅ 统计获取成功")
+        else:
+            result["error"] = stats_result.stderr
+            
+    except Exception as e:
+        result["error"] = str(e)
+        log(f"❌ 统计失败: {e}")
+    
+    return result
+
+
+def apply_templates(template_name: str = None) -> Dict:
+    """应用模板"""
+    result = {
+        "success": False,
+        "applied": []
+    }
+    
+    try:
+        cmd = ["python3", str(SCRIPTS_DIR / "memory_templates.py")]
+        if template_name:
+            cmd.extend(["apply", template_name])
+        else:
+            cmd.append("list")
+        
+        template_result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        
+        if template_result.returncode == 0:
+            result["success"] = True
+            result["output"] = template_result.stdout
+            log(f"✅ 模板操作成功")
+        else:
+            result["error"] = template_result.stderr
+            
+    except Exception as e:
+        result["error"] = str(e)
+        log(f"❌ 模板操作失败: {e}")
+    
+    return result
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Memory Integration Hook 0.1.8")
+    parser = argparse.ArgumentParser(description="Memory Integration Hook 0.2.0")
     parser.add_argument("command", choices=[
         "session-start", "session-end", "heartbeat",
-        "detect-topic", "proactive-inject"
+        "detect-topic", "proactive-inject",
+        "export", "graph", "qa", "stats", "templates"
     ])
     parser.add_argument("--context", "-c", help="上下文内容")
     parser.add_argument("--conversation", "-C", help="对话内容")
     parser.add_argument("--top-k", "-k", type=int, default=10)
     parser.add_argument("--threshold", "-t", type=float, default=0.3)
+    parser.add_argument("--format", "-f", default="json", help="导出格式")
+    parser.add_argument("--output", "-o", help="输出文件")
+    parser.add_argument("--html", action="store_true", help="生成 HTML 图谱")
+    parser.add_argument("--question", "-q", help="问答问题")
     
     args = parser.parse_args()
     
@@ -602,6 +770,28 @@ def main():
         print(json.dumps(result, ensure_ascii=False, indent=2))
     
     elif args.command == "proactive-inject":
+        result = proactive_inject(args.context or "", args.top_k)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    
+    elif args.command == "export":
+        result = export_memories(args.format, args.output)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    
+    elif args.command == "graph":
+        result = generate_graph(args.html, args.output)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    
+    elif args.command == "qa":
+        result = ask_question(args.question or args.context or "")
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    
+    elif args.command == "stats":
+        result = get_usage_stats()
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    
+    elif args.command == "templates":
+        result = apply_templates()
+        print(json.dumps(result, ensure_ascii=False, indent=2))
         result = proactive_inject(args.context or "", args.top_k)
         print(json.dumps(result, ensure_ascii=False, indent=2))
 
