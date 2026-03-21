@@ -68,7 +68,9 @@ def push_memory(text: str, source: str, metadata: Dict = None) -> Dict:
         "source": source,
         "text": text,
         "metadata": metadata or {},
-        "synced_to": []
+        "synced_to": [],
+        "shared": metadata.get("shared", False) if metadata else False,  # 是否共享给其他Agent
+        "priority": metadata.get("priority", "normal") if metadata else "normal"  # normal/high
     }
     
     with open(SYNC_QUEUE, 'a') as f:
@@ -241,10 +243,12 @@ def daemon_mode(node_id: str, interval: int = 30):
 
 def main():
     parser = argparse.ArgumentParser(description="Memory Realtime Sync v1.0")
-    parser.add_argument("command", choices=["push", "pull", "status", "daemon", "sync"])
+    parser.add_argument("command", choices=["push", "pull", "status", "daemon", "sync", "share"])
     parser.add_argument("--text", "-t", help="记忆内容")
     parser.add_argument("--source", "-s", help="来源节点")
     parser.add_argument("--node-id", "-n", help="节点ID")
+    parser.add_argument("--target", help="目标节点（用于share）")
+    parser.add_argument("--priority", "-p", choices=["normal", "high"], default="normal", help="优先级")
     parser.add_argument("--interval", "-i", type=int, default=30, help="同步间隔(秒)")
     parser.add_argument("--limit", "-l", type=int, default=10, help="拉取数量限制")
     parser.add_argument("--json", "-j", action="store_true", help="JSON输出")
@@ -259,6 +263,21 @@ def main():
             print("❌ 缺少参数: --text")
             return
         result = push_memory(args.text, source)
+        if args.json:
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+    
+    elif args.command == "share":
+        # 共享记忆给指定节点（新增功能）
+        if not args.text:
+            print("❌ 缺少参数: --text")
+            return
+        target = args.target or "all"
+        result = push_memory(
+            args.text, 
+            source, 
+            metadata={"shared": True, "priority": args.priority, "target": target}
+        )
+        print(f"📤 已共享记忆给 [{target}]")
         if args.json:
             print(json.dumps(result, ensure_ascii=False, indent=2))
     

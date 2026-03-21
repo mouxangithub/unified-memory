@@ -1,12 +1,34 @@
 # Unified Memory - AI Agent 记忆系统
 
-> **版本 0.5.3** | 专为 AI Agent 设计的智能记忆系统，支持分层缓存、知识合并、预测加载、自动维护、主动注入、自适应置信度、审计日志和多代理同步。
+> **版本 0.6.0** | 专为 AI Agent 设计的智能记忆系统，支持分层缓存、知识合并、预测加载、自动维护、主动注入、自适应置信度、审计日志、多代理同步和协作分析。
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-已发布-green)](https://clawhub.com)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
 **[English Documentation](./README.md)** | 中文文档
+
+---
+
+## ✨ v0.6.0 新功能
+
+### 5 大核心功能
+
+| 功能 | 命令 | 说明 |
+|------|------|------|
+| **决策追溯链** | `mem trace --timeline` | 追溯记忆来源和决策背景 |
+| **记忆访问热力图** | `mem heatmap --boost` | 可视化访问频率，自动提升权重 |
+| **协作效率分析** | `mem collab --html` | 统计小智+小刘任务，生成HTML报告 |
+| **L3压缩质量评估** | `mem compress-eval --report` | 评估压缩比、信息保留率、可读性 |
+| **跨Agent记忆共享** | `mem realtime share` | 实时同步守护进程，优先级控制 |
+
+### 命令数量: 20 个
+
+```
+search, store, health, insights, export, graph, qa, stats,
+associate, dedup, decay, conflict, isolated, trace, heatmap,
+collab, compress-eval, reminder, template, mcp
+```
 
 ---
 

@@ -44,30 +44,23 @@ SCRIPTS_DIR = Path(__file__).parent
 
 
 def cmd_search(args):
-    """搜索记忆"""
+    """搜索记忆 - 修复版 v0.2.0"""
     import subprocess
     result = subprocess.run(
         ["python3", str(SCRIPTS_DIR / "memory_qmd_search.py"),
-         "search", "-q", args.query,
-         "-m", args.mode,
-         "-k", str(args.top_k),
-         "--json"],
+         "search", "--query", args.query,
+         "--mode", args.mode,
+         "--top-k", str(args.top_k)],
         capture_output=True, text=True
     )
     
     if result.returncode == 0:
-        data = json.loads(result.stdout)
-        print(f"🔍 找到 {len(data.get('results', []))} 条记忆\n")
-        
-        for i, r in enumerate(data.get("results", [])[:args.top_k], 1):
-            score = r.get("score", 0)
-            text = r.get("text", "")[:80]
-            category = r.get("category", "?")
-            mode = r.get("mode", "?")
-            
-            print(f"[{i}] 📊 {score:.3f} | {category} | {mode}")
-            print(f"    {text}...")
-            print()
+        # 直接输出结果（不再尝试解析 JSON）
+        output = result.stdout.strip()
+        if output:
+            print(output)
+        else:
+            print("🔍 未找到相关记忆")
     else:
         print(f"❌ 搜索失败: {result.stderr}")
 
@@ -242,6 +235,110 @@ def cmd_mcp(args):
     subprocess.run(["python3", str(SCRIPTS_DIR / "memory_mcp_server.py")])
 
 
+def cmd_conflict(args):
+    """矛盾记忆检测与解决"""
+    import subprocess
+    cmd = ["python3", str(SCRIPTS_DIR / "conflict_resolver.py"), args.action]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+
+
+def cmd_isolated(args):
+    """处理孤立记忆"""
+    memory_file = MEMORY_DIR / "memories.json"
+    memories = json.loads(memory_file.read_text()) if memory_file.exists() else []
+    isolated = [m for m in memories if m.get("access_count", 0) == 0]
+    
+    print(f"🔗 发现 {len(isolated)} 条孤立记忆（从未被访问）\n")
+    
+    if args.fix and isolated:
+        # 自动关联到常用标签
+        for m in isolated[:args.limit]:
+            m["tags"] = m.get("tags", []) + ["auto-linked"]
+            m["access_count"] = 1
+            print(f"✅ 已关联: {m.get('text', '')[:50]}...")
+        
+        memory_file.write_text(json.dumps(memories, indent=2, ensure_ascii=False))
+        print(f"\n📊 已处理 {min(len(isolated), args.limit)} 条孤立记忆")
+    elif isolated:
+        print("待处理的孤立记忆:")
+        for i, m in enumerate(isolated[:10], 1):
+            print(f"  [{i}] {m.get('text', '')[:60]}...")
+        if len(isolated) > 10:
+            print(f"  ... 还有 {len(isolated) - 10} 条")
+        print(f"\n💡 使用 --fix 自动关联")
+
+
+def cmd_trace(args):
+    """决策追溯链"""
+    import subprocess
+    cmd = ["python3", str(SCRIPTS_DIR / "memory_trace.py")]
+    
+    if args.timeline:
+        cmd.extend(["--timeline", "--limit", str(args.limit)])
+    elif args.mem_id:
+        cmd.append(args.mem_id)
+    else:
+        cmd.append("--timeline")
+    
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+
+
+def cmd_heatmap(args):
+    """记忆访问热力图"""
+    import subprocess
+    cmd = ["python3", str(SCRIPTS_DIR / "memory_heatmap.py")]
+    
+    if args.boost:
+        cmd.extend(["--boost", "--threshold", str(args.threshold)])
+    if args.save:
+        cmd.append("--save")
+    
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+
+
+def cmd_collab(args):
+    """协作效率可视化"""
+    import subprocess
+    cmd = ["python3", str(SCRIPTS_DIR / "memory_collab.py"), "--period", str(args.period)]
+    
+    if args.html:
+        cmd.append("--html")
+    if args.save:
+        cmd.append("--save")
+    
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+
+
+def cmd_compress_eval(args):
+    """L3压缩质量评估"""
+    import subprocess
+    cmd = ["python3", str(SCRIPTS_DIR / "memory_compress_eval.py")]
+    
+    if args.id:
+        cmd.extend(["--id", args.id])
+    if args.report:
+        cmd.append("--report")
+    if args.save:
+        cmd.append("--save")
+    
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Memory All-in-One - 统一记忆管理",
@@ -306,6 +403,46 @@ def main():
     p_decay = subparsers.add_parser("decay", help="置信度衰减")
     p_decay.add_argument("--apply", action="store_true", help="应用衰减")
     p_decay.set_defaults(func=cmd_decay)
+    
+    # conflict
+    p_conflict = subparsers.add_parser("conflict", help="矛盾记忆解决")
+    p_conflict.add_argument("action", choices=["detect", "auto", "resolve"],
+                           help="操作类型")
+    p_conflict.set_defaults(func=cmd_conflict)
+    
+    # isolated
+    p_isolated = subparsers.add_parser("isolated", help="处理孤立记忆")
+    p_isolated.add_argument("--fix", action="store_true", help="自动修复")
+    p_isolated.add_argument("--limit", type=int, default=10, help="处理数量")
+    p_isolated.set_defaults(func=cmd_isolated)
+    
+    # trace
+    p_trace = subparsers.add_parser("trace", help="决策追溯链")
+    p_trace.add_argument("mem_id", nargs="?", help="记忆ID")
+    p_trace.add_argument("--timeline", "-t", action="store_true", help="显示决策时间线")
+    p_trace.add_argument("--limit", "-l", type=int, default=10, help="显示数量")
+    p_trace.set_defaults(func=cmd_trace)
+    
+    # heatmap
+    p_heatmap = subparsers.add_parser("heatmap", help="记忆访问热力图")
+    p_heatmap.add_argument("--boost", "-b", action="store_true", help="自动提升高频记忆权重")
+    p_heatmap.add_argument("--threshold", "-t", type=int, default=3, help="提升阈值")
+    p_heatmap.add_argument("--save", "-s", action="store_true", help="保存热力图")
+    p_heatmap.set_defaults(func=cmd_heatmap)
+    
+    # collab
+    p_collab = subparsers.add_parser("collab", help="协作效率可视化")
+    p_collab.add_argument("--html", "-H", action="store_true", help="生成HTML报告")
+    p_collab.add_argument("--period", "-p", type=int, default=7, help="统计周期（天）")
+    p_collab.add_argument("--save", "-s", action="store_true", help="保存统计")
+    p_collab.set_defaults(func=cmd_collab)
+    
+    # compress-eval
+    p_compress = subparsers.add_parser("compress-eval", help="L3压缩质量评估")
+    p_compress.add_argument("--id", "-i", help="评估指定记忆ID")
+    p_compress.add_argument("--report", "-r", action="store_true", help="生成详细报告")
+    p_compress.add_argument("--save", "-s", action="store_true", help="保存评估结果")
+    p_compress.set_defaults(func=cmd_compress_eval)
     
     # reminder
     p_reminder = subparsers.add_parser("reminder", help="提醒管理")

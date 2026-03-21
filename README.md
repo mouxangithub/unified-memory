@@ -1,12 +1,34 @@
 # Unified Memory - AI Agent Memory System
 
-> **Version 0.5.3** | An intelligent memory system designed for AI Agents with hierarchical caching, knowledge merging, predictive loading, automatic maintenance, proactive injection, adaptive confidence, audit logging, and multi-agent sync.
+> **Version 0.6.0** | An intelligent memory system designed for AI Agents with hierarchical caching, knowledge merging, predictive loading, automatic maintenance, proactive injection, adaptive confidence, audit logging, multi-agent sync, and collaboration analytics.
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-Publish-green)](https://clawhub.com)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
 English Documentation | [中文文档](./README_CN.md)
+
+---
+
+## ✨ What's New in v0.6.0
+
+### 5 Major Features
+
+| Feature | Command | Description |
+|---------|---------|-------------|
+| **Decision Trace Chain** | `mem trace --timeline` | Trace memory sources and decision context |
+| **Memory Access Heatmap** | `mem heatmap --boost` | Visualize access frequency, auto-boost weights |
+| **Collaboration Analytics** | `mem collab --html` | Track xiaozhi+xiaoliu task stats, HTML reports |
+| **L3 Compression Quality** | `mem compress-eval --report` | Evaluate compression ratio, info retention, readability |
+| **Cross-Agent Sharing** | `mem realtime share` | Real-time sync with priority control |
+
+### Command Count: 20
+
+```
+search, store, health, insights, export, graph, qa, stats,
+associate, dedup, decay, conflict, isolated, trace, heatmap,
+collab, compress-eval, reminder, template, mcp
+```
 
 ---
 

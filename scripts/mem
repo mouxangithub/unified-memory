@@ -1,264 +1,410 @@
-#!/bin/bash
-# Memory Quick Commands - 记忆系统快捷命令
+#!/usr/bin/env python3
+"""
+Memory System Enhanced CLI - 增强 CLI
 
-SCRIPTS_DIR="$HOME/.openclaw/workspace/skills/unified-memory/scripts"
+整合 P0-P2 修复，提供完整功能：
+- filter: 按类型/标签/时间过滤
+- track: 访问追踪
+- decay: 置信度衰减
+- health: 健康检查
+- stats: 统一统计
+"""
 
-case "$1" in
-  start)
-    # 会话开始 - 加载上下文
-    python3 "$SCRIPTS_DIR/memory_integration.py" session-start --context "${2:-当前任务}"
-    ;;
-  
-  end)
-    # 会话结束 - 存储记忆
-    if [ -z "$2" ]; then
-      echo "请提供对话内容"
-      exit 1
-    fi
-    python3 "$SCRIPTS_DIR/memory_integration.py" session-end --conversation "$2"
-    ;;
-  
-  heartbeat)
-    # 心跳检查
-    python3 "$SCRIPTS_DIR/memory_integration.py" heartbeat
-    ;;
-  
-  store)
-    # 快速存储
-    python3 "$SCRIPTS_DIR/memory_agent.py" quick-store "$2"
-    ;;
-  
-  load)
-    # 加载上下文
-    python3 "$SCRIPTS_DIR/memory_agent.py" load "${2:-}" --top-k ${3:-10}
-    ;;
-  
-  remind)
-    # 检查提醒
-    python3 "$SCRIPTS_DIR/memory_reminder.py" check
-    ;;
-  
-  health)
-    # 健康报告
-    python3 "$SCRIPTS_DIR/memory_health.py" report
-    ;;
-  
-  webui)
-    # 启动 Web UI
-    python3 "$SCRIPTS_DIR/memory.py" webui --port ${2:-38080}
-    ;;
-  
-  ask)
-    # 智能问答
-    python3 "$SCRIPTS_DIR/memory_qa.py" ask "$2"
-    ;;
-  
-  graph)
-    # 知识图谱
-    python3 "$SCRIPTS_DIR/memory_graph.py" ${2:-build}
-    ;;
-  
-  insights)
-    # 智能洞察
-    python3 "$SCRIPTS_DIR/memory_insights.py" ${2:-analyze}
-    ;;
-  
-  backup)
-    # 云备份
-    python3 "$SCRIPTS_DIR/memory_cloud.py" backup
-    ;;
-  
-  privacy)
-    # 隐私扫描
-    python3 "$SCRIPTS_DIR/memory_privacy.py" scan
-    ;;
-  
-  recommend)
-    # 智能推荐
-    python3 "$SCRIPTS_DIR/memory_recommend.py" recommend --query "${2:-查询}" --k ${3:-5}
-    ;;
-  
-  hot)
-    # 热点记忆
-    python3 "$SCRIPTS_DIR/memory_recommend.py" hot --k ${2:-5}
-    ;;
-  
-  feedback)
-    # 记忆反馈
-    python3 "$SCRIPTS_DIR/memory_adaptive.py" update --id "$2" --feedback "$3"
-    ;;
-  
-  confidence)
+import argparse
+import json
+import sys
+from pathlib import Path
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+
+# 路径配置
+WORKSPACE = Path.home() / ".openclaw" / "workspace"
+MEMORY_DIR = WORKSPACE / "memory"
+VECTOR_DB_DIR = MEMORY_DIR / "vector"
+
+try:
+    import lancedb
+    HAS_LANCEDB = True
+except ImportError:
+    HAS_LANCEDB = False
+
+
+def get_table():
+    """获取 LanceDB 表"""
+    if not HAS_LANCEDB:
+        raise RuntimeError("LanceDB not available")
+    
+    conn = lancedb.connect(str(VECTOR_DB_DIR))
+    return conn.open_table("memories")
+
+
+def filter_memories(category: str = None, tags: str = None, 
+                    days: int = None, min_confidence: float = None,
+                    min_access: int = None, limit: int = 50) -> List[Dict]:
+    """
+    过滤记忆
+    
+    Args:
+        category: 分类过滤
+        tags: 标签过滤（逗号分隔）
+        days: 最近N天
+        min_confidence: 最小置信度
+        min_access: 最小访问次数
+        limit: 返回数量限制
+    
+    Returns:
+        过滤后的记忆列表
+    """
+    table = get_table()
+    df = table.to_arrow()
+    
+    results = []
+    now = datetime.now()
+    
+    for i in range(df.num_rows):
+        row = {col: df[col][i].as_py() for col in df.column_names if col != 'vector'}
+        
+        # 分类过滤
+        if category and row.get('category') != category:
+            continue
+        
+        # 标签过滤
+        if tags:
+            row_tags = (row.get('tags') or '').split(',')
+            filter_tags = tags.split(',')
+            if not any(t.strip() in row_tags for t in filter_tags):
+                continue
+        
+        # 时间过滤
+        if days:
+            try:
+                timestamp = row.get('timestamp', '')
+                if timestamp:
+                    created = datetime.fromisoformat(timestamp.replace(' ', 'T').split('.')[0])
+                    if (now - created).days > days:
+                        continue
+            except:
+                continue
+        
+        # 置信度过滤
+        if min_confidence is not None:
+            if (row.get('confidence') or 0) < min_confidence:
+                continue
+        
+        # 访问次数过滤
+        if min_access is not None:
+            if (row.get('access_count') or 0) < min_access:
+                continue
+        
+        results.append(row)
+        
+        if len(results) >= limit:
+            break
+    
+    return results
+
+
+def track_access(memory_ids: List[str]) -> Dict:
+    """追踪访问"""
+    import pyarrow as pa
+    
+    table = get_table()
+    df = table.to_arrow()
+    
+    updated = 0
+    now = datetime.now().isoformat()
+    new_rows = []
+    
+    for i in range(df.num_rows):
+        row = {col: df[col][i].as_py() for col in df.column_names}
+        
+        if row['id'] in memory_ids:
+            row['access_count'] = (row.get('access_count') or 0) + 1
+            row['last_accessed'] = now
+            updated += 1
+        
+        new_rows.append(row)
+    
+    # 重建表
+    conn = lancedb.connect(str(VECTOR_DB_DIR))
+    conn.drop_table('memories')
+    
+    schema = pa.schema([
+        ('id', pa.string()),
+        ('text', pa.string()),
+        ('category', pa.string()),
+        ('scope', pa.string()),
+        ('importance', pa.float64()),
+        ('timestamp', pa.string()),
+        ('vector', pa.list_(pa.float32())),
+        ('access_count', pa.int64()),
+        ('last_accessed', pa.string()),
+        ('confidence', pa.float64()),
+        ('tags', pa.string()),
+        ('source', pa.string()),
+        ('metadata', pa.string()),
+    ])
+    
+    new_table = conn.create_table('memories', schema=schema)
+    new_table.add(new_rows)
+    
+    return {"updated": updated, "timestamp": now}
+
+
+def apply_decay() -> Dict:
+    """应用置信度衰减"""
+    import pyarrow as pa
+    import math
+    
+    table = get_table()
+    df = table.to_arrow()
+    
+    HALF_LIFE_DAYS = 30
+    updated = 0
+    new_rows = []
+    
+    for i in range(df.num_rows):
+        row = {col: df[col][i].as_py() for col in df.column_names}
+        
+        try:
+            timestamp = row.get('timestamp', '')
+            if timestamp:
+                created = datetime.fromisoformat(timestamp.replace(' ', 'T').split('.')[0])
+                age_days = (datetime.now() - created).days
+                decay_factor = math.pow(0.5, age_days / HALF_LIFE_DAYS)
+                
+                old_conf = row.get('confidence') or 0.5
+                new_conf = round(old_conf * decay_factor, 3)
+                
+                if abs(new_conf - old_conf) > 0.01:
+                    row['confidence'] = new_conf
+                    updated += 1
+        except:
+            pass
+        
+        new_rows.append(row)
+    
+    # 重建表
+    conn = lancedb.connect(str(VECTOR_DB_DIR))
+    conn.drop_table('memories')
+    
+    schema = pa.schema([
+        ('id', pa.string()),
+        ('text', pa.string()),
+        ('category', pa.string()),
+        ('scope', pa.string()),
+        ('importance', pa.float64()),
+        ('timestamp', pa.string()),
+        ('vector', pa.list_(pa.float32())),
+        ('access_count', pa.int64()),
+        ('last_accessed', pa.string()),
+        ('confidence', pa.float64()),
+        ('tags', pa.string()),
+        ('source', pa.string()),
+        ('metadata', pa.string()),
+    ])
+    
+    new_table = conn.create_table('memories', schema=schema)
+    new_table.add(new_rows)
+    
+    return {"updated": updated, "half_life_days": HALF_LIFE_DAYS}
+
+
+def get_stats() -> Dict:
+    """获取统一统计"""
+    table = get_table()
+    df = table.to_arrow()
+    
+    total = df.num_rows
+    
+    # 分类统计
+    categories = {}
+    for i in range(total):
+        cat = df['category'][i].as_py() or 'unknown'
+        categories[cat] = categories.get(cat, 0) + 1
+    
+    # 访问统计
+    access_counts = [df['access_count'][i].as_py() or 0 for i in range(total)]
+    never_accessed = sum(1 for c in access_counts if c == 0)
+    hot_count = sum(1 for c in access_counts if c >= 5)
+    
     # 置信度统计
-    python3 "$SCRIPTS_DIR/memory_adaptive.py" stats
-    ;;
-  
-  audit)
-    # 审计日志
-    python3 "$SCRIPTS_DIR/memory_audit.py" query --limit ${2:-10}
-    ;;
-  
-  report)
-    # 合规报告
-    python3 "$SCRIPTS_DIR/memory_audit.py" report --days ${2:-30}
-    ;;
-  
-  sync)
-    # 多Agent同步
-    python3 "$SCRIPTS_DIR/memory_sync.py" sync
-    ;;
-  
-  nodes)
-    # 节点列表
-    python3 "$SCRIPTS_DIR/memory_sync.py" list-nodes
-    ;;
-  
-  summary)
-    # 生成摘要
-    python3 "$SCRIPTS_DIR/memory_summary.py" generate --id "$2" --style ${3:-medium}
-    ;;
-  
-  inject)
-    # 主动注入
-    python3 "$SCRIPTS_DIR/memory_integration.py" proactive-inject --context "${2:-上下文}"
-    ;;
-  
-  topic)
-    # 主题检测
-    python3 "$SCRIPTS_DIR/memory_integration.py" detect-topic --conversation "${2:-对话内容}"
-    ;;
-  
-  usage)
-    # 使用分析
-    python3 "$SCRIPTS_DIR/memory_usage.py" ${2:-analyze}
-    ;;
-  
-  template)
-    # 记忆模板
-    python3 "$SCRIPTS_DIR/memory_templates.py" ${2:-list} ${3:+--type "$3"}
-    ;;
-  
-  optimize)
-    # 记忆优化
-    python3 "$SCRIPTS_DIR/memory_optimization.py" ${2:-report}
-    ;;
-  
-  score)
-    # 记忆评分
-    python3 "$SCRIPTS_DIR/memory_usage.py" score --id "$2"
-    ;;
-  
-  cleanup)
-    # 清理建议
-    python3 "$SCRIPTS_DIR/memory_optimization.py" suggest
-    ;;
-  
-  search)
-    # 增强搜索
-    python3 "$SCRIPTS_DIR/memory_search.py" search "${2:-}"
-    ;;
-  
-  filter)
-    # 多维度过滤
-    python3 "$SCRIPTS_DIR/memory_search.py" filter --category "${3:-}" --min-importance "${4:-0.7}"
-    ;;
-  
-  visualize)
-    # 可视化
-    python3 "$SCRIPTS_DIR/memory_visualize.py" ${2:-report}
-    ;;
-  
-  export)
-    # 导出
-    python3 "$SCRIPTS_DIR/memory_export.py" ${2:-all}
-    ;;
-  
-  timeline)
-    # 时间线
-    python3 "$SCRIPTS_DIR/memory_visualize.py" timeline --days ${2:-30}
-    ;;
-  
-  wordcloud)
-    # 词云
-    python3 "$SCRIPTS_DIR/memory_visualize.py" wordcloud
-    ;;
-  
-  task)
-    # 任务管理
-    python3 "$SCRIPTS_DIR/agent_task.py" ${2:-list} ${3:+--title "$3"} ${4:+--assignee "$4"}
-    ;;
-  
-  source)
-    # 来源存储
-    shift
-    python3 "$SCRIPTS_DIR/memory_source.py" "$@"
-    ;;
-  
-  collab)
-    # 协作日志
-    shift
-    python3 "$SCRIPTS_DIR/agent_collab.py" "$@"
-    ;;
-  
-  *)
-    echo "Memory Quick Commands v0.3.1"
-    echo ""
-    echo "=== 核心功能 ==="
-    echo "  mem start [context]     # 会话开始，加载上下文"
-    echo "  mem end \"对话内容\"     # 会话结束，存储记忆"
-    echo "  mem store \"内容\"       # 快速存储"
-    echo "  mem load [query] [k]    # 加载记忆"
-    echo "  mem heartbeat           # 心跳检查"
-    echo ""
-    echo "=== 搜索与发现 ==="
-    echo "  mem search \"内容\"      # 增强搜索"
-    echo "  mem filter [cat] [imp]  # 多维度过滤"
-    echo "  mem recommend [query] [k] # 智能推荐"
-    echo "  mem hot [k]               # 热点记忆"
-    echo ""
-    echo "=== 智能功能 ==="
-    echo "  mem ask \"问题\"           # 智能问答"
-    echo "  mem summary [id] [style]  # 生成摘要"
-    echo "  mem inject [context]      # 主动上下文注入"
-    echo "  mem topic [conversation]  # 主题检测"
-    echo ""
-    echo "=== 反馈与质量 ==="
-    echo "  mem feedback [id] [type]  # 记忆反馈"
-    echo "  mem confidence            # 置信度统计"
-    echo "  mem score [id]            # 记忆评分"
-    echo ""
-    echo "=== 分析与优化 ==="
-    echo "  mem usage [cmd]           # 使用分析"
-    echo "  mem optimize [cmd]        # 记忆优化"
-    echo "  mem cleanup               # 清理建议"
-    echo "  mem insights [cmd]        # 智能洞察"
-    echo "  mem health                # 健康报告"
-    echo ""
-    echo "=== 可视化与导出 ==="
-    echo "  mem visualize [cmd]       # 可视化 (timeline/wordcloud/distribution/report)"
-    echo "  mem timeline [days]       # 时间线视图"
-    echo "  mem wordcloud             # 词云生成"
-    echo "  mem export [fmt]          # 导出 (markdown/html/json/csv/all)"
-    echo ""
-    echo "=== 同步与审计 ==="
-    echo "  mem audit [limit]         # 审计日志"
-    echo "  mem report [days]         # 合规报告"
-    echo "  mem sync                  # 多Agent同步"
-    echo "  mem nodes                 # 节点列表"
-    echo ""
-    echo "=== 工具 ==="
-    echo "  mem template [cmd] [type] # 记忆模板"
-    echo "  mem graph [cmd]           # 知识图谱"
-    echo "  mem backup                # 云备份"
-    echo "  mem privacy               # 隐私扫描"
-    echo "  mem webui [port]          # 启动 Web UI"
-    echo "  mem remind                # 检查提醒"
-    echo ""
-    echo "=== 协作功能 ==="
-    echo "  mem task [cmd] [title] [assignee]  # 任务管理"
-    echo "  mem source store --text --agent    # 来源存储"
-    echo "  mem collab [cmd]                   # 协作日志"
-    echo ""
-    echo "Total features: 60+"
-    ;;
-esac
+    confidences = [df['confidence'][i].as_py() or 0.5 for i in range(total)]
+    avg_confidence = sum(confidences) / len(confidences) if confidences else 0
+    
+    # 时间统计
+    timestamps = [df['timestamp'][i].as_py() for i in range(total)]
+    timestamps = [t for t in timestamps if t]
+    latest = max(timestamps) if timestamps else None
+    oldest = min(timestamps) if timestamps else None
+    
+    return {
+        "total": total,
+        "categories": categories,
+        "access": {
+            "never_accessed": never_accessed,
+            "hot_count": hot_count,
+            "total_accesses": sum(access_counts),
+            "avg_access": round(sum(access_counts) / len(access_counts), 2) if access_counts else 0,
+        },
+        "confidence": {
+            "average": round(avg_confidence, 3),
+            "min": round(min(confidences), 3) if confidences else 0,
+            "max": round(max(confidences), 3) if confidences else 0,
+        },
+        "time": {
+            "latest": latest,
+            "oldest": oldest,
+        },
+    }
+
+
+def health_check() -> Dict:
+    """健康检查"""
+    stats = get_stats()
+    
+    issues = []
+    
+    if stats["access"]["never_accessed"] > 0:
+        issues.append(f"📊 {stats['access']['never_accessed']} 条记忆从未被访问")
+    
+    if stats["confidence"]["average"] < 0.3:
+        issues.append(f"📉 平均置信度过低: {stats['confidence']['average']}")
+    
+    if stats["total"] == 0:
+        issues.append("❌ 数据库为空")
+    
+    health_score = max(0, 100 - len(issues) * 15)
+    
+    return {
+        "health_score": health_score,
+        "total": stats["total"],
+        "issues": issues,
+        "stats": stats,
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Memory System Enhanced CLI",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s filter --category preference          # 按分类过滤
+  %(prog)s filter --tags work,important          # 按标签过滤
+  %(prog)s filter --days 7                       # 最近7天
+  %(prog)s filter --min-confidence 0.5           # 置信度>=0.5
+  %(prog)s filter --min-access 3                 # 访问>=3次
+  %(prog)s track <id1> <id2>                     # 追踪访问
+  %(prog)s decay                                 # 应用衰减
+  %(prog)s stats                                 # 统一统计
+  %(prog)s health                                # 健康检查
+        """
+    )
+    
+    subparsers = parser.add_subparsers(dest="command", help="命令")
+    
+    # filter
+    filter_parser = subparsers.add_parser("filter", help="过滤记忆")
+    filter_parser.add_argument("--category", "-c", help="分类过滤")
+    filter_parser.add_argument("--tags", "-t", help="标签过滤（逗号分隔）")
+    filter_parser.add_argument("--days", "-d", type=int, help="最近N天")
+    filter_parser.add_argument("--min-confidence", type=float, help="最小置信度")
+    filter_parser.add_argument("--min-access", type=int, help="最小访问次数")
+    filter_parser.add_argument("--limit", "-l", type=int, default=50, help="返回数量")
+    filter_parser.add_argument("--json", "-j", action="store_true", help="JSON输出")
+    
+    # track
+    track_parser = subparsers.add_parser("track", help="追踪访问")
+    track_parser.add_argument("ids", nargs="+", help="记忆ID")
+    
+    # decay
+    subparsers.add_parser("decay", help="应用置信度衰减")
+    
+    # stats
+    stats_parser = subparsers.add_parser("stats", help="统一统计")
+    stats_parser.add_argument("--json", "-j", action="store_true", help="JSON输出")
+    
+    # health
+    health_parser = subparsers.add_parser("health", help="健康检查")
+    health_parser.add_argument("--json", "-j", action="store_true", help="JSON输出")
+    
+    args = parser.parse_args()
+    
+    if not args.command:
+        parser.print_help()
+        sys.exit(0)
+    
+    try:
+        if args.command == "filter":
+            results = filter_memories(
+                category=args.category,
+                tags=args.tags,
+                days=args.days,
+                min_confidence=args.min_confidence,
+                min_access=args.min_access,
+                limit=args.limit,
+            )
+            
+            if args.json:
+                print(json.dumps(results, indent=2, ensure_ascii=False))
+            else:
+                print(f"找到 {len(results)} 条记忆:\n")
+                for i, r in enumerate(results, 1):
+                    conf = r.get('confidence', 0)
+                    access = r.get('access_count', 0)
+                    text = r.get('text', '')[:60]
+                    print(f"{i}. [{r.get('category')}] {text}...")
+                    print(f"   置信度: {conf:.2f} | 访问: {access}次\n")
+        
+        elif args.command == "track":
+            result = track_access(args.ids)
+            print(f"✅ 更新了 {result['updated']} 条记忆的访问记录")
+        
+        elif args.command == "decay":
+            result = apply_decay()
+            print(f"✅ 更新了 {result['updated']} 条记忆的置信度（半衰期: {result['half_life_days']}天）")
+        
+        elif args.command == "stats":
+            stats = get_stats()
+            
+            if args.json:
+                print(json.dumps(stats, indent=2, ensure_ascii=False))
+            else:
+                print(f"📊 记忆统计\n{'='*40}")
+                print(f"总数: {stats['total']}")
+                print(f"\n📁 分类:")
+                for cat, count in stats['categories'].items():
+                    print(f"  {cat}: {count}")
+                print(f"\n📈 访问:")
+                print(f"  从未访问: {stats['access']['never_accessed']}")
+                print(f"  热点记忆: {stats['access']['hot_count']}")
+                print(f"  平均访问: {stats['access']['avg_access']}")
+                print(f"\n🎯 置信度:")
+                print(f"  平均: {stats['confidence']['average']}")
+                print(f"  范围: {stats['confidence']['min']} - {stats['confidence']['max']}")
+        
+        elif args.command == "health":
+            health = health_check()
+            
+            if args.json:
+                print(json.dumps(health, indent=2, ensure_ascii=False))
+            else:
+                print(f"🏥 健康检查\n{'='*40}")
+                print(f"健康分数: {health['health_score']}/100")
+                print(f"总记忆数: {health['total']}")
+                
+                if health['issues']:
+                    print(f"\n⚠️ 问题:")
+                    for issue in health['issues']:
+                        print(f"  {issue}")
+                else:
+                    print("\n✅ 无问题")
+    
+    except Exception as e:
+        print(f"❌ 错误: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

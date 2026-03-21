@@ -148,16 +148,18 @@ class VectorSearch:
         return None
     
     def search(self, query: str, table, top_k: int = 10) -> List[Dict]:
-        """向量搜索"""
+        """向量搜索 - 修复版 v0.3.0（兼容无向量索引的情况）"""
         embedding = self.get_embedding(query)
         if not embedding:
             return []
         
         try:
-            results = table.search(embedding).limit(top_k).to_list()
+            # 尝试向量搜索（需要向量索引）
+            results = table.search(embedding, vector_column_name="vector").limit(top_k).to_list()
             return results
         except Exception as e:
-            print(f"[VectorSearch] Search error: {e}")
+            # 如果向量索引不可用，回退到 BM25
+            print(f"[VectorSearch] 向量索引不可用，回退到 BM25: {str(e)[:50]}...")
             return []
 
 

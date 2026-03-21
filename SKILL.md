@@ -1,36 +1,44 @@
-# unified-memory - 统一记忆系统 v0.5.0
+# unified-memory - 统一记忆系统 v0.6.0
 
 > 专为 AI Agent 设计的智能记忆系统，分层缓存、知识合并、主动预测、自动维护
 
-## 🎉 v0.5.0 更新
+## 🎉 v0.6.0 更新
 
-✨ **5 大核心优化**:
+✨ **新增 5 大功能**:
 
-### 1. 时效性智能衰减
-- 6 种记忆类型，不同半衰期（7天~365天）
-- 过时记忆自动降权
-- CLI: `memory_decay.py stats/preview/apply`
+### 1. 决策追溯链
+- 追溯记忆来源和决策背景
+- 时间线视图
+- CLI: `mem trace --timeline`
 
-### 2. 关联推理增强
-- 向量搜索 + 图谱路径扩展
-- 上下文链：项目→参与人+任务+进度
-- CLI: `memory_inference.py search/context`
+### 2. 记忆访问热力图
+- 访问频率统计
+- 自动提升高频记忆权重
+- CLI: `mem heatmap --boost`
 
-### 3. 多 Agent 视角
-- 支持小智/小刘独立视角
-- 共享记忆 + 私有记忆
-- CLI: `memory.py store --agent xiao-zhi`
+### 3. 协作效率可视化
+- 小智+小刘任务统计
+- 交接效率分析
+- HTML 报告
+- CLI: `mem collab --html`
 
-### 4. 主动推送优化
-- 项目截止提醒（提前3天）
-- 关联更新通知
-- 矛盾检测提醒
-- CLI: `memory_push.py check/list`
+### 4. L3 压缩质量评估
+- 压缩比、信息保留率、可读性
+- 质量分布统计
+- CLI: `mem compress-eval --report`
 
-### 5. 记忆质量自检
-- 矛盾/过时/冗余/孤立检测
-- 自动归档 + 压缩
-- CLI: `memory_health.py auto-fix`
+### 5. 跨 Agent 记忆共享
+- 实时同步守护进程
+- 优先级控制
+- CLI: `mem realtime share`
+
+## 🔧 完整命令列表（20个）
+
+```
+search, store, health, insights, export, graph, qa, stats,
+associate, dedup, decay, conflict, isolated, trace, heatmap,
+collab, compress-eval, reminder, template, mcp
+```
 
 ## 触发词
 
