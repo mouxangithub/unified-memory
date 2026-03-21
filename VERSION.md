@@ -166,3 +166,8 @@
 - 📚 详细配置教程：AWS S3 / MinIO / 阿里云OSS / 腾讯云COS / WebDAV / Dropbox / Google Drive
 - 🔧 故障排除指南
 - 🔐 安全建议
+### 0.3.5 (2026-03-21)
+- ✨ QMD 风格搜索 (BM25 + 向量 + RRF + LLM重排)
+- ✨ MCP Server 支持 (5个工具 + memory:// 资源)
+- 📚 README_QMD.md + README_MCP.md
+- 📊 分层可选架构 (0/100/400 Token)

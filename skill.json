@@ -1,6 +1,6 @@
 {
   "name": "unified-memory",
-  "version": "0.5.0",
+  "version": "0.3.5",
   "description": "Intelligent memory system for AI Agents with hierarchical caching, knowledge merging, predictive loading, auto-extraction, proactive injection, adaptive confidence, and multi-agent sync",
   "author": "mouxangithub",
   "license": "MIT",
@@ -18,24 +18,22 @@
     "multi-agent-sync",
     "audit-logging"
   ],
-  "categories": ["Core", "Memory"],
-  
+  "categories": [
+    "Core",
+    "Memory"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/mouxangithub/unified-memory"
   },
-  
   "bugs": {
     "url": "https://github.com/mouxangithub/unified-memory/issues"
   },
-  
   "homepage": "https://github.com/mouxangithub/unified-memory#readme",
-  
   "engines": {
     "python": ">=3.8",
     "openclaw": ">=0.1.0"
   },
-  
   "requirements": {
     "installation": {
       "required": true,
@@ -44,8 +42,12 @@
     },
     "dependencies": {
       "python": {
-        "required": ["requests>=2.28.0"],
-        "optional": ["lancedb>=0.3.0"]
+        "required": [
+          "requests>=2.28.0"
+        ],
+        "optional": [
+          "lancedb>=0.3.0"
+        ]
       },
       "skills": [
         {
@@ -66,16 +68,23 @@
         "type": "llm-embedding-service",
         "description": "Local LLM and embedding service for auto-extraction and vector search",
         "defaultHost": "http://localhost:11434",
-        "envVars": ["OLLAMA_HOST", "OLLAMA_LLM_MODEL", "OLLAMA_EMBED_MODEL"],
+        "envVars": [
+          "OLLAMA_HOST",
+          "OLLAMA_LLM_MODEL",
+          "OLLAMA_EMBED_MODEL"
+        ],
         "fallback": "Rule-based extraction without LLM features"
       }
     ]
   },
-  
   "permissions": {
     "filesystem": {
-      "read": ["~/.openclaw/workspace/memory/"],
-      "write": ["~/.openclaw/workspace/memory/"],
+      "read": [
+        "~/.openclaw/workspace/memory/"
+      ],
+      "write": [
+        "~/.openclaw/workspace/memory/"
+      ],
       "description": "Read/write memory data, cache, knowledge blocks, archives"
     },
     "network": {
@@ -89,7 +98,10 @@
       "description": "Optional outbound to Ollama for LLM features"
     },
     "process": {
-      "execute": ["scripts/install.sh", "scripts/uninstall.sh"],
+      "execute": [
+        "scripts/install.sh",
+        "scripts/uninstall.sh"
+      ],
       "description": "Install/uninstall scripts"
     },
     "autoInstall": {
@@ -97,7 +109,6 @@
       "description": "Auto-install dependency skill (memory-lancedb-pro)"
     }
   },
-  
   "config": {
     "env": {
       "OLLAMA_HOST": {
@@ -153,7 +164,7 @@
         "type": "float",
         "description": "Similarity threshold for knowledge merging",
         "min": 0.5,
-        "max": 1.0
+        "max": 1
       },
       "STALE_DAYS": {
         "default": 30,
@@ -164,23 +175,29 @@
         "default": 0.1,
         "type": "float",
         "description": "Importance threshold for forgetting",
-        "min": 0.0,
+        "min": 0,
         "max": 0.5
       }
     }
   },
-  
   "scripts": {
     "main": "scripts/memory.py",
     "install": "scripts/install.sh",
     "uninstall": "scripts/uninstall.sh",
     "webui": "scripts/memory_webui.py"
   },
-  
   "triggers": {
     "keywords": [
-      "记住", "记录", "查一下", "有什么", "记忆", "知识库",
-      "memory", "remember", "recall", "forget"
+      "记住",
+      "记录",
+      "查一下",
+      "有什么",
+      "记忆",
+      "知识库",
+      "memory",
+      "remember",
+      "recall",
+      "forget"
     ],
     "commands": [
       "/memory",
@@ -189,7 +206,6 @@
       "/forget"
     ]
   },
-  
   "capabilities": [
     "memory:read",
     "memory:write",
@@ -200,13 +216,15 @@
     "memory:validate",
     "memory:quality"
   ],
-  
   "compatibility": {
     "openclaw": ">=0.1.0",
     "python": ">=3.8",
-    "os": ["linux", "macos", "windows"]
+    "os": [
+      "linux",
+      "macos",
+      "windows"
+    ]
   },
-  
   "fallbacks": {
     "no_lancedb": {
       "description": "Use JSON file storage instead of vector database",
@@ -217,7 +235,6 @@
       "behavior": "Disable LLM-powered auto-extraction, use regex patterns"
     }
   },
-  
   "changelog": [
     {
       "version": "0.1.0",
