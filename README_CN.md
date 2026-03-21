@@ -390,6 +390,47 @@ pip install google-api-python-client google-auth-oauthlib  # Google Drive
 
 ---
 
+## 🔌 MCP 服务器 (v0.5.3)
+
+unified-memory 现已支持 **Model Context Protocol (MCP)**，可与 Claude Desktop、OpenClaw 等 MCP 兼容客户端集成。
+
+### 快速配置
+
+```bash
+# 安装 MCP SDK
+pip install mcp
+
+# 添加到 Claude Desktop 配置
+# macOS: ~/Library/Application Support/Claude/claude_desktop_config.json
+# Windows: %APPDATA%\Claude\claude_desktop_config.json
+{
+  "mcpServers": {
+    "unified-memory": {
+      "command": "python3",
+      "args": ["/path/to/unified-memory/scripts/memory_mcp_server.py"]
+    }
+  }
+}
+```
+
+### 可用工具
+
+| 工具 | 说明 |
+|------|------|
+| `memory_search` | QMD 风格搜索（BM25/向量/重排） |
+| `memory_store` | 存储新记忆 |
+| `memory_status` | 系统状态 |
+| `memory_config` | 查看/更新配置 |
+| `memory_health` | 健康检查 |
+
+### 资源访问
+
+通过 `memory://<id>` URI 访问记忆。
+
+详见 [README_MCP.md](./README_MCP.md)。
+
+---
+
 ## 🔍 QMD 风格搜索 (v0.5.2)
 
 受 [QMD](https://github.com/tobi/qmd) 启发，unified-memory 现支持分层可选增强搜索。
@@ -438,7 +479,7 @@ memq search -q "查询" --rerank
 | RRF 融合 | ✅ | ✅ | 混合搜索质量更高 |
 | 本地重排 | ✅ 可选 | ✅ 默认 | QMD 默认启用，我们可选 |
 | 片段返回 | ✅ | ✅ | 省 Token |
-| MCP 接口 | ❌ | ✅ | QMD 可作为 MCP Server |
+| MCP 接口 | ✅ | ✅ | 两者都支持 MCP |
 | CLI 工具 | ✅ | ✅ | 都有命令行 |
 | Web UI | ✅ 38080 | ❌ | 我们有可视化界面 |
 | 知识图谱 | ✅ | ❌ | 记忆关系可视化 |

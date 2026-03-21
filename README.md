@@ -347,6 +347,47 @@ pip install google-api-python-client google-auth-oauthlib  # Google Drive
 
 ---
 
+## 🔌 MCP Server (v0.5.3)
+
+unified-memory now includes a **Model Context Protocol (MCP) server**, allowing integration with Claude Desktop, OpenClaw, and other MCP-compliant AI clients.
+
+### Quick Setup
+
+```bash
+# Install MCP SDK
+pip install mcp
+
+# Add to Claude Desktop config
+# ~/Library/Application Support/Claude/claude_desktop_config.json (macOS)
+# or %APPDATA%\Claude\claude_desktop_config.json (Windows)
+{
+  "mcpServers": {
+    "unified-memory": {
+      "command": "python3",
+      "args": ["/path/to/unified-memory/scripts/memory_mcp_server.py"]
+    }
+  }
+}
+```
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `memory_search` | QMD-style search (BM25/Vector/Rerank) |
+| `memory_store` | Store new memory |
+| `memory_status` | System status |
+| `memory_config` | View/update config |
+| `memory_health` | Health check |
+
+### Resources
+
+Access memories via `memory://<id>` URIs.
+
+See [README_MCP.md](./README_MCP.md) for details.
+
+---
+
 ## 🔍 QMD-Style Search (v0.5.2)
 
 Inspired by [QMD](https://github.com/tobi/qmd), unified-memory now supports layered search with optional enhancements.
@@ -395,7 +436,7 @@ See [README_QMD.md](./README_QMD.md) for details.
 | RRF Fusion | ✅ | ✅ | Hybrid search for better quality |
 | Local Rerank | ✅ Optional | ✅ Default | QMD enables by default |
 | Snippet Return | ✅ | ✅ | Saves tokens |
-| MCP Server | ❌ | ✅ | QMD as MCP Server |
+| MCP Server | ✅ | ✅ | Both support MCP now |
 | CLI Tool | ✅ | ✅ | Both have CLI |
 | Web UI | ✅ Port 38080 | ❌ | Visual interface |
 | Knowledge Graph | ✅ | ❌ | Memory relations |
