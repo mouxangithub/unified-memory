@@ -339,6 +339,72 @@ def cmd_compress_eval(args):
         print(result.stderr)
 
 
+def cmd_encrypt(args):
+    """敏感信息加密"""
+    import subprocess
+    cmd = ["python3", str(SCRIPTS_DIR / "memory_sensitive.py"), "encrypt", "--id", args.id]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+
+
+def cmd_decrypt(args):
+    """解密查看"""
+    import subprocess
+    cmd = ["python3", str(SCRIPTS_DIR / "memory_sensitive.py"), "decrypt", 
+           "--id", args.id, "--agent", args.agent]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+
+
+def cmd_sensitive(args):
+    """敏感信息检测"""
+    import subprocess
+    cmd = ["python3", str(SCRIPTS_DIR / "memory_sensitive.py"), args.action,
+           "--limit", str(args.limit)]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+
+
+def cmd_predict(args):
+    """记忆预测"""
+    import subprocess
+    cmd = ["python3", str(SCRIPTS_DIR / "memory_predict.py"), args.action]
+    
+    if args.enable_push:
+        cmd.append("--enable-push")
+    if args.disable_push:
+        cmd.append("--disable-push")
+    
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+
+
+def cmd_multimodal(args):
+    """多模态记忆"""
+    import subprocess
+    cmd = ["python3", str(SCRIPTS_DIR / "memory_multimodal.py"), args.action]
+    
+    if args.feature:
+        cmd.extend(["--feature", args.feature])
+    if args.image:
+        cmd.extend(["--image", args.image])
+    if args.audio:
+        cmd.extend(["--audio", args.audio])
+    
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Memory All-in-One - 统一记忆管理",
@@ -443,6 +509,38 @@ def main():
     p_compress.add_argument("--report", "-r", action="store_true", help="生成详细报告")
     p_compress.add_argument("--save", "-s", action="store_true", help="保存评估结果")
     p_compress.set_defaults(func=cmd_compress_eval)
+    
+    # encrypt (敏感信息加密)
+    p_encrypt = subparsers.add_parser("encrypt", help="敏感信息加密")
+    p_encrypt.add_argument("--id", "-i", required=True, help="记忆ID")
+    p_encrypt.set_defaults(func=cmd_encrypt)
+    
+    # decrypt (解密查看)
+    p_decrypt = subparsers.add_parser("decrypt", help="解密查看")
+    p_decrypt.add_argument("--id", "-i", required=True, help="记忆ID")
+    p_decrypt.add_argument("--agent", "-a", default="unknown", help="Agent名称")
+    p_decrypt.set_defaults(func=cmd_decrypt)
+    
+    # sensitive (敏感信息检测)
+    p_sensitive = subparsers.add_parser("sensitive", help="敏感信息检测")
+    p_sensitive.add_argument("action", choices=["detect", "scan", "audit"], help="操作")
+    p_sensitive.add_argument("--limit", "-l", type=int, default=20, help="显示数量")
+    p_sensitive.set_defaults(func=cmd_sensitive)
+    
+    # predict (记忆预测)
+    p_predict = subparsers.add_parser("predict", help="记忆预测")
+    p_predict.add_argument("action", choices=["today", "week", "train", "config"], help="操作")
+    p_predict.add_argument("--enable-push", action="store_true", help="启用推送")
+    p_predict.add_argument("--disable-push", action="store_true", help="禁用推送")
+    p_predict.set_defaults(func=cmd_predict)
+    
+    # multimodal (多模态记忆)
+    p_multimodal = subparsers.add_parser("multimodal", help="多模态记忆")
+    p_multimodal.add_argument("action", choices=["config", "enable", "disable", "check", "store"], help="操作")
+    p_multimodal.add_argument("--feature", choices=["ocr", "stt", "clip"], help="功能名称")
+    p_multimodal.add_argument("--image", "-i", help="图片路径")
+    p_multimodal.add_argument("--audio", "-a", help="音频路径")
+    p_multimodal.set_defaults(func=cmd_multimodal)
     
     # reminder
     p_reminder = subparsers.add_parser("reminder", help="提醒管理")

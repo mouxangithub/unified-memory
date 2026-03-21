@@ -1,6 +1,35 @@
-# unified-memory - 统一记忆系统 v0.7.0
+# unified-memory - 统一记忆系统 v0.8.0
 
 > 专为 AI Agent 设计的智能记忆系统，分层缓存、知识合并、主动预测、自动维护
+
+## 🎉 v0.8.0 更新
+
+✨ **新增 3 大功能**:
+
+### 1. 敏感信息加密
+- 自动检测 8 种敏感信息（密码、API Key、Token、手机号、身份证、邮箱、信用卡、私钥）
+- AES-256 加密存储
+- 访问日志记录
+- CLI: `mem encrypt --id <ID>`
+
+### 2. 记忆预测
+- 时间模式预测（工作日早上看日程）
+- 行为模式预测（基于访问历史）
+- 项目预测（截止日期临近提醒）
+- CLI: `mem predict today`
+
+### 3. 多模态记忆（可配置可选项）
+- **OCR** - 图片转文字（PaddleOCR / Tesseract）
+- **STT** - 语音转文字（Whisper / 讯飞API）
+- **CLIP** - 多模态搜索
+- 所有功能默认禁用，按需启用
+- CLI: `mem multimodal config`
+
+### 📦 命令统计
+- 总命令: 24 个（新增 6 个）
+- 新增: `encrypt`, `decrypt`, `sensitive`, `predict`, `multimodal`
+
+---
 
 ## 🎉 v0.6.0 更新
 

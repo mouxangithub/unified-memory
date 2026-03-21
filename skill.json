@@ -1,6 +1,6 @@
 {
   "name": "unified-memory",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Intelligent memory system for AI Agents with hierarchical caching, knowledge merging, predictive loading, auto-extraction, proactive injection, adaptive confidence, and multi-agent sync",
   "author": "mouxangithub",
   "license": "MIT",
