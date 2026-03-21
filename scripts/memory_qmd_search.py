@@ -248,13 +248,30 @@ class LocalReranker:
 # ============ QMD 风格搜索 ============
 
 class QMDSearch:
-    """QMD 风格搜索 - 统一接口"""
+    """QMD 风格搜索 - 统一接口
     
-    def __init__(self, use_reranker: bool = False):
+    三层架构：
+    1. BM25（默认，0 Token）- 纯关键词匹配
+    2. 向量增强（可选，~100 Token）- 语义搜索
+    3. LLM 重排（可选，额外 Token）- 智能重排
+    
+    配置方式：
+    - use_vector=True: 启用向量搜索（需要 Ollama）
+    - use_llm_rerank=True: 启用 LLM 重排（需要配置 llm_model）
+    - llm_model: 重排用的模型，默认 qwen2.5:0.5b
+    """
+    
+    def __init__(self, 
+                 use_vector: bool = True,
+                 use_llm_rerank: bool = False,
+                 llm_model: str = "qwen2.5:0.5b"):
         self.bm25 = BM25Index()
-        self.vector = VectorSearch()
-        self.hybrid = HybridSearch()
-        self.reranker = LocalReranker() if use_reranker else None
+        self.vector = VectorSearch() if use_vector else None
+        self.hybrid = HybridSearch() if use_vector else None
+        self.reranker = LocalReranker(model=llm_model) if use_llm_rerank else None
+        
+        self.use_vector = use_vector
+        self.use_llm_rerank = use_llm_rerank
         
         self._indexed = False
         self._documents: List[Dict] = []
@@ -268,7 +285,7 @@ class QMDSearch:
         try:
             import lancedb
             db = lancedb.connect(str(VECTOR_DB_DIR))
-            if "memories" in db.table_names():
+            if "memories" in db.list_tables():
                 table = db.open_table("memories")
                 # 用一个简单查询获取所有记录
                 import requests
@@ -334,7 +351,7 @@ class QMDSearch:
     
     def search(self, 
                query: str, 
-               mode: str = "hybrid",
+               mode: str = "auto",
                top_k: int = 5,
                snippet_size: int = 200,
                min_score: float = 0.01) -> List[Dict]:
@@ -343,7 +360,11 @@ class QMDSearch:
         
         Args:
             query: 查询文本
-            mode: 搜索模式 - "bm25", "vector", "hybrid"
+            mode: 搜索模式
+                - "auto": 根据配置自动选择（推荐）
+                - "bm25": 纯关键词（0 Token）
+                - "vector": 纯向量（需要 Ollama）
+                - "hybrid": 混合搜索（需要 Ollama）
             top_k: 返回数量
             snippet_size: 片段大小（字符）
             min_score: 最小分数
@@ -356,17 +377,25 @@ class QMDSearch:
         
         results = []
         
+        # 自动模式：根据配置选择
+        if mode == "auto":
+            if self.use_vector:
+                mode = "hybrid"
+            else:
+                mode = "bm25"
+        
         if mode == "bm25":
-            # 纯 BM25
+            # 纯 BM25（0 Token）
             bm25_results = self.bm25.search(query, top_k * 2)
             for doc_id, score in bm25_results:
                 if score >= min_score and doc_id in self._doc_map:
                     doc = self._doc_map[doc_id].copy()
                     doc["score"] = score
                     doc["snippet"] = doc.get("text", "")[:snippet_size]
+                    doc["mode"] = "bm25"
                     results.append(doc)
         
-        elif mode == "vector":
+        elif mode == "vector" and self.vector:
             # 纯向量
             table = self._get_vector_table()
             if table:
@@ -378,9 +407,10 @@ class QMDSearch:
                             doc = self._doc_map[doc_id].copy()
                             doc["score"] = 1 - res.get("_distance", 0.5)
                             doc["snippet"] = doc.get("text", "")[:snippet_size]
+                            doc["mode"] = "vector"
                             results.append(doc)
         
-        elif mode == "hybrid":
+        elif mode == "hybrid" and self.vector and self.hybrid:
             # RRF 混合
             bm25_results = self.bm25.search(query, top_k * 2)
             
@@ -397,7 +427,12 @@ class QMDSearch:
                     doc = self._doc_map[doc_id].copy()
                     doc["score"] = score
                     doc["snippet"] = doc.get("text", "")[:snippet_size]
+                    doc["mode"] = "hybrid"
                     results.append(doc)
+        
+        # LLM 重排（可选增强）
+        if self.reranker and results:
+            results = self.reranker.rerank(query, results, top_k)
         
         # 重排（可选）
         if self.reranker and results:
@@ -410,8 +445,9 @@ class QMDSearch:
         获取上下文（Token 优化版本）
         
         只返回相关片段，不返回全文
+        自动选择最佳模式
         """
-        results = self.search(query, mode="hybrid", top_k=10)
+        results = self.search(query, mode="auto", top_k=10)
         
         context_parts = []
         total_chars = 0
@@ -421,7 +457,9 @@ class QMDSearch:
             if total_chars + len(snippet) > max_tokens * 2:  # 粗略估计
                 break
             
-            context_parts.append(f"- [{res.get('category', 'unknown')}] {snippet}")
+            category = res.get('category', 'unknown')
+            mode_tag = res.get('mode', 'auto')
+            context_parts.append(f"- [{category}|{mode_tag}] {snippet}")
             total_chars += len(snippet)
         
         return "\n".join(context_parts)
@@ -429,20 +467,69 @@ class QMDSearch:
 
 # ============ CLI 接口 ============
 
+def load_config() -> Dict:
+    """加载配置文件"""
+    config_file = MEMORY_DIR / "qmd_config.json"
+    if config_file.exists():
+        try:
+            with open(config_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    
+    # 默认配置
+    return {
+        "use_vector": True,
+        "use_llm_rerank": False,
+        "llm_model": "qwen2.5:0.5b"
+    }
+
+
 def main():
     import argparse
     
     parser = argparse.ArgumentParser(description="QMD-like Memory Search")
-    parser.add_argument("action", choices=["search", "context", "index", "status"])
+    parser.add_argument("action", choices=["search", "context", "index", "status", "config"])
     parser.add_argument("--query", "-q", help="Search query")
-    parser.add_argument("--mode", "-m", choices=["bm25", "vector", "hybrid"], default="hybrid")
+    parser.add_argument("--mode", "-m", choices=["auto", "bm25", "vector", "hybrid"], default="auto")
     parser.add_argument("--top-k", "-k", type=int, default=5)
     parser.add_argument("--snippet-size", "-s", type=int, default=200)
-    parser.add_argument("--rerank", action="store_true", help="Enable reranking")
+    parser.add_argument("--rerank", action="store_true", help="Enable LLM reranking")
+    parser.add_argument("--no-vector", action="store_true", help="Disable vector search")
+    parser.add_argument("--set-config", help="Set config (JSON)")
     
     args = parser.parse_args()
     
-    searcher = QMDSearch(use_reranker=args.rerank)
+    # 配置操作
+    if args.action == "config":
+        config_file = MEMORY_DIR / "qmd_config.json"
+        if args.set_config:
+            try:
+                config = json.loads(args.set_config)
+                with open(config_file, "w", encoding="utf-8") as f:
+                    json.dump(config, f, indent=2)
+                print(f"✅ Config saved to {config_file}")
+            except Exception as e:
+                print(f"❌ Error: {e}")
+        else:
+            config = load_config()
+            print("📋 Current config:")
+            print(json.dumps(config, indent=2))
+        return
+    
+    # 加载配置
+    config = load_config()
+    
+    # 命令行参数覆盖配置
+    use_vector = config.get("use_vector", True) and not args.no_vector
+    use_llm_rerank = config.get("use_llm_rerank", False) or args.rerank
+    llm_model = config.get("llm_model", "qwen2.5:0.5b")
+    
+    searcher = QMDSearch(
+        use_vector=use_vector,
+        use_llm_rerank=use_llm_rerank,
+        llm_model=llm_model
+    )
     
     if args.action == "index":
         searcher.index()
@@ -452,6 +539,8 @@ def main():
         searcher.index()
         print(f"📊 Documents: {len(searcher._documents)}")
         print(f"📊 Indexed terms: {len(searcher.bm25.inverted_index)}")
+        print(f"📊 Vector search: {'✅' if use_vector else '❌'}")
+        print(f"📊 LLM rerank: {'✅' if use_llm_rerank else '❌'} ({llm_model})")
     
     elif args.action == "search":
         if not args.query:
@@ -466,7 +555,8 @@ def main():
         )
         
         for i, res in enumerate(results, 1):
-            print(f"\n[{i}] Score: {res.get('score', 0):.3f}")
+            mode_tag = res.get("mode", "bm25")
+            print(f"\n[{i}] Score: {res.get('score', 0):.4f} ({mode_tag})")
             print(f"    Category: {res.get('category', 'unknown')}")
             print(f"    Snippet: {res.get('snippet', '')[:100]}...")
     
