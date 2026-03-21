@@ -317,6 +317,30 @@ def session_end(conversation: str) -> Dict:
         result["audit_logged"] = True
         log(f"✅ 存储 {result['stored']}/{result['extracted']} 条记忆")
         
+        # ===== 新增：建立关联 =====
+        if result["stored"] > 0:
+            try:
+                assoc_result = subprocess.run(
+                    ["python3", str(WORKSPACE / "skills/unified-memory/scripts/memory_association.py"),
+                     "build-graph"],
+                    capture_output=True, text=True, timeout=60
+                )
+                if assoc_result.returncode == 0:
+                    log(f"✅ 关联图谱已更新")
+                    result["associations_built"] = True
+            except Exception as e:
+                log(f"⚠️ 建立关联失败: {e}")
+        
+        # ===== 新增：应用衰减 =====
+        try:
+            from memory_decay import apply_decay_to_memories, get_decay_stats
+            decayed = apply_decay_to_memories(dry_run=False)
+            if decayed:
+                log(f"✅ 衰减 {len(decayed)} 条记忆")
+                result["decayed"] = len(decayed)
+        except Exception as e:
+            log(f"⚠️ 衰减失败: {e}")
+        
     except Exception as e:
         log(f"❌ 存储失败: {e}")
     
@@ -324,12 +348,13 @@ def session_end(conversation: str) -> Dict:
 
 
 def heartbeat() -> Dict:
-    """心跳检查 - 健康检查 + 提醒检测 + 置信度衰减"""
+    """心跳检查 - 健康检查 + 提醒检测 + 置信度衰减 + 关联维护"""
     result = {
         "health": {},
         "reminders": [],
         "actions": [],
-        "confidence_adjustments": 0
+        "confidence_adjustments": 0,
+        "associations_built": False
     }
     
     try:
@@ -365,6 +390,20 @@ def heartbeat() -> Dict:
         
         if result["reminders"]:
             result["actions"].append(f"有 {len(result['reminders'])} 个即将到来的提醒")
+        
+        # ===== 新增：定期重建关联图谱 =====
+        # 每次心跳都尝试建立关联（内部有去重逻辑）
+        try:
+            assoc_result = subprocess.run(
+                ["python3", str(WORKSPACE / "skills/unified-memory/scripts/memory_association.py"),
+                 "build-graph"],
+                capture_output=True, text=True, timeout=60
+            )
+            if assoc_result.returncode == 0:
+                result["associations_built"] = True
+                result["actions"].append("关联图谱已更新")
+        except Exception as e:
+            log(f"⚠️ 关联构建失败: {e}")
         
         # 应用置信度衰减（可选）
         try:

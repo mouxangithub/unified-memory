@@ -317,34 +317,54 @@ class MemoryHealthChecker:
         """
         orphaned = []
         
-        # 检查 ontology 目录是否存在
-        ontology_dir = MEMORY_DIR / "ontology"
-        if not ontology_dir.exists():
-            logger.debug("Ontology 目录不存在，跳过孤立检测")
-            return orphaned
+        # 加载关联图谱（优先检查 associations/graph.json）
+        associations_file = MEMORY_DIR / "associations" / "graph.json"
+        has_association = set()
         
-        try:
-            # 加载实体和关系
-            entities = self._load_entities()
-            entity_ids = {e.get("id") for e in entities}
+        if associations_file.exists():
+            try:
+                with open(associations_file, encoding='utf-8') as f:
+                    graph = json.load(f)
+                
+                # 收集所有有连接的节点
+                nodes = graph.get("nodes", {})
+                edges = graph.get("edges", {})
+                
+                # edges 是 dict，遍历 values
+                for edge in (edges.values() if isinstance(edges, dict) else edges):
+                    if isinstance(edge, dict):
+                        source = edge.get("source") or edge.get("from")
+                        target = edge.get("target") or edge.get("to")
+                        if source:
+                            has_association.add(source)
+                        if target:
+                            has_association.add(target)
+                
+                logger.debug(f"从关联图谱加载 {len(has_association)} 个已关联节点")
+            except Exception as e:
+                logger.warning(f"加载关联图谱失败: {e}")
+        
+        # 检查每条记忆
+        for m in memories:
+            mem_id = m.get("id", "")
             
-            # 检查每条记忆是否有实体关联
-            for m in memories:
-                scope = m.get("scope", "")
-                # 如果有 scope 且 scope 不是实体 ID，则可能是孤立的
-                if scope and scope not in entity_ids:
-                    # 检查是否有关系记录
-                    has_relation = self._check_memory_relations(m["id"], entities)
-                    if not has_relation:
-                        orphaned.append(m)
-                elif not scope:
-                    # 无 scope 的记忆可能是孤立的
-                    has_relation = self._check_memory_relations(m["id"], entities)
-                    if not has_relation:
-                        orphaned.append(m)
-                        
-        except Exception as e:
-            logger.warning(f"孤立检测失败: {e}")
+            # 如果在关联图谱中有连接，跳过
+            if mem_id in has_association:
+                continue
+            
+            # 检查 ontology 系统
+            ontology_dir = MEMORY_DIR / "ontology"
+            if ontology_dir.exists():
+                try:
+                    entities = self._load_entities()
+                    has_relation = self._check_memory_relations(mem_id, entities)
+                    if has_relation:
+                        continue
+                except:
+                    pass
+            
+            # 都没有关联，是孤立的
+            orphaned.append(m)
         
         logger.debug(f"检测到 {len(orphaned)} 条孤立记忆")
         return orphaned
