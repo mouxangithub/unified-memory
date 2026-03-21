@@ -1,6 +1,6 @@
 # Unified Memory - AI Agent Memory System
 
-> **Version 0.4.0** | An intelligent memory system designed for AI Agents with hierarchical caching, knowledge merging, predictive loading, automatic maintenance, proactive injection, adaptive confidence, audit logging, and multi-agent sync.
+> **Version 0.5.2** | An intelligent memory system designed for AI Agents with hierarchical caching, knowledge merging, predictive loading, automatic maintenance, proactive injection, adaptive confidence, audit logging, and multi-agent sync.
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-Publish-green)](https://clawhub.com)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://python.org)
@@ -341,6 +341,104 @@ pip install boto3                          # S3
 pip install webdavclient3                  # WebDAV
 pip install dropbox                        # Dropbox
 pip install google-api-python-client google-auth-oauthlib  # Google Drive
+```
+
+---
+
+---
+
+## 🔍 QMD-Style Search (v0.5.2)
+
+Inspired by [QMD](https://github.com/tobi/qmd), unified-memory now supports layered search with optional enhancements.
+
+### Three Search Modes
+
+| Mode | Token | Quality | Best For |
+|------|-------|---------|----------|
+| **BM25** | 0 | ⭐⭐ | Exact keywords, fast lookup |
+| **Vector + RRF** | ~100 | ⭐⭐⭐ | Semantic search, recommended |
+| **+ LLM Rerank** | ~400 | ⭐⭐⭐⭐ | Complex queries, best quality |
+
+### Quick Start
+
+```bash
+# Auto mode (recommended)
+memq search -q "query"
+
+# Pure BM25 (0 Token)
+memq search -q "query" -m bm25
+
+# Enable LLM rerank
+memq search -q "query" --rerank
+```
+
+See [README_QMD.md](./README_QMD.md) for details.
+
+---
+
+## 🆚 Comparison with QMD
+
+### Positioning
+
+| Aspect | unified-memory | QMD |
+|--------|---------------|-----|
+| **Purpose** | AI Agent Memory System | Document Search Engine |
+| **Data Type** | Structured memories (categories, TTL, relations) | Markdown docs, notes |
+| **Use Case** | Agent context, user profiles, session memory | Knowledge base, notes search |
+
+### Feature Comparison
+
+| Feature | unified-memory | QMD | Notes |
+|---------|:-------------:|:---:|-------|
+| BM25 Search | ✅ | ✅ | Both support keyword search |
+| Vector Search | ✅ | ✅ | Both support semantic search |
+| RRF Fusion | ✅ | ✅ | Hybrid search for better quality |
+| Local Rerank | ✅ Optional | ✅ Default | QMD enables by default |
+| Snippet Return | ✅ | ✅ | Saves tokens |
+| MCP Server | ❌ | ✅ | QMD as MCP Server |
+| CLI Tool | ✅ | ✅ | Both have CLI |
+| Web UI | ✅ Port 38080 | ❌ | Visual interface |
+| Knowledge Graph | ✅ | ❌ | Memory relations |
+| User Profiling | ✅ | ❌ | Auto-analyze preferences |
+| Memory Categories | ✅ | ❌ | preference/fact/decision |
+| TTL Management | ✅ | ❌ | Auto-expire, decay |
+| Health Check | ✅ | ❌ | Detect conflicts/redundancy |
+| Cloud Sync | ✅ | ❌ | S3/WebDAV/Dropbox |
+| Multi-Agent | ✅ | ❌ | Collab memory, conflict resolution |
+| Proactive Injection | ✅ | ❌ | Predictive loading |
+| Audit Log | ✅ | ❌ | Traceable changes |
+
+### Token Consumption
+
+| Operation | unified-memory | QMD |
+|-----------|---------------|-----|
+| BM25 Search | 0 Token | 0 Token |
+| Vector Search | ~100 Token (local free) | ~100 Token (local free) |
+| Hybrid Search | ~100 Token | ~100 Token |
+| Rerank | +300 Token (optional) | +300 Token (default) |
+
+**Conclusion**: Similar token usage, but unified-memory saves more by making rerank optional.
+
+### When to Use Which
+
+| Scenario | Recommendation | Reason |
+|----------|---------------|--------|
+| AI Agent Memory | unified-memory | Structured, TTL, relations, proactive |
+| Knowledge Base | QMD | Lightweight, MCP, document-focused |
+| User Profiling | unified-memory | Auto preference analysis |
+| Note Search | QMD | Simple and direct |
+| Multi-Agent | unified-memory | Conflict resolution, collab |
+| MCP Integration | QMD | Native support |
+
+### Best Practice: Use Both Together
+
+```bash
+# unified-memory for Agent memory
+mem store "User prefers Feishu for collaboration"
+mem search "project management"
+
+# QMD for document retrieval
+qmd search "API documentation"
 ```
 
 ---

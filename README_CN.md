@@ -1,6 +1,6 @@
 # Unified Memory - AI Agent 记忆系统
 
-> **版本 0.4.0** | 专为 AI Agent 设计的智能记忆系统，支持分层缓存、知识合并、预测加载、自动维护、主动注入、自适应置信度、审计日志和多代理同步。
+> **版本 0.5.2** | 专为 AI Agent 设计的智能记忆系统，支持分层缓存、知识合并、预测加载、自动维护、主动注入、自适应置信度、审计日志和多代理同步。
 
 [![ClawHub](https://img.shields.io/badge/ClawHub-已发布-green)](https://clawhub.com)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://python.org)
@@ -384,6 +384,104 @@ pip install boto3              # S3
 pip install webdavclient3      # WebDAV
 pip install dropbox            # Dropbox
 pip install google-api-python-client google-auth-oauthlib  # Google Drive
+```
+
+---
+
+---
+
+## 🔍 QMD 风格搜索 (v0.5.2)
+
+受 [QMD](https://github.com/tobi/qmd) 启发，unified-memory 现支持分层可选增强搜索。
+
+### 三种搜索模式
+
+| 模式 | Token | 质量 | 适用场景 |
+|------|-------|------|---------|
+| **BM25** | 0 | ⭐⭐ | 精确关键词，快速查找 |
+| **向量 + RRF** | ~100 | ⭐⭐⭐ | 语义搜索，推荐使用 |
+| **+ LLM 重排** | ~400 | ⭐⭐⭐⭐ | 复杂查询，最高质量 |
+
+### 快速使用
+
+```bash
+# 自动模式（推荐）
+memq search -q "查询内容"
+
+# 纯 BM25（0 Token）
+memq search -q "查询" -m bm25
+
+# 启用 LLM 重排
+memq search -q "查询" --rerank
+```
+
+详见 [README_QMD.md](./README_QMD.md)。
+
+---
+
+## 🆚 与 QMD 对比
+
+### 定位差异
+
+| 维度 | unified-memory | QMD |
+|------|---------------|-----|
+| **定位** | AI Agent 记忆系统 | 文档搜索引擎 |
+| **数据类型** | 结构化记忆（分类、时效、关联） | Markdown 文档、会议记录 |
+| **使用场景** | Agent 上下文、用户画像、会话记忆 | 知识库检索、笔记搜索 |
+
+### 功能对比
+
+| 功能 | unified-memory | QMD | 说明 |
+|------|:-------------:|:---:|------|
+| BM25 搜索 | ✅ | ✅ | 都支持关键词搜索 |
+| 向量搜索 | ✅ | ✅ | 都支持语义搜索 |
+| RRF 融合 | ✅ | ✅ | 混合搜索质量更高 |
+| 本地重排 | ✅ 可选 | ✅ 默认 | QMD 默认启用，我们可选 |
+| 片段返回 | ✅ | ✅ | 省 Token |
+| MCP 接口 | ❌ | ✅ | QMD 可作为 MCP Server |
+| CLI 工具 | ✅ | ✅ | 都有命令行 |
+| Web UI | ✅ 38080 | ❌ | 我们有可视化界面 |
+| 知识图谱 | ✅ | ❌ | 记忆关系可视化 |
+| 用户画像 | ✅ | ❌ | 自动分析用户偏好 |
+| 记忆分类 | ✅ | ❌ | preference/fact/decision |
+| 时效管理 | ✅ | ❌ | 自动过期、衰减 |
+| 健康检测 | ✅ | ❌ | 矛盾/冗余/孤立检测 |
+| 云同步 | ✅ | ❌ | S3/WebDAV/Dropbox 等 |
+| 多 Agent | ✅ | ❌ | 协作记忆、冲突解决 |
+| 主动注入 | ✅ | ❌ | 预测加载相关记忆 |
+| 审计日志 | ✅ | ❌ | 可追溯记忆变更 |
+
+### Token 消耗对比
+
+| 操作 | unified-memory | QMD |
+|------|---------------|-----|
+| BM25 搜索 | 0 Token | 0 Token |
+| 向量搜索 | ~100 Token (本地免费) | ~100 Token (本地免费) |
+| 混合搜索 | ~100 Token | ~100 Token |
+| 重排 | +300 Token (可选) | +300 Token (默认) |
+
+**结论**：Token 消耗相当，但 unified-memory 默认不重排，更省 Token。
+
+### 适用场景建议
+
+| 场景 | 推荐 | 原因 |
+|------|------|------|
+| AI Agent 记忆 | unified-memory | 结构化、时效、关联、主动注入 |
+| 知识库搜索 | QMD | 更轻量、MCP 支持、专注文档 |
+| 用户画像 | unified-memory | 自动分析偏好 |
+| 笔记检索 | QMD | 简单直接 |
+| 多 Agent 协作 | unified-memory | 冲突解决、协作记忆 |
+| MCP 集成 | QMD | 原生支持 |
+
+### 最佳实践：结合使用
+
+```bash
+# unified-memory 用于 Agent 记忆
+mem store "用户偏好使用飞书协作"
+mem search "项目管理"
+
+# QMD 用于文档检索
+qmd search "API 文档"
 ```
 
 ---
