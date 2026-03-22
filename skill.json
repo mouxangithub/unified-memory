@@ -249,6 +249,22 @@
   },
   "changelog": [
     {
+      "version": "1.2.0",
+      "date": "2026-03-23",
+      "changes": [
+        "Deep optimization benchmarked against QMD and MetaGPT",
+        "Added OCR engine (Tesseract/PaddleOCR/Qwen VL)",
+        "Added STT engine (Whisper/Aliyun)",
+        "Added smart classifier with auto-tagging",
+        "Added agent scheduler with load balancing",
+        "Added code quality assessor with security scanning",
+        "Added Web UI with user auth and WebSocket",
+        "Added API docs generator (Markdown/OpenAPI)",
+        "Added unified CLI for all modules",
+        "Zero dependencies vs QMD 5+ and MetaGPT 70+"
+      ]
+    },
+    {
       "version": "0.1.0",
       "date": "2026-03-18",
       "changes": [
