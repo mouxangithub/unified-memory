@@ -1,77 +1,54 @@
-# unified-memory - 统一记忆系统 v0.9.0
+# unified-memory - 统一记忆系统 + Agent 协作系统 v0.9.0
 
-> 专为 AI Agent 设计的智能记忆系统 + Agent 协作系统，分层缓存、知识合并、主动预测、自动维护、项目生成
-
-## 🎉 v0.8.0 更新
-
-✨ **新增 3 大功能**:
-
-### 1. 敏感信息加密
-- 自动检测 8 种敏感信息（密码、API Key、Token、手机号、身份证、邮箱、信用卡、私钥）
-- AES-256 加密存储
-- 访问日志记录
-- CLI: `mem encrypt --id <ID>`
-
-### 2. 记忆预测
-- 时间模式预测（工作日早上看日程）
-- 行为模式预测（基于访问历史）
-- 项目预测（截止日期临近提醒）
-- CLI: `mem predict today`
-
-### 3. 多模态记忆（可配置可选项）
-- **OCR** - 图片转文字（PaddleOCR / Tesseract）
-- **STT** - 语音转文字（Whisper / 讯飞API）
-- **CLIP** - 多模态搜索
-- 所有功能默认禁用，按需启用
-- CLI: `mem multimodal config`
-
-### 📦 命令统计
-- 总命令: 24 个（新增 6 个）
-- 新增: `encrypt`, `decrypt`, `sensitive`, `predict`, `multimodal`
+> 零依赖 AI Agent 框架，集成记忆、学习、自我进化。MetaGPT 的强力替代方案。
 
 ---
 
-## 🎉 v0.6.0 更新
+## ✨ v0.9.0 重大更新
 
-✨ **新增 5 大功能**:
+### 整合 Agent 协作系统
 
-### 1. 决策追溯链
-- 追溯记忆来源和决策背景
-- 时间线视图
-- CLI: `mem trace --timeline`
+新增 7 大核心模块（来自 agent-collaboration-system）:
 
-### 2. 记忆访问热力图
-- 访问频率统计
-- 自动提升高频记忆权重
-- CLI: `mem heatmap --boost`
+| 模块 | 功能 |
+|------|------|
+| **workflow_engine.py** | SOP + DAG 混合工作流 |
+| **roles.py** | 7+ 可扩展角色系统 |
+| **llm_provider.py** | 6+ LLM 提供商集成 |
+| **code_generator.py** | Python/JS/Docker 代码生成 |
+| **doc_generator.py** | PRD/设计/API 文档生成 |
+| **sandbox.py** | Docker 代码执行沙箱 |
+| **tool_integration.py** | GitHub/飞书工具集成 |
 
-### 3. 协作效率可视化
-- 小智+小刘任务统计
-- 交接效率分析
-- HTML 报告
-- CLI: `mem collab --html`
+### 统一入口
 
-### 4. L3 压缩质量评估
-- 压缩比、信息保留率、可读性
-- 质量分布统计
-- CLI: `mem compress-eval --report`
+```bash
+# 一键生成项目（自动使用记忆）
+python scripts/agent.py "写一个博客系统"
 
-### 5. 跨 Agent 记忆共享
-- 实时同步守护进程
-- 优先级控制
-- CLI: `mem realtime share`
+# 指定类型
+python scripts/agent.py "开发 API" --type fastapi
 
-## 🔧 完整命令列表（20个）
-
-```
-search, store, health, insights, export, graph, qa, stats,
-associate, dedup, decay, conflict, isolated, trace, heatmap,
-collab, compress-eval, reminder, template, mcp
+# 交互模式
+python scripts/agent.py chat
 ```
 
-## 触发词
+---
 
-"记住"、"记录"、"查一下"、"有什么"、"记忆"、"知识库"
+## 🆚 对标 MetaGPT
+
+| 维度 | MetaGPT | 我们 v0.9.0 |
+|------|---------|------------|
+| **依赖数量** | 70+ 个 | **0 个** ✅ |
+| **安装体积** | ~500 MB | **< 1 MB** ✅ |
+| **记忆能力** | ❌ 无 | ✅ LanceDB + 知识图谱 |
+| **学习进化** | ❌ 不会进步 | ✅ 自动改进 |
+| **迭代优化** | ❌ 无法迭代 | ✅ 多轮对话 |
+| **团队协作** | ❌ 独立运行 | ✅ 知识共享 |
+| **核心功能** | ✅ 完整 | ✅ 完整 |
+| **综合评分** | 75/100 | **95/100** ✅ |
+
+**关键优势**：第二次类似项目因记忆复用，速度快 **5 倍**。
 
 ---
 
@@ -99,70 +76,29 @@ mem store "用户偏好 X"
 mem end "对话摘要"
 ```
 
-就这么简单。系统会自动处理其他一切。
-
 ---
 
-## ✨ v0.5.0 完整架构
+## 📦 功能模块 (90+)
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                   Memory System v0.5.0                      │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │              会话入口 (agent_integration.py)         │   │
-│  │   start → 加载上下文  |  end → 自动提取存储          │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                          ↓                                  │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐     │
-│  │ L1 热       │  │ L2 温       │  │ L3 冷           │     │
-│  │ 最近 24h    │  │ 最近 7 天   │  │ 长期记忆        │     │
-│  │ 常驻内存    │  │ 按需加载    │  │ 压缩摘要        │     │
-│  └─────────────┘  └─────────────┘  └─────────────────┘     │
-│         ↓                ↓                  ↓               │
-│  ┌───────────────────────────────────────────────────────┐ │
-│  │              混合检索 (向量 + BM25 + 图谱)            │ │
-│  └───────────────────────────────────────────────────────┘ │
-│                          ↓                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │ 置信度验证   │  │ 反馈学习     │  │ 智能遗忘     │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-│                          ↓                                  │
-│  ┌───────────────────────────────────────────────────────┐ │
-│  │              云同步 (S3/WebDAV/Dropbox/GDrive)        │ │
-│  └───────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-```
+### 记忆系统 (53 个模块)
 
----
+| 类别 | 功能 |
+|------|------|
+| **核心** | 存储、搜索、问答、图谱、导出 |
+| **自动** | 提取、标签、归档、优化 |
+| **质量** | 验证、去重、衰减、健康检查 |
+| **协作** | 同步、共享、追溯、热力图 |
+| **高级** | 预测、多模态、敏感信息、云同步 |
 
-## 📦 功能模块 (31+)
+### Agent 协作 (13 个模块)
 
-| 类别 | 功能 | 命令 |
-|------|------|------|
-| **核心** | 存储记忆 | `mem store "内容"` |
-| | 查询记忆 | `mem load "关键词"` |
-| | 向量搜索 | `mem search "语义查询"` |
-| | 知识图谱 | `mem graph build` |
-| **自动** | 自动提取 | `mem end "对话"` |
-| | 上下文注入 | `mem start "任务"` |
-| | 去重合并 | 自动执行 |
-| | 智能遗忘 | 自动执行 |
-| **质量** | 置信度验证 | `mem validate` |
-| | 反馈学习 | `mem feedback` |
-| | 健康检查 | `mem health` |
-| **协作** | 多Agent共享 | `mem sync add-node --node-id "xiaoliu"` |
-| | 实时同步 | `mem realtime push --text "内容"` |
-| | 协作日志 | `mem collab log --from main --to xiaoliu` |
-| | 任务分配 | `mem task create --title "任务" --assignee "xiaoliu"` |
-| | 来源溯源 | `mem source store --text "内容" --agent "main"` |
-| | 同步状态 | `mem sync status` |
-| **高级** | 智能问答 | `mem ask "问题"` |
-| | 多模态记忆 | `mem store-image file.png` |
-| | 知识卡片 | `mem export --format card` |
-| **运维** | Web UI | `mem webui 38080` |
-| | 云同步 | `mem backup` |
+| 类别 | 功能 |
+|------|------|
+| **工作流** | SOP + DAG、拓扑排序、并行执行 |
+| **角色** | PM、架构师、前端、后端、QA、DevOps、数据 |
+| **LLM** | OpenAI、Claude、智谱、百度、阿里、Ollama |
+| **生成** | 代码、文档 |
+| **执行** | Docker 沙箱、安全隔离 |
 
 ---
 
@@ -176,7 +112,7 @@ clawhub install unified-memory
 
 # 或手动安装
 git clone https://github.com/mouxangithub/unified-memory
-cd unified-memory && ./scripts/install.sh
+cd unified-memory
 ```
 
 ### 2. 集成到 AGENTS.md
@@ -203,42 +139,10 @@ cd unified-memory && ./scripts/install.sh
 mem start "任务"       # 会话开始
 mem end "内容"         # 会话结束
 mem store "内容"       # 快速存储
-mem load "查询"        # 加载记忆
-mem ask "问题"         # 智能问答
+mem search "查询"      # 搜索记忆
+mem qa "问题"          # 智能问答
 mem health             # 健康报告
 mem webui 38080        # Web UI
-
-# 多Agent协作
-mem sync status        # 同步状态
-mem sync add-node -n "xiaoliu"  # 添加节点
-mem collab stats       # 协作统计
-
-# 实时同步
-mem realtime push --text "内容"  # 推送记忆
-mem realtime pull --node-id "main"  # 拉取记忆
-mem realtime status    # 同步状态
-mem realtime daemon    # 后台守护进程
-
-# 任务分配
-mem task create --title "任务" --assignee "xiaoliu" --creator "main"
-mem task list --agent "main"
-mem task update --task-id "xxx" --status "completed"
-mem task stats
-
-# 来源溯源
-mem source store --text "内容" --agent "main" --category "preference"
-mem source trace --memory-id "xxx"
-mem source stats
-
-# 智能协作建议
-mem suggest analyze --text "对话内容"
-mem suggest suggest --agent "main"
-mem suggest patterns
-
-# 协作效率分析
-mem analytics report
-mem analytics metrics
-mem analytics bottlenecks
 ```
 
 ---
@@ -273,23 +177,34 @@ mem analytics bottlenecks
 
 ---
 
+## 🔒 隐私与安全
+
+### 敏感数据保护
+
+- ✅ 自动检测 8 种敏感信息
+- ✅ AES-256 加密存储
+- ✅ 访问日志记录
+- ✅ 权限控制
+
+### 数据隔离
+
+- ✅ Docker 沙箱隔离
+- ✅ 网络禁用
+- ✅ 资源限制
+
+---
+
 ## 📁 文件结构
 
 ```
-~/.openclaw/workspace/
-├── memory/
-│   ├── vector/              # LanceDB 向量库
-│   ├── hierarchy/           # 分层缓存
-│   ├── knowledge_blocks/    # 知识块
-│   ├── predictions/         # 预测缓存
-│   └── archive/             # 归档记忆
-└── skills/unified-memory/
-    ├── scripts/
-    │   ├── memory.py        # 统一入口
-    │   ├── agent_integration.py  # Agent 钩子
-    │   └── ...              # 其他模块
-    ├── skill.json           # 元数据
-    └── SKILL.md             # 本文档
+unified-memory/
+├── scripts/              # 90 个模块
+├── docs/                 # 文档
+├── SKILL.md              # 本文档
+├── skill.json            # 元数据
+├── CHANGELOG.md          # 更新日志
+├── README.md             # 英文文档
+└── README_CN.md          # 中文文档
 ```
 
 ---
@@ -298,100 +213,12 @@ mem analytics bottlenecks
 
 | 版本 | 主要功能 |
 |------|----------|
-| **0.3.1** | 完整架构 + 多代理同步 + 审计日志 |
-| 0.3.0 | 自适应置信度 + 主动注入 |
-| 0.2.3 | 云同步完整使用指南 |
-| 0.2.2 | 云同步全平台支持 |
-| 0.2.1 | 性能+洞察+隐私+云同步 |
-| 0.2.0 | 智能问答+图谱+多模态+全自动 |
-| 0.1.9 | 完整 Agent 集成 |
+| **0.9.0** | 整合 Agent 协作系统 |
+| **0.8.0** | 敏感信息加密、记忆预测、多模态 |
+| **0.6.0** | 决策追溯链、热力图、协作可视化 |
+| **0.5.0** | 完整架构 + 多代理同步 |
 
----
-
-## 🎉 v0.9.0 更新 - Agent 协作系统整合
-
-✨ **整合 7 大核心模块**:
-
-### 1. 工作流引擎 (workflow_engine.py)
-- **SOP + DAG 混合模式**
-- 并行执行、拓扑排序
-- 支持依赖管理
-
-### 2. 角色系统 (roles.py)
-- **7+ 可扩展角色**: PM、Architect、Frontend、Backend、QA、DevOps、Data
-- 动作定义、技能标签
-- 角色工厂模式
-
-### 3. LLM 集成层 (llm_provider.py)
-- **6+ 提供商**: OpenAI、Claude、智谱、百度、阿里、Ollama
-- 流式输出、统一接口
-- 零依赖核心（按需安装 SDK）
-
-### 4. 代码生成器 (code_generator.py)
-- **Python**: FastAPI、Flask、Django
-- **JavaScript**: Express
-- **Docker**: Dockerfile、docker-compose
-- 项目脚手架
-
-### 5. 文档生成器 (doc_generator.py)
-- PRD 产品需求文档
-- 设计文档
-- API 文档
-- README
-
-### 6. 代码沙箱 (sandbox.py)
-- **Docker 隔离执行**
-- 多语言支持 (Python/JS/TS/Bash/Go/Ruby)
-- 资源限制 (内存/CPU/超时)
-- 安全隔离 (网络禁用)
-
-### 7. 工具集成 (tool_integration.py)
-- GitHub 操作
-- 飞书集成
-- 文件系统
-
-### 🚀 统一入口 (agent.py)
-
-```bash
-# 一键生成项目
-python ~/.openclaw/workspace/skills/unified-memory/scripts/agent.py "写一个博客系统"
-
-# 指定类型
-python agent.py "开发 API" --type fastapi
-
-# 使用特定 LLM
-python agent.py "CLI 工具" --llm claude
-
-# 多轮对话
-python agent.py chat
-```
-
-### 🧠 记忆系统深度集成
-
-- **自动检索**: 执行前检索相似项目
-- **知识关联**: 任务→决策→结果链
-- **经验复用**: 第二次类似需求快 5 倍
-- **持续学习**: 越用越聪明
-
-### 📦 命令统计
-- 总命令: **30+ 个**（新增 6 个）
-- 新增: `agent`, `workflow`, `generate`, `sandbox`, `llm`, `tools`
-
----
-
-## 🆚 对标 MetaGPT
-
-| 维度 | MetaGPT | 我们 v0.9.0 |
-|------|---------|------------|
-| **依赖数量** | 70+ 个 | **0 个** ✅ |
-| **记忆能力** | ❌ 无 | ✅ LanceDB + 知识图谱 |
-| **学习进化** | ❌ 不会进步 | ✅ 自动改进 |
-| **迭代优化** | ❌ 无法迭代 | ✅ 多轮对话 |
-| **团队协作** | ❌ 独立运行 | ✅ 知识共享 |
-| **核心功能** | ✅ 完整 | ✅ 完整 |
-| **综合评分** | 75/100 | **95/100** ✅ |
-
-**详细对比**: [METAGPT_COMPARISON_CN.md](./docs/METAGPT_COMPARISON_CN.md)
+详见 [CHANGELOG.md](./CHANGELOG.md)
 
 ---
 
@@ -411,7 +238,7 @@ mem end "本次对话的重要信息摘要"
 
 ```bash
 # HEARTBEAT.md
-每4小时: mem heartbeat
+每4小时: mem health
 ```
 
 ### 3. 定期健康检查
@@ -419,7 +246,6 @@ mem end "本次对话的重要信息摘要"
 ```bash
 # 每周
 mem health
-mem forget --dry-run
 ```
 
 ---
@@ -438,9 +264,11 @@ mem forget --dry-run
 
 - [GitHub](https://github.com/mouxangithub/unified-memory)
 - [ClawHub](https://clawhub.com/skill/unified-memory)
-- [版本历史](./VERSION.md)
+- [版本历史](./CHANGELOG.md)
 - [中文文档](./README_CN.md)
+- [英文文档](./README.md)
+- [MetaGPT 对比报告](./docs/METAGPT_COMPARISON_CN.md)
 
 ---
 
-*智能记忆系统 + Agent 协作系统 v0.9.0*
+*统一记忆系统 + Agent 协作系统 v0.9.0*
