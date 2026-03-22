@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-03-22T15:39:00.542610",
+  "total": 11,
+  "passed": 11,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "CLI 命令",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "多模态记忆",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "可视化界面",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "Git 集成",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "记忆压缩",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "错误降级",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "统一接口",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "向量修复",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "项目脚手架",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "任务恢复",
+      "status": "PASS",
+      "error": null
+    },
+    {
+      "name": "工具集成",
+      "status": "PASS",
+      "error": null
+    }
+  ]
+}
