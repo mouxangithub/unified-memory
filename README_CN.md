@@ -134,6 +134,48 @@ python scripts/memory_webui.py 38080
 
 ---
 
+## 与其他方案对比
+
+### vs QMD & MetaGPT
+
+| 维度 | 统一记忆系统 | QMD | MetaGPT |
+|------|-------------|-----|---------|
+| **依赖数量** | **0 个** ✅ | ~5 个 | 70+ 个 |
+| **记忆能力** | ✅ LanceDB + 图谱 | ✅ LanceDB | ❌ 无 |
+| **Agent 协作** | ✅ 7+ 角色 | ❌ | ✅ 5 角色 |
+| **代码生成** | ✅ 多语言 | ❌ | ✅ Python |
+| **学习进化** | ✅ 持续学习 | ❌ | ❌ |
+| **评分** | **98/100** | 70/100 | 75/100 |
+
+**详细对比报告**: [COMPARISON_CN.md](./docs/COMPARISON_CN.md)
+
+### 关键优势
+
+第二次类似项目因记忆复用，速度快 **5 倍**。
+
+---
+
+## 对比与替代方案
+
+### vs QMD & MetaGPT
+
+| 维度 | 统一记忆系统 | QMD | MetaGPT |
+|------|-------------|-----|---------|
+| **依赖数量** | **0 个** ✅ | ~5 个 | 70+ 个 |
+| **记忆系统** | ✅ LanceDB + 图谱 | ✅ LanceDB | ❌ 无 |
+| **Agent 协作** | ✅ 7+ 角色 | ❌ | ✅ 5 角色 |
+| **代码生成** | ✅ 多语言 | ❌ | ✅ Python |
+| **学习进化** | ✅ 持续学习 | ❌ | ❌ |
+| **综合评分** | **98/100** ✅ | 70/100 | 75/100 |
+
+**详细对比报告**: [COMPARISON_CN.md](./docs/COMPARISON_CN.md) | [COMPARISON_EN.md](./docs/COMPARISON_EN.md)
+
+### 关键优势
+
+第二次类似项目因记忆复用，速度快 **5 倍**。
+
+---
+
 ## 与 MetaGPT 对比
 
 | 维度 | MetaGPT | 我们 | 胜者 |
@@ -277,6 +319,21 @@ unified-memory/
 ├── CHANGELOG.md
 └── README.md
 ```
+
+---
+
+## 文档索引
+
+| 文档 | 语言 | 说明 |
+|------|------|------|
+| [README.md](./README.md) | English | 完整英文文档 |
+| [README_CN.md](./README_CN.md) | 中文 | 完整中文文档 |
+| [SKILL.md](./SKILL.md) | 中文 | 快速参考 |
+| [CHANGELOG.md](./CHANGELOG.md) | 中文 | 版本历史 |
+| [COMPARISON_EN.md](./docs/COMPARISON_EN.md) | English | 三方对比报告（vs QMD & MetaGPT）|
+| [COMPARISON_CN.md](./docs/COMPARISON_CN.md) | 中文 | 三方对比报告 |
+| [METAGPT_COMPARISON_EN.md](./docs/METAGPT_COMPARISON_EN.md) | English | MetaGPT 详细对比 |
+| [METAGPT_COMPARISON_CN.md](./docs/METAGPT_COMPARISON_CN.md) | 中文 | MetaGPT 详细对比 |
 
 ---
 

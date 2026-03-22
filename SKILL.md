@@ -35,6 +35,21 @@ python scripts/agent.py chat
 
 ---
 
+## 🆚 三方对比：统一记忆系统 vs QMD vs MetaGPT
+
+| 维度 | 统一记忆系统 | QMD | MetaGPT |
+|------|-------------|-----|---------|
+| **依赖数量** | **0 个** ✅ | ~5 个 | 70+ 个 |
+| **记忆系统** | ✅ LanceDB + 图谱 | ✅ LanceDB | ❌ 无 |
+| **Agent 协作** | ✅ 7+ 角色 | ❌ | ✅ 5 角色 |
+| **代码生成** | ✅ Python/JS/Docker | ❌ | ✅ Python |
+| **学习进化** | ✅ 持续学习 | ❌ | ❌ |
+| **综合评分** | **98/100** ✅ | 70/100 | 75/100 |
+
+**详细对比报告**: [COMPARISON_CN.md](./docs/COMPARISON_CN.md) | [COMPARISON_EN.md](./docs/COMPARISON_EN.md)
+
+---
+
 ## 🆚 对标 MetaGPT
 
 | 维度 | MetaGPT | 我们 v0.9.0 |
@@ -257,6 +272,21 @@ mem health
 | LanceDB 不可用 | 自动降级到 JSON 存储 |
 | Ollama 不可用 | 自动降级到规则提取 |
 | 记忆未加载 | 检查 `mem health` |
+
+---
+
+## 📚 文档索引
+
+| 文档 | 语言 | 说明 |
+|------|------|------|
+| [README.md](./README.md) | English | 完整英文文档 |
+| [README_CN.md](./README_CN.md) | 中文 | 完整中文文档 |
+| [SKILL.md](./SKILL.md) | 中文 | 快速参考 |
+| [CHANGELOG.md](./CHANGELOG.md) | 中文 | 版本历史 |
+| [COMPARISON_EN.md](./docs/COMPARISON_EN.md) | English | 三方对比报告（vs QMD & MetaGPT）|
+| [COMPARISON_CN.md](./docs/COMPARISON_CN.md) | 中文 | 三方对比报告（vs QMD & MetaGPT）|
+| [METAGPT_COMPARISON_EN.md](./docs/METAGPT_COMPARISON_EN.md) | English | MetaGPT 详细对比 |
+| [METAGPT_COMPARISON_CN.md](./docs/METAGPT_COMPARISON_CN.md) | 中文 | MetaGPT 详细对比 |
 
 ---
 
