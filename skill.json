@@ -1,7 +1,7 @@
 {
   "name": "unified-memory",
-  "version": "0.8.0",
-  "description": "Intelligent memory system for AI Agents with hierarchical caching, knowledge merging, predictive loading, auto-extraction, proactive injection, adaptive confidence, and multi-agent sync",
+  "version": "0.9.0",
+  "description": "Intelligent memory system + Agent collaboration system for AI Agents. Zero-dependency alternative to MetaGPT with memory, learning, and self-evolution capabilities",
   "author": "mouxangithub",
   "license": "MIT",
   "keywords": [
@@ -16,11 +16,18 @@
     "proactive-injection",
     "adaptive-confidence",
     "multi-agent-sync",
-    "audit-logging"
+    "audit-logging",
+    "agent-collaboration",
+    "workflow-engine",
+    "code-generation",
+    "llm-integration",
+    "metagpt-alternative",
+    "zero-dependency"
   ],
   "categories": [
     "Core",
-    "Memory"
+    "Memory",
+    "Agent Collaboration"
   ],
   "repository": {
     "type": "git",
@@ -214,7 +221,12 @@
     "memory:import",
     "memory:delete",
     "memory:validate",
-    "memory:quality"
+    "memory:quality",
+    "agent:workflow",
+    "agent:generate",
+    "agent:collaborate",
+    "llm:integrate",
+    "sandbox:execute"
   ],
   "compatibility": {
     "openclaw": ">=0.1.0",
