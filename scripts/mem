@@ -1,48 +1,38 @@
 #!/usr/bin/env python3
 """
-mem - 统一命令行入口 v2.1
+mem - 统一命令行入口 v3.0
 
 所有记忆系统操作都通过这个入口。
 
+新增功能:
+- Context Tree 管理项目上下文
+- 智能摘要压缩历史
+- 项目模板快速启动
+- 工作流验证
+
 Usage:
-    mem init                    # 初始化系统
-    mem store "记忆内容"         # 存储记忆（支持降级）
-    mem search "查询"           # 搜索记忆（支持降级）
-    mem health                  # 健康检查
-    mem doctor                  # 深度诊断
-    mem fix                     # 自动修复
-    mem stats                   # 统计信息（支持降级）
+    mem init --template software-project    # 用模板创建项目
+    mem ctx update "任务" --progress 50      # 更新上下文
+    mem ctx decision "标题" "内容"           # 记录决策
+    mem summary compress --days 7            # 压缩日志
+    mem validate                             # 验证工作流
 """
 
 import sys
 import argparse
-import subprocess
 from pathlib import Path
 from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
-# ============ 命令实现 ============
-
-def cmd_init(args):
-    """初始化记忆系统"""
-    print("🚀 初始化记忆系统...")
-    
-    memory_dir = Path.home() / ".openclaw" / "workspace" / "memory"
-    memory_dir.mkdir(parents=True, exist_ok=True)
-    (memory_dir / "vector").mkdir(exist_ok=True)
-    (memory_dir / "cache").mkdir(exist_ok=True)
-    
-    print("✅ 初始化完成")
-
+# ============ 存储和搜索（支持降级） ============
 
 def cmd_store(args):
     """存储记忆（支持降级）"""
     text = args.text
     tags = args.tags.split(",") if args.tags else []
     
-    # 方案 1: 尝试使用 AgentMemory
     try:
         from agent_memory import AgentMemory
         memory = AgentMemory()
@@ -50,9 +40,9 @@ def cmd_store(args):
         print(f"✅ 已存储: {text[:50]}...")
         return
     except:
-        pass  # 降级
+        pass
     
-    # 方案 2: 直接写文件
+    # 降级方案
     try:
         date = datetime.now().strftime("%Y-%m-%d")
         memory_dir = Path.home() / ".openclaw" / "workspace" / "memory"
@@ -75,7 +65,6 @@ def cmd_search(args):
     query = args.query
     limit = args.limit
     
-    # 方案 1: 向量搜索
     try:
         from resilience.error_fallback import ErrorFallback
         fallback = ErrorFallback()
@@ -88,9 +77,9 @@ def cmd_search(args):
                 print(f"{i}. {text}...")
             return
     except:
-        pass  # 降级
+        pass
     
-    # 方案 2: 文件搜索
+    # 降级方案
     try:
         memory_dir = Path.home() / ".openclaw" / "workspace" / "memory"
         results = []
@@ -111,6 +100,104 @@ def cmd_search(args):
     except Exception as e:
         print(f"❌ 搜索失败: {e}")
 
+
+# ============ Context Tree ============
+
+def cmd_ctx(args):
+    """项目上下文管理"""
+    try:
+        from context.context_tree import ContextTree
+        ctx = ContextTree()
+        
+        if args.ctx_command == "init":
+            ctx.init_project(args.name, args.desc or "")
+            print(f"✅ 项目初始化: {args.name}")
+        
+        elif args.ctx_command == "update":
+            ctx.update_current(args.task, args.progress, args.notes or "")
+            print(f"✅ 状态更新: {args.task} ({args.progress}%)")
+        
+        elif args.ctx_command == "decision":
+            tags = args.tags.split(",") if args.tags else []
+            ctx.record_decision(args.title, args.content, tags)
+            print(f"✅ 决策已记录: {args.title}")
+        
+        elif args.ctx_command == "status":
+            current = ctx.get_current()
+            print(f"📋 当前任务: {current['task']}")
+            print(f"📊 进度: {current['progress']}%")
+            print(f"📝 备注: {current['notes']}")
+        
+        elif args.ctx_command == "export":
+            print(ctx.export_context())
+    
+    except Exception as e:
+        print(f"❌ 操作失败: {e}")
+
+
+# ============ 智能摘要 ============
+
+def cmd_summary(args):
+    """智能摘要"""
+    try:
+        from intelligence.smart_summarizer import SmartSummarizer
+        summarizer = SmartSummarizer()
+        
+        if args.summary_command == "compress":
+            summary = summarizer.compress_logs(args.days)
+            print(summary[:500] + "...")
+            print(f"\n✅ 压缩完成")
+        
+        elif args.summary_command == "decisions":
+            decisions = summarizer.extract_decisions(args.days)
+            print(f"📋 关键决策 (最近 {args.days} 天):\n")
+            for i, decision in enumerate(decisions[:10], 1):
+                print(f"{i}. {decision.get('content', '')[:80]}")
+        
+        elif args.summary_command == "summary":
+            print(summarizer.generate_summary())
+    
+    except Exception as e:
+        print(f"❌ 操作失败: {e}")
+
+
+# ============ 项目模板 ============
+
+def cmd_template(args):
+    """项目模板"""
+    try:
+        from templates.project_templates import ProjectTemplate
+        
+        if args.template_command == "list":
+            templates = ProjectTemplate.list_templates()
+            print("📦 可用模板:\n")
+            for name, info in templates.items():
+                print(f"  {name}: {info['name']}")
+                print(f"    {info['description']}\n")
+        
+        elif args.template_command == "create":
+            template = ProjectTemplate(args.template_name)
+            project_name = args.name or Path(args.path).name
+            project_path = template.create(args.path, project_name, args.desc or "")
+            print(f"✅ 项目创建成功: {project_path}")
+    
+    except Exception as e:
+        print(f"❌ 操作失败: {e}")
+
+
+# ============ 工作流验证 ============
+
+def cmd_validate(args):
+    """工作流验证"""
+    try:
+        from testing.workflow_validator import WorkflowValidator
+        validator = WorkflowValidator()
+        validator.validate_all()
+    except Exception as e:
+        print(f"❌ 验证失败: {e}")
+
+
+# ============ 健康检查 ============
 
 def cmd_health(args):
     """健康检查"""
@@ -146,6 +233,22 @@ def cmd_health(args):
     except:
         print("⚪ 未启动 (可选)")
     
+    # Context Tree
+    print("3️⃣ Context Tree...", end=" ")
+    try:
+        from context.context_tree import ContextTree
+        print("✅")
+    except:
+        print("⚪ 未安装")
+    
+    # Smart Summarizer
+    print("4️⃣ Smart Summarizer...", end=" ")
+    try:
+        from intelligence.smart_summarizer import SmartSummarizer
+        print("✅")
+    except:
+        print("⚪ 未安装")
+    
     print("\n" + "="*40)
     if issues:
         print("⚠️ 发现问题，运行 'mem fix' 修复")
@@ -153,70 +256,83 @@ def cmd_health(args):
         print("✅ 系统健康")
 
 
-def cmd_doctor(args):
-    """深度诊断"""
-    print("🔬 深度诊断\n")
-    cmd_health(args)
-    print("\n✅ 诊断完成")
-
-
-def cmd_fix(args):
-    """自动修复"""
-    print("🔧 自动修复\n")
-    print("✅ 修复完成")
-
-
-def cmd_stats(args):
-    """统计信息（支持降级）"""
-    print("📊 系统统计\n")
-    
-    # 方案 1: AgentMemory
-    try:
-        from agent_memory import AgentMemory
-        memory = AgentMemory()
-        status = memory.status()
-        print(f"总记忆数: {status.get('total_memories', 0)}")
-        return
-    except:
-        pass  # 降级
-    
-    # 方案 2: 文件统计
-    try:
-        memory_dir = Path.home() / ".openclaw" / "workspace" / "memory"
-        md_files = list(memory_dir.glob("*.md"))
-        print(f"记忆文件: {len(md_files)} 个")
-    except Exception as e:
-        print(f"❌ 获取统计失败: {e}")
-
+# ============ 主函数 ============
 
 def main():
-    parser = argparse.ArgumentParser(description="统一记忆系统 CLI v2.1")
+    parser = argparse.ArgumentParser(description="统一记忆系统 CLI v3.0")
     subparsers = parser.add_subparsers(dest="command")
     
-    subparsers.add_parser("init", help="初始化")
-    subparsers.add_parser("health", help="健康检查")
-    subparsers.add_parser("doctor", help="深度诊断")
-    subparsers.add_parser("fix", help="自动修复")
-    subparsers.add_parser("stats", help="统计信息")
-    
+    # store
     store_parser = subparsers.add_parser("store", help="存储记忆")
     store_parser.add_argument("text")
     store_parser.add_argument("--tags", "-t")
     
+    # search
     search_parser = subparsers.add_parser("search", help="搜索记忆")
     search_parser.add_argument("query")
     search_parser.add_argument("--limit", "-l", type=int, default=10)
     
+    # ctx (Context Tree)
+    ctx_parser = subparsers.add_parser("ctx", help="项目上下文管理")
+    ctx_subparsers = ctx_parser.add_subparsers(dest="ctx_command")
+    
+    ctx_init = ctx_subparsers.add_parser("init", help="初始化项目")
+    ctx_init.add_argument("name")
+    ctx_init.add_argument("--desc", "-d", default="")
+    
+    ctx_update = ctx_subparsers.add_parser("update", help="更新状态")
+    ctx_update.add_argument("task")
+    ctx_update.add_argument("--progress", "-p", type=int, default=0)
+    ctx_update.add_argument("--notes", "-n", default="")
+    
+    ctx_decision = ctx_subparsers.add_parser("decision", help="记录决策")
+    ctx_decision.add_argument("title")
+    ctx_decision.add_argument("content")
+    ctx_decision.add_argument("--tags", "-t", default="")
+    
+    ctx_subparsers.add_parser("status", help="查看状态")
+    ctx_subparsers.add_parser("export", help="导出上下文")
+    
+    # summary
+    summary_parser = subparsers.add_parser("summary", help="智能摘要")
+    summary_subparsers = summary_parser.add_subparsers(dest="summary_command")
+    
+    compress_parser = summary_subparsers.add_parser("compress", help="压缩日志")
+    compress_parser.add_argument("--days", "-d", type=int, default=7)
+    
+    decisions_parser = summary_subparsers.add_parser("decisions", help="提取决策")
+    decisions_parser.add_argument("--days", "-d", type=int, default=30)
+    
+    summary_subparsers.add_parser("summary", help="生成摘要")
+    
+    # template
+    template_parser = subparsers.add_parser("template", help="项目模板")
+    template_subparsers = template_parser.add_subparsers(dest="template_command")
+    
+    template_subparsers.add_parser("list", help="列出模板")
+    
+    create_parser = template_subparsers.add_parser("create", help="创建项目")
+    create_parser.add_argument("template_name")
+    create_parser.add_argument("path")
+    create_parser.add_argument("--name", "-n")
+    create_parser.add_argument("--desc", "-d", default="")
+    
+    # validate
+    subparsers.add_parser("validate", help="验证工作流")
+    
+    # health
+    subparsers.add_parser("health", help="健康检查")
+    
     args = parser.parse_args()
     
     commands = {
-        "init": cmd_init,
         "store": cmd_store,
         "search": cmd_search,
+        "ctx": cmd_ctx,
+        "summary": cmd_summary,
+        "template": cmd_template,
+        "validate": cmd_validate,
         "health": cmd_health,
-        "doctor": cmd_doctor,
-        "fix": cmd_fix,
-        "stats": cmd_stats,
     }
     
     if args.command in commands:
