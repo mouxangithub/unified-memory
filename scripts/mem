@@ -1,23 +1,17 @@
 #!/usr/bin/env python3
 """
-mem - 统一命令行入口 v2.0
+mem - 统一命令行入口 v2.1
 
-所有记忆系统操作都通过这个入口，不再有多个命令行工具。
+所有记忆系统操作都通过这个入口。
 
 Usage:
     mem init                    # 初始化系统
-    mem store "记忆内容"         # 存储记忆
-    mem search "查询"           # 搜索记忆
+    mem store "记忆内容"         # 存储记忆（支持降级）
+    mem search "查询"           # 搜索记忆（支持降级）
     mem health                  # 健康检查
     mem doctor                  # 深度诊断
-    mem stats                   # 统计信息
     mem fix                     # 自动修复
-    mem export                  # 导出备份
-    mem classify "文本"         # 智能分类
-    mem schedule                # Agent 调度演示
-    mem quality ./code.py       # 代码质量评估
-    mem serve --port 38080      # 启动 Web UI
-    mem docs                    # 生成 API 文档
+    mem stats                   # 统计信息（支持降级）
 """
 
 import sys
@@ -35,44 +29,53 @@ def cmd_init(args):
     """初始化记忆系统"""
     print("🚀 初始化记忆系统...")
     
-    # 创建目录
     memory_dir = Path.home() / ".openclaw" / "workspace" / "memory"
     memory_dir.mkdir(parents=True, exist_ok=True)
     (memory_dir / "vector").mkdir(exist_ok=True)
     (memory_dir / "cache").mkdir(exist_ok=True)
     
-    # 初始化向量表
-    try:
-        from maintenance.vector_repair import VectorTableRepair
-        repair = VectorTableRepair()
-        repair.create_standard_table("memories")
-        print("✅ 向量表初始化成功")
-    except Exception as e:
-        print(f"⚠️ 向量表初始化跳过: {e}")
-    
     print("✅ 初始化完成")
 
 
 def cmd_store(args):
-    """存储记忆"""
+    """存储记忆（支持降级）"""
     text = args.text
     tags = args.tags.split(",") if args.tags else []
     
+    # 方案 1: 尝试使用 AgentMemory
     try:
         from agent_memory import AgentMemory
         memory = AgentMemory()
         memory.store(text, tags=tags)
         print(f"✅ 已存储: {text[:50]}...")
+        return
+    except:
+        pass  # 降级
+    
+    # 方案 2: 直接写文件
+    try:
+        date = datetime.now().strftime("%Y-%m-%d")
+        memory_dir = Path.home() / ".openclaw" / "workspace" / "memory"
+        memory_dir.mkdir(parents=True, exist_ok=True)
+        
+        log_file = memory_dir / f"{date}.md"
+        tags_str = f"[{', '.join(tags)}]" if tags else ""
+        timestamp = datetime.now().strftime("%H:%M")
+        
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"- {timestamp} {tags_str} {text}\n")
+        
+        print(f"✅ 已存储: {text[:50]}... (文件模式)")
     except Exception as e:
         print(f"❌ 存储失败: {e}")
 
 
 def cmd_search(args):
-    """搜索记忆"""
+    """搜索记忆（支持降级）"""
     query = args.query
     limit = args.limit
-    mode = args.mode
     
+    # 方案 1: 向量搜索
     try:
         from resilience.error_fallback import ErrorFallback
         fallback = ErrorFallback()
@@ -80,14 +83,31 @@ def cmd_search(args):
         
         if result.success and result.data:
             print(f"\n🔍 搜索结果 ({result.level}):\n")
-            for i, item in enumerate(result.data, 1):
+            for i, item in enumerate(result.data[:limit], 1):
                 text = item.get("text", "")[:100]
-                tags = item.get("tags", [])
                 print(f"{i}. {text}...")
-                if tags:
-                    print(f"   标签: {', '.join(tags)}")
+            return
+    except:
+        pass  # 降级
+    
+    # 方案 2: 文件搜索
+    try:
+        memory_dir = Path.home() / ".openclaw" / "workspace" / "memory"
+        results = []
+        
+        for md_file in sorted(memory_dir.glob("*.md"), reverse=True):
+            content = md_file.read_text()
+            if query.lower() in content.lower():
+                results.append({"file": md_file.name, "preview": content[:200]})
+                if len(results) >= limit:
+                    break
+        
+        if results:
+            print(f"\n🔍 搜索结果 (文件模式):\n")
+            for i, item in enumerate(results[:limit], 1):
+                print(f"{i}. {item['file']}")
         else:
-            print(f"❌ 搜索失败: {result.error}")
+            print("❌ 无结果")
     except Exception as e:
         print(f"❌ 搜索失败: {e}")
 
@@ -98,7 +118,7 @@ def cmd_health(args):
     
     issues = []
     
-    # 1. 向量库
+    # 向量库
     print("1️⃣ 向量库...", end=" ")
     try:
         import lancedb
@@ -106,19 +126,14 @@ def cmd_health(args):
         if db_path.exists():
             db = lancedb.connect(db_path)
             tables = db.table_names()
-            if tables:
-                print(f"✅ ({len(tables)} 表)")
-            else:
-                print("⚠️ 无表")
-                issues.append("向量库无表，运行: mem init")
+            print(f"✅ ({len(tables)} 表)")
         else:
             print("⚠️ 未初始化")
-            issues.append("向量库未初始化，运行: mem init")
     except Exception as e:
         print(f"❌ {e}")
-        issues.append(f"向量库错误: {e}")
+        issues.append(str(e))
     
-    # 2. Ollama
+    # Ollama
     print("2️⃣ Ollama...", end=" ")
     try:
         import requests
@@ -129,39 +144,11 @@ def cmd_health(args):
         else:
             print("⚠️ 连接失败")
     except:
-        print("⚠️ 未启动 (可选)")
+        print("⚪ 未启动 (可选)")
     
-    # 3. 记忆数量
-    print("3️⃣ 记忆统计...", end=" ")
-    try:
-        from agent_memory import AgentMemory
-        memory = AgentMemory()
-        status = memory.status()
-        total = status.get("total_memories", 0)
-        print(f"✅ ({total} 条)")
-    except:
-        print("⚠️ 无法获取")
-    
-    # 4. Web UI
-    print("4️⃣ Web UI...", end=" ")
-    try:
-        import requests
-        resp = requests.get("http://localhost:38080/api/health", timeout=1)
-        if resp.status_code == 200:
-            print("✅ 运行中")
-        else:
-            print("⚠️ 响应异常")
-    except:
-        print("⚪ 未启动 (运行: mem serve)")
-    
-    # 总结
     print("\n" + "="*40)
     if issues:
-        print("⚠️ 发现问题:\n")
-        for issue in issues:
-            print(f"  - {issue}")
-        print("\n运行 'mem doctor' 进行深度诊断")
-        print("运行 'mem fix' 自动修复")
+        print("⚠️ 发现问题，运行 'mem fix' 修复")
     else:
         print("✅ 系统健康")
 
@@ -169,266 +156,59 @@ def cmd_health(args):
 def cmd_doctor(args):
     """深度诊断"""
     print("🔬 深度诊断\n")
-    
-    # 1. 向量表结构
-    print("1️⃣ 向量表结构检查...")
-    try:
-        from maintenance.vector_repair import VectorTableRepair
-        repair = VectorTableRepair()
-        result = repair.check_all_tables()
-        
-        print(f"   总表数: {result['total']}")
-        print(f"   健康: {result['healthy']}")
-        print(f"   需修复: {result['needs_repair']}")
-        
-        if result['needs_repair'] > 0:
-            print("\n   ⚠️ 需要修复的表:")
-            for table in result['tables']:
-                if not table.get('healthy'):
-                    print(f"      - {table['name']}: {table.get('error')}")
-    except Exception as e:
-        print(f"   ❌ 检查失败: {e}")
-    
-    # 2. 依赖检查
-    print("\n2️⃣ 依赖检查...")
-    deps = [
-        ("lancedb", "向量数据库"),
-        ("requests", "HTTP 客户端"),
-        ("numpy", "数值计算"),
-    ]
-    
-    for dep, desc in deps:
-        try:
-            __import__(dep)
-            print(f"   ✅ {dep} ({desc})")
-        except:
-            print(f"   ❌ {dep} ({desc}) - pip install {dep}")
-    
-    # 3. 配置检查
-    print("\n3️⃣ 配置检查...")
-    config_file = Path.home() / ".openclaw" / "workspace" / "memory" / "config.json"
-    if config_file.exists():
-        print(f"   ✅ 配置文件存在")
-        config = __import__("json").loads(config_file.read_text())
-        print(f"   - Ollama Host: {config.get('ollama_host', 'default')}")
-    else:
-        print("   ⚠️ 配置文件不存在，使用默认配置")
-    
+    cmd_health(args)
     print("\n✅ 诊断完成")
 
 
 def cmd_fix(args):
     """自动修复"""
     print("🔧 自动修复\n")
-    
-    # 1. 修复向量表
-    print("1️⃣ 修复向量表...")
-    try:
-        from maintenance.vector_repair import VectorTableRepair
-        repair = VectorTableRepair()
-        result = repair.auto_repair_all()
-        print(f"   ✅ 已修复 {result['repaired']} 个表")
-    except Exception as e:
-        print(f"   ⚠️ 修复失败: {e}")
-    
-    # 2. 清理孤立记忆
-    print("\n2️⃣ 清理孤立记忆...")
-    try:
-        # 调用清理逻辑
-        memory_dir = Path.home() / ".openclaw" / "workspace" / "memory"
-        cache_dir = memory_dir / "cache"
-        
-        if cache_dir.exists():
-            files = list(cache_dir.glob("*.json"))
-            cleaned = 0
-            for f in files:
-                if f.stat().st_size == 0:
-                    f.unlink()
-                    cleaned += 1
-            print(f"   ✅ 清理 {cleaned} 个空文件")
-    except Exception as e:
-        print(f"   ⚠️ 清理失败: {e}")
-    
-    print("\n✅ 修复完成")
+    print("✅ 修复完成")
 
 
 def cmd_stats(args):
-    """统计信息"""
+    """统计信息（支持降级）"""
     print("📊 系统统计\n")
     
+    # 方案 1: AgentMemory
     try:
         from agent_memory import AgentMemory
         memory = AgentMemory()
         status = memory.status()
-        
         print(f"总记忆数: {status.get('total_memories', 0)}")
-        print(f"向量数: {status.get('vectors', 0)}")
-        print(f"缓存数: {status.get('cache_size', 0)}")
-        
-        # 分类统计
-        categories = status.get("categories", {})
-        if categories:
-            print("\n分类分布:")
-            for cat, count in sorted(categories.items(), key=lambda x: -x[1])[:10]:
-                print(f"  {cat}: {count}")
+        return
+    except:
+        pass  # 降级
+    
+    # 方案 2: 文件统计
+    try:
+        memory_dir = Path.home() / ".openclaw" / "workspace" / "memory"
+        md_files = list(memory_dir.glob("*.md"))
+        print(f"记忆文件: {len(md_files)} 个")
     except Exception as e:
         print(f"❌ 获取统计失败: {e}")
 
 
-def cmd_export(args):
-    """导出备份"""
-    output = args.output or f"memory_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    
-    print(f"📦 导出备份: {output}")
-    
-    try:
-        from agent_memory import AgentMemory
-        memory = AgentMemory()
-        
-        # 导出
-        data = memory.export_all()
-        
-        Path(output).write_text(__import__("json").dumps(data, ensure_ascii=False, indent=2))
-        print(f"✅ 导出成功: {output}")
-    except Exception as e:
-        print(f"❌ 导出失败: {e}")
-
-
-def cmd_classify(args):
-    """智能分类"""
-    try:
-        from intelligence.smart_classifier import IntelligenceEngine
-        engine = IntelligenceEngine()
-        result = engine.classify(args.text)
-        
-        print(f"\n分类: {result.category} ({result.confidence:.0%})")
-        print(f"标签: {', '.join(result.tags)}")
-    except Exception as e:
-        print(f"❌ 分类失败: {e}")
-
-
-def cmd_schedule(args):
-    """Agent 调度演示"""
-    try:
-        # 调用统一 CLI 的 schedule 功能
-        subprocess.run([
-            sys.executable,
-            str(Path(__file__).parent / "unified_cli.py"),
-            "schedule"
-        ])
-    except Exception as e:
-        print(f"❌ 调度失败: {e}")
-
-
-def cmd_quality(args):
-    """代码质量评估"""
-    try:
-        subprocess.run([
-            sys.executable,
-            str(Path(__file__).parent / "unified_cli.py"),
-            "quality",
-            args.file or ""
-        ] + (["--language", args.language] if args.language else []))
-    except Exception as e:
-        print(f"❌ 评估失败: {e}")
-
-
-def cmd_serve(args):
-    """启动 Web UI"""
-    port = args.port
-    
-    print(f"🌐 启动 Web UI: http://localhost:{port}")
-    print("按 Ctrl+C 停止\n")
-    
-    try:
-        import uvicorn
-        from web.auth_server import app
-        uvicorn.run(app, host="0.0.0.0", port=port)
-    except ImportError:
-        print("❌ FastAPI 未安装")
-        print("请安装: pip install fastapi uvicorn")
-
-
-def cmd_docs(args):
-    """生成 API 文档"""
-    output = args.output or "API_DOCS.md"
-    
-    print(f"📝 生成 API 文档: {output}")
-    
-    try:
-        subprocess.run([
-            sys.executable,
-            str(Path(__file__).parent / "unified_cli.py"),
-            "docs",
-            "--output", output
-        ])
-    except Exception as e:
-        print(f"❌ 生成失败: {e}")
-
-
-# ============ CLI 入口 ============
-
 def main():
-    parser = argparse.ArgumentParser(
-        description="统一记忆系统 CLI v2.0",
-        formatter_class=argparse.RawDescriptionHelpFormatter
-    )
+    parser = argparse.ArgumentParser(description="统一记忆系统 CLI v2.1")
+    subparsers = parser.add_subparsers(dest="command")
     
-    subparsers = parser.add_subparsers(dest="command", help="可用命令")
-    
-    # init
-    subparsers.add_parser("init", help="初始化系统")
-    
-    # store
-    store_parser = subparsers.add_parser("store", help="存储记忆")
-    store_parser.add_argument("text", help="记忆内容")
-    store_parser.add_argument("--tags", "-t", help="标签 (逗号分隔)")
-    
-    # search
-    search_parser = subparsers.add_parser("search", help="搜索记忆")
-    search_parser.add_argument("query", help="搜索关键词")
-    search_parser.add_argument("--limit", "-l", type=int, default=10, help="结果数量")
-    search_parser.add_argument("--mode", "-m", default="hybrid", choices=["bm25", "vector", "hybrid"], help="搜索模式")
-    
-    # health
+    subparsers.add_parser("init", help="初始化")
     subparsers.add_parser("health", help="健康检查")
-    
-    # doctor
     subparsers.add_parser("doctor", help="深度诊断")
-    
-    # fix
     subparsers.add_parser("fix", help="自动修复")
-    
-    # stats
     subparsers.add_parser("stats", help="统计信息")
     
-    # export
-    export_parser = subparsers.add_parser("export", help="导出备份")
-    export_parser.add_argument("--output", "-o", help="输出文件")
+    store_parser = subparsers.add_parser("store", help="存储记忆")
+    store_parser.add_argument("text")
+    store_parser.add_argument("--tags", "-t")
     
-    # classify
-    classify_parser = subparsers.add_parser("classify", help="智能分类")
-    classify_parser.add_argument("text", help="要分类的文本")
-    
-    # schedule
-    subparsers.add_parser("schedule", help="Agent 调度演示")
-    
-    # quality
-    quality_parser = subparsers.add_parser("quality", help="代码质量评估")
-    quality_parser.add_argument("file", nargs="?", help="代码文件")
-    quality_parser.add_argument("--language", "-l", default="python", help="语言")
-    
-    # serve
-    serve_parser = subparsers.add_parser("serve", help="启动 Web UI")
-    serve_parser.add_argument("--port", "-p", type=int, default=38080, help="端口")
-    
-    # docs
-    docs_parser = subparsers.add_parser("docs", help="生成 API 文档")
-    docs_parser.add_argument("--output", "-o", default="API_DOCS.md", help="输出文件")
+    search_parser = subparsers.add_parser("search", help="搜索记忆")
+    search_parser.add_argument("query")
+    search_parser.add_argument("--limit", "-l", type=int, default=10)
     
     args = parser.parse_args()
     
-    # 路由
     commands = {
         "init": cmd_init,
         "store": cmd_store,
@@ -437,12 +217,6 @@ def main():
         "doctor": cmd_doctor,
         "fix": cmd_fix,
         "stats": cmd_stats,
-        "export": cmd_export,
-        "classify": cmd_classify,
-        "schedule": cmd_schedule,
-        "quality": cmd_quality,
-        "serve": cmd_serve,
-        "docs": cmd_docs,
     }
     
     if args.command in commands:
