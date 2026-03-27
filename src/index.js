@@ -26,6 +26,19 @@ import { MemorySummarizer, cmdSummary } from './tools/summary.js';
 import { FeedbackLearner, OUTCOME_HELPFUL, OUTCOME_IRRELEVANT, OUTCOME_WRONG, OUTCOME_OUTDATED } from './tools/feedback_learner.js';
 import { qmdSearch } from './tools/qmd_search.js';
 import { TemplateManager, cmdTemplates } from './tools/templates.js';
+import { shouldStore, qualityScore, learnNoisePattern, getNoiseCount } from './noise.js';
+import { routeSearch, INTENT_TYPES } from './intent.js';
+import { extractMemories, batchExtract } from './extract.js';
+import { addLearning, addError, getLearnings, getErrors, getStats } from './reflection.js';
+import { initWal, flushWal, listWalFiles } from './wal.js';
+import { assignTiers, partitionByTier, redistributeTiers, compressColdTier } from './tier.js';
+import { shouldSkipRetrieval } from './adaptive.js';
+import { buildBM25Index, bm25Search } from './bm25.js';
+import { getEmbedding, vectorSearch } from './vector.js';
+import { mmrSelect, mmrSelectWithEmbedding } from './mmr.js';
+import { LlmReranker, keywordRerank } from './rerank.js';
+import { CrossEncoderRerank, rerankResults } from './tools/rerank.js';
+import { normalizeScope, filterByScope, SCOPE_LEVELS, SCOPE_HIERARCHY } from './scope.js';
 
 const server = new McpServer(
   { name: 'unified-memory-mcp', version: '1.1.0' },
@@ -673,6 +686,301 @@ server.registerTool('memory_health', {
     return { content: [{ type: 'text', text: `Health error: ${err.message}` }], isError: true };
   }
 });
+
+// ============ Extended Search & Processing ============
+
+server.registerTool('memory_noise', {
+  description: 'Manage noise filtering and quality scoring for memories. Learn noise patterns, check if text should be stored, and get quality scores.',
+  inputSchema: z.object({
+    action: z.enum(['should_store', 'quality', 'learn', 'stats', 'clear']).describe('Action: should_store=text to check, quality=score memories, learn=add noise pattern, stats=noise count, clear=reset learned'),
+    text: z.string().optional().describe('Text content for should_store or learn actions'),
+    memories: z.array(z.object({ id: z.string(), content: z.string() })).optional().describe('Memories to score (for quality action)'),
+  }),
+}, async ({ action, text, memories }) => {
+  try {
+    if (action === 'should_store') {
+      const result = shouldStore(text || '', {});
+      return { content: [{ type: 'text', text: JSON.stringify({ should_store: result }) }] };
+    }
+    if (action === 'quality') {
+      const scores = (memories || []).map(m => ({ id: m.id, score: qualityScore(m) }));
+      return { content: [{ type: 'text', text: JSON.stringify({ scores }) }] };
+    }
+    if (action === 'learn') {
+      learnNoisePattern(text || '');
+      return { content: [{ type: 'text', text: 'Noise pattern learned' }] };
+    }
+    if (action === 'stats') {
+      return { content: [{ type: 'text', text: JSON.stringify({ noise_count: getNoiseCount() }) }] };
+    }
+    if (action === 'clear') {
+      const { clearLearnedNoise } = await import('./noise.js');
+      clearLearnedNoise();
+      return { content: [{ type: 'text', text: 'Learned noise patterns cleared' }] };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Noise error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_intent', {
+  description: 'Route a search query to determine intent type (FACT, PREFERENCE, RECENT, PROJECT, etc.). Returns null to skip retrieval for non-retrieval queries.',
+  inputSchema: z.object({
+    query: z.string().describe('The search query to classify'),
+  }),
+}, async ({ query }) => {
+  try {
+    const intent = routeSearch(query);
+    const type = intent?.type || 'UNKNOWN';
+    const skip = intent === null;
+    return { content: [{ type: 'text', text: JSON.stringify({ intent_type: type, skip_retrieval: skip, intent }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Intent error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_extract', {
+  description: 'Extract structured memories from raw text using LLM. Supports batch extraction with progress callbacks.',
+  inputSchema: z.object({
+    texts: z.array(z.string()).describe('Texts to extract memories from'),
+    batch: z.boolean().default(false).describe('Use batch extraction with progress'),
+    onProgress: z.boolean().default(false).describe('Report progress per text'),
+  }),
+}, async ({ texts, batch, onProgress }) => {
+  try {
+    const { default: llmCall } = await import('./config.js');
+    if (batch) {
+      const results = await batchExtract(texts, async (p) => { if (onProgress) process.stderr.write(`[extract] ${p}\n`); }, llmCall);
+      return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+    } else {
+      const results = await Promise.all(texts.map(t => extractMemories(t, llmCall)));
+      return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+    }
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Extract error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_reflection', {
+  description: 'Self-improvement system: track learnings, errors, and patterns. Store lessons from operations and retrieve them.',
+  inputSchema: z.object({
+    action: z.enum(['learn', 'error', 'get', 'stats']).describe('Action: learn=add learning, error=log error, get=retrieve all, stats=summary'),
+    text: z.string().optional().describe('Content for learn or error'),
+    category: z.string().default('general').describe('Category for learn action'),
+    errorType: z.string().default('unknown').describe('Error type for error action'),
+  }),
+}, async ({ action, text, category, errorType }) => {
+  try {
+    if (action === 'learn') {
+      addLearning(text || '', category || 'general');
+      return { content: [{ type: 'text', text: 'Learning added' }] };
+    }
+    if (action === 'error') {
+      addError(text || '', errorType || 'unknown');
+      return { content: [{ type: 'text', text: 'Error logged' }] };
+    }
+    if (action === 'get') {
+      return { content: [{ type: 'text', text: JSON.stringify({ learnings: getLearnings(), errors: getErrors() }) }] };
+    }
+    if (action === 'stats') {
+      return { content: [{ type: 'text', text: JSON.stringify(getStats()) }] };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Reflection error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_wal', {
+  description: 'Write-Ahead Log operations for crash recovery. Initialize WAL, flush pending ops, or list WAL files.',
+  inputSchema: z.object({
+    action: z.enum(['init', 'flush', 'list']).describe('Action: init=create new WAL, flush=flush pending ops, list=list WAL files'),
+    runId: z.string().optional().describe('Run ID for init'),
+  }),
+}, async ({ action, runId }) => {
+  try {
+    if (action === 'init') {
+      initWal(runId || `run-${Date.now()}`);
+      return { content: [{ type: 'text', text: 'WAL initialized' }] };
+    }
+    if (action === 'flush') {
+      const count = flushWal();
+      return { content: [{ type: 'text', text: `Flushed ${count} operations` }] };
+    }
+    if (action === 'list') {
+      return { content: [{ type: 'text', text: JSON.stringify(listWalFiles()) }] };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `WAL error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_tier', {
+  description: 'HOT/WARM/COLD tier management. Automatically partition memories into temperature tiers, redistribute, or compress cold tier.',
+  inputSchema: z.object({
+    action: z.enum(['assign', 'partition', 'redistribute', 'compress']).describe('Action: assign=assign tiers to all, partition=split by tier, redistribute=full rebalance, compress=compact cold tier'),
+    memories: z.array(z.object({ id: z.string(), content: z.string(), accessedAt: z.number(), importance: z.number().optional() })).optional().describe('Memories to process (for assign/partition/compress)'),
+  }),
+}, async ({ action, memories }) => {
+  try {
+    if (action === 'assign') {
+      const result = assignTiers(memories || []);
+      return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+    }
+    if (action === 'partition') {
+      const result = partitionByTier(memories || []);
+      return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+    }
+    if (action === 'redistribute') {
+      const result = redistributeTiers(memories || []);
+      return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+    }
+    if (action === 'compress') {
+      const cold = (memories || []).filter(m => m.tier === 'COLD');
+      const result = compressColdTier(cold);
+      return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Tier error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_adaptive', {
+  description: 'Adaptive retrieval control. Check if a query should skip vector search (non-informational queries like greetings).',
+  inputSchema: z.object({
+    query: z.string().describe('Query to check for adaptive skip'),
+  }),
+}, async ({ query }) => {
+  try {
+    const skip = shouldSkipRetrieval(query);
+    return { content: [{ type: 'text', text: JSON.stringify({ skip_retrieval: skip }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Adaptive error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_bm25', {
+  description: 'BM25 keyword-based search. Build index and search using Okapi BM25 algorithm (pure keyword, no embedding required).',
+  inputSchema: z.object({
+    query: z.string().describe('Query string'),
+    topK: z.number().default(10).describe('Number of results'),
+    build: z.boolean().default(false).describe('Rebuild the BM25 index first'),
+  }),
+}, async ({ query, topK, build }) => {
+  try {
+    if (build) buildBM25Index();
+    const results = bm25Search(query, topK);
+    return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `BM25 error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_vector', {
+  description: 'Dense vector semantic search using Ollama embeddings. Get embedding for text or search by semantic similarity.',
+  inputSchema: z.object({
+    action: z.enum(['embed', 'search']).describe('Action: embed=get vector for text, search=semantic similarity search'),
+    text: z.string().optional().describe('Text to embed (for embed action)'),
+    query: z.string().optional().describe('Query for search (for search action)'),
+    topK: z.number().default(10).describe('Number of results for search'),
+  }),
+}, async ({ action, text, query, topK }) => {
+  try {
+    if (action === 'embed') {
+      const embedding = await getEmbedding(text || '');
+      return { content: [{ type: 'text', text: JSON.stringify({ embedding, dimensions: embedding.length }) }] };
+    }
+    if (action === 'search') {
+      const results = await vectorSearch(query || '', topK || 10);
+      return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Vector error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_mmr', {
+  description: 'Maximal Marginal Relevance diversity selection. Select diverse top-K results to reduce redundancy from BM25 or vector search.',
+  inputSchema: z.object({
+    documents: z.array(z.object({ id: z.string(), content: z.string(), score: z.number().optional() })).describe('Documents with scores'),
+    topK: z.number().default(5).describe('Number of diverse results to return'),
+    lambda: z.number().default(0.5).describe('Balance parameter (0= max diversity, 1= max relevance)'),
+    useEmbedding: z.boolean().default(false).describe('Use embedding-based MMR (slower but accurate)'),
+  }),
+}, async ({ documents, topK, lambda, useEmbedding }) => {
+  try {
+    if (useEmbedding) {
+      const { getEmbedding: ge } = await import('./vector.js');
+      const results = await mmrSelectWithEmbedding(documents, topK, lambda, ge);
+      return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+    } else {
+      const results = mmrSelect(documents, topK, lambda);
+      return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+    }
+  } catch (err) {
+    return { content: [{ type: 'text', text: `MMR error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_scope', {
+  description: 'Filter and manage memory scope levels (AGENT, USER, TEAM, GLOBAL). Normalize scope strings and filter memories by scope.',
+  inputSchema: z.object({
+    action: z.enum(['normalize', 'filter', 'levels']).describe('Action: normalize=normalize scope string, filter=filter memories by scope, levels=list all levels'),
+    scope: z.string().optional().describe('Scope value (for normalize/filter)'),
+    memories: z.array(z.object({ id: z.string(), scope: z.string() })).optional().describe('Memories to filter (for filter action)'),
+  }),
+}, async ({ action, scope, memories }) => {
+  try {
+    if (action === 'normalize') {
+      return { content: [{ type: 'text', text: JSON.stringify({ normalized: normalizeScope(scope || 'GLOBAL') }) }] };
+    }
+    if (action === 'filter') {
+      const filtered = filterByScope(memories || [], scope || 'GLOBAL');
+      return { content: [{ type: 'text', text: JSON.stringify({ filtered }) }] };
+    }
+    if (action === 'levels') {
+      return { content: [{ type: 'text', text: JSON.stringify({ levels: SCOPE_LEVELS, hierarchy: SCOPE_HIERARCHY }) }] };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Scope error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_rerank_llm', {
+  description: 'LLM-based result reranking using cross-encoder or keyword matching. Rerank results from BM25/vector search for better relevance.',
+  inputSchema: z.object({
+    query: z.string().describe('Original query'),
+    documents: z.array(z.object({ id: z.string(), content: z.string(), score: z.number().optional() })).describe('Documents to rerank'),
+    topK: z.number().default(10).describe('Return top-K after reranking'),
+    method: z.enum(['keyword', 'llm', 'cross']).default('keyword').describe('Reranking method'),
+  }),
+}, async ({ query, documents, topK, method }) => {
+  try {
+    if (method === 'keyword') {
+      const results = keywordRerank(query, documents, topK);
+      return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+    }
+    if (method === 'llm') {
+      const reranker = new LlmReranker();
+      const results = await reranker.rerank(query, documents, topK);
+      return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+    }
+    if (method === 'cross') {
+      const reranker = new CrossEncoderRerank();
+      const results = await rerankResults(query, documents, topK, reranker);
+      return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+    }
+    return { content: [{ type: 'text', text: 'Unknown method' }], isError: true };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Rerank error: ${err.message}` }], isError: true };
+  }
+});
+
 
 // ============ Start ============
 

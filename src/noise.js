@@ -15,7 +15,7 @@ const NOISE_PATTERNS = [
 ];
 const LOW_QUALITY_PATTERNS = [
   /^(nothing|na|no\s*idea|idk|i\s*don'?t\s*know|nope)$/i,
-  /^(?i)(check\s+the\s+log|see\s+above|as\s+mentioned\s+earlier)/,
+  /^(?:check\s+the\s+log|see\s+above|as\s+mentioned\s+earlier)/i,
 ];
 const STORED_NOISE = new Set();
 const MIN_TEXT_LENGTH = 3;
