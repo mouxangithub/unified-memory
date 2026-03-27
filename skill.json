@@ -1,7 +1,7 @@
 {
     "name": "unified-memory",
-    "version": "2.0.0",
-    "description": "AI Agent Memory System - Node.js ESM with BM25 + Vector hybrid search, MCP tools, REST API, Web Dashboard, Workflow Engine, and LLM Provider. Self-contained storage (JSON), no external memory plugin required.",
+    "version": "2.1.0",
+    "description": "AI Agent Memory System - Node.js ESM with 33 MCP tools, BM25+Vector hybrid search, Weibull decay, Scope isolation, self-improving. Zero external dependencies.",
     "author": "mouxangithub",
     "license": "MIT",
     "homepage": "https://github.com/mouxangithub/unified-memory",
@@ -12,7 +12,8 @@
         "bm25",
         "hybrid-search",
         "mcp",
-        "openclaws"
+        "openclaw",
+        "memory-management"
     ],
     "engines": {
         "node": ">=18.0.0",
@@ -21,7 +22,7 @@
     "installation": {
         "auto": true,
         "description": "Self-contained skill. No external memory plugin required.",
-        "verify": "node src/cli/index.js health"
+        "verify": "mcporter call unified-memory memory_health '{}'"
     },
     "dependencies": {
         "required": {
@@ -40,10 +41,8 @@
     },
     "scripts": {
         "start": "node src/cli/index.js",
-        "server": "node src/api/server.js",
-        "webui": "node src/webui/dashboard.js",
-        "test": "node --check src/index.js && node src/cli/index.js health",
-        "install": "bash scripts/install.sh"
+        "test": "mcporter call unified-memory memory_health '{}'",
+        "search": "mcporter call unified-memory memory_search '{\"query\": \"test\"}'"
     },
     "mcp": {
         "transport": "stdio",
@@ -51,24 +50,19 @@
         "args": ["src/index.js"]
     },
     "quick_start": {
-        "install": "bash scripts/install.sh",
-        "test": "node src/cli/index.js health",
-        "first_memory": "node src/cli/index.js store 'Hello memory'",
-        "search": "node src/cli/index.js search 'test'"
+        "test": "mcporter call unified-memory memory_health '{}'",
+        "store": "mcporter call unified-memory memory_store '{\"content\": \"Hello\", \"category\": \"general\"}'",
+        "search": "mcporter call unified-memory memory_search '{\"query\": \"hello\"}'"
     },
     "triggers": {
         "keywords": ["记忆", "记住", "memory", "recall", "forget", "知识库"],
         "commands": ["/memory"]
     },
     "features": {
-        "search": ["bm25", "vector", "hybrid", "qmd"],
-        "storage": ["json_file", "auto_store", "manual", "backup"],
-        "api": ["mcp", "rest"],
-        "visualization": ["dashboard"],
-        "agents": ["workflow", "sandbox", "code_generator", "push", "llm_provider"]
-    },
-    "complementary": {
-        "description": "Works independently. Can optionally integrate with memory-lancedb-pro for enhanced vector search.",
-        "integration": "Set OLLAMA_HOST to enable cloud sync and advanced features."
+        "search": ["bm25", "vector", "hybrid", "qmd", "mmr", "rerank"],
+        "storage": ["json_file", "auto_store", "wal", "tier", "dedup"],
+        "api": ["mcp"],
+        "intelligence": ["noise_filter", "intent_routing", "adaptive_skip", "reflection", "lesson", "preference_slots"],
+        "decay": ["weibull", "scope_isolation"]
     }
 }
