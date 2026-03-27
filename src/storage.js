@@ -1,6 +1,8 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { config } from './config.js';
+import { acquireLockSync, releaseLockSync, initWalStorage, logWriteOp } from './storage_lock.js';
+import { logOp, readWal, closeWal } from './wal.js';
 
 /**
  * @typedef {import('./types.js').Memory} Memory
@@ -30,7 +32,29 @@ export function loadMemories() {
  * @param {Memory[]} memories
  */
 export function saveMemories(memories) {
-  writeFileSync(config.memoryFile, JSON.stringify(memories, null, 2), 'utf8');
+  // 初始化 WAL（首次调用时）
+  if (!global._walInit) {
+    try {
+      initWalStorage();
+      global._walInit = true;
+    } catch { /* WAL init failure is non-fatal */ }
+  }
+
+  // 原子写入：锁 + WAL 预写 + rename
+  const lockPath = config.memoryFile;
+  acquireLockSync(lockPath);
+  try {
+    // WAL 预写（crash recovery 用）
+    if (global._walInit) {
+      logWriteOp({ type: 'save', count: memories.length });
+    }
+
+    const data = JSON.stringify(memories, null, 2);
+    writeFileSync(lockPath, data, 'utf8');
+  } finally {
+    releaseLockSync(lockPath);
+  }
+
   memoryCache.set('all', memories);
   cacheDirty = false;
 }

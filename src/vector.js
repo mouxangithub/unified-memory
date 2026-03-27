@@ -6,30 +6,24 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { config } from './config.js';
+import { log } from './config.js';
 import { getAllMemories, touchMemory } from './storage.js';
+import { EmbeddingClient } from './embedding_providers.js';
+
+// 全局 EmbeddingClient 实例（多provider自动切换）
+const embeddingClient = new EmbeddingClient();
 
 /**
- * Get embedding for text using Ollama
+ * Get embedding for text using the available embedding provider
  * @param {string} text
  * @returns {Promise<number[]|null>}
  */
 export async function getEmbedding(text) {
-  try {
-    const response = await fetch(`${config.ollamaUrl}/api/embeddings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: config.embedModel, prompt: text.slice(0, 2000) }),
-    });
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data.embedding || null;
-  } catch {
-    return null;
-  }
+  return await embeddingClient.embed(text);
 }
 
 /**
- * Get embedding (with caching)
+ * Get embedding (with caching) - 保留原有接口，兼容其他模块
  * @param {string} text
  * @returns {Promise<number[]|null>}
  */

@@ -69,6 +69,7 @@ const defaultConfig = {
   memoryFile: join(MEMORY_DIR, 'memories.json'),
   vectorCacheDir: VECTOR_CACHE_DIR,
   logDir: LOG_DIR,
+  logLevel: process.env.LOG_LEVEL || 'info',  // debug/info/warn/error
   topK: 10,
   rrfK: 60,
   embedProviders: EMBED_PROVIDERS,

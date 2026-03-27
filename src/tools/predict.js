@@ -416,4 +416,198 @@ export function cmdPredict(command, args) {
   }
 }
 
+// ============================================================
+// Enhanced Predict Recall (v1.2 extension)
+// ============================================================
+
+/**
+ * Enhanced prediction with time-awareness, TTL warnings, and importance scoring
+ * @param {string} context - Context string for prediction
+ * @param {object} options - Options object
+ * @param {number} options.topK - Number of predictions to return (default 5)
+ * @param {boolean} options.includeTTL - Include TTL-based predictions (default true)
+ */
+export async function enhancedPredictRecall(context, options = {}) {
+  const { topK = 5, includeTTL = true } = options;
+
+  const memories = loadMemories();
+  const now = Date.now();
+  const DAY_MS = 24 * 3600 * 1000;
+
+  // 1. Base predictions from context triggers
+  const predictions = [];
+  const contextLower = (context || '').toLowerCase();
+
+  const ENHANCED_TRIGGERS = {
+    project: ['项目', '开发', '代码', 'git', 'project', 'code', 'bug', 'feature'],
+    meeting: ['会议', '讨论', 'meeting', 'discuss', '评审', 'review'],
+    decision: ['决定', '选择', 'decided', 'choice', '方案'],
+    personal: ['生活', '健康', '家庭', 'personal', 'health', 'family'],
+    learning: ['学习', '阅读', '课程', 'learning', 'study', 'book'],
+  };
+
+  for (const mem of memories) {
+    const textLower = (mem.text || '').toLowerCase();
+    let relevance = 0;
+    const reasons = [];
+
+    // Context keyword matching
+    for (const [category, keywords] of Object.entries(ENHANCED_TRIGGERS)) {
+      for (const keyword of keywords) {
+        if (contextLower.includes(keyword) && textLower.includes(keyword)) {
+          relevance += 2;
+          reasons.push(`context:${keyword}`);
+        }
+      }
+    }
+
+    // Importance score contribution
+    relevance += (mem.importance || 0.5) * 0.5;
+
+    // Access frequency contribution
+    relevance += Math.log1p(mem.access_count || 0) * 0.3;
+
+    // NEW: Time-aware predictions (TTL warning - 7 days before expiry)
+    if (includeTTL && mem.expires_at) {
+      const expiresAt = new Date(mem.expires_at).getTime();
+      const daysUntilExpiry = (expiresAt - now) / DAY_MS;
+      if (daysUntilExpiry > 0 && daysUntilExpiry <= 7) {
+        relevance += (7 - daysUntilExpiry) * 0.5; // Higher boost as expiry approaches
+        reasons.push(`ttl_warning:${Math.ceil(daysUntilExpiry)}d`);
+      }
+    }
+
+    // NEW: Anniversary predictions (memories created around same date in past)
+    if (includeTTL && mem.created_at) {
+      const created = new Date(mem.created_at);
+      const nowDate = new Date(now);
+      if (
+        created.getMonth() === nowDate.getMonth() &&
+        Math.abs(created.getDate() - nowDate.getDate()) <= 3
+      ) {
+        relevance += 1.5;
+        reasons.push('anniversary');
+      }
+    }
+
+    if (relevance > 0) {
+      predictions.push({
+        memory: mem,
+        relevance,
+        reasons,
+        type: 'enhanced',
+      });
+    }
+  }
+
+  predictions.sort((a, b) => b.relevance - a.relevance);
+  return predictions.slice(0, topK);
+}
+
+/**
+ * Predict related memories when a specific memory is accessed
+ * @param {string} memoryId - The memory ID that was just accessed
+ * @param {number} topK - Number of related memories to predict
+ */
+export function predictRelatedOnAccess(memoryId, topK = 3) {
+  const memories = loadMemories();
+  const target = memories.find(m => m.id === memoryId);
+  if (!target) return [];
+
+  const targetLower = (target.text || '').toLowerCase();
+  const targetTags = new Set(target.tags || []);
+  const targetCategory = target.category || '';
+
+  const predictions = [];
+
+  for (const mem of memories) {
+    if (mem.id === memoryId) continue;
+
+    let relevance = 0;
+    const reasons = [];
+
+    // Tag overlap
+    const memTags = new Set(mem.tags || []);
+    const overlap = [...targetTags].filter(t => memTags.has(t)).length;
+    if (overlap > 0) {
+      relevance += overlap * 1.5;
+      reasons.push(`tag_match:${overlap}`);
+    }
+
+    // Category match
+    if (mem.category === targetCategory) {
+      relevance += 1.0;
+      reasons.push('category_match');
+    }
+
+    // Keyword overlap
+    const memLower = (mem.text || '').toLowerCase();
+    const words = targetLower.split(/\s+/).filter(w => w.length > 2);
+    for (const word of words) {
+      if (memLower.includes(word)) {
+        relevance += 0.3;
+      }
+    }
+
+    // Importance bonus
+    relevance += (mem.importance || 0.5) * 0.3;
+
+    if (relevance > 0) {
+      predictions.push({
+        memory: mem,
+        relevance,
+        reasons,
+        type: 'related',
+      });
+    }
+  }
+
+  predictions.sort((a, b) => b.relevance - a.relevance);
+  return predictions.slice(0, topK);
+}
+
+/**
+ * High-value memory prediction based on historical access patterns
+ * @param {number} topK - Number of high-value memories to return
+ */
+export function predictHighValueMemories(topK = 5) {
+  const memories = loadMemories();
+  const now = Date.now();
+  const DAY_MS = 24 * 3600 * 1000;
+
+  const scored = memories.map(mem => {
+    let score = 0;
+    const reasons = [];
+
+    // Importance contribution
+    score += (mem.importance || 0.5) * 3;
+    if (mem.importance >= 0.8) reasons.push('high_importance');
+
+    // Recent access bonus (accessed in last 7 days)
+    const lastAccessed = mem.last_accessed_at || mem.updated_at || mem.created_at;
+    if (lastAccessed) {
+      const daysSince = (now - new Date(lastAccessed).getTime()) / DAY_MS;
+      if (daysSince <= 7) {
+        score += 2 * (1 - daysSince / 7);
+        reasons.push('recently_accessed');
+      }
+    }
+
+    // Frequent access bonus
+    score += Math.log1p(mem.access_count || 0) * 0.5;
+    if ((mem.access_count || 0) >= 5) reasons.push('frequently_accessed');
+
+    // Has tags (structured) bonus
+    if ((mem.tags || []).length > 0) {
+      score += 0.5;
+      reasons.push('has_tags');
+    }
+
+    return { memory: mem, score, reasons, type: 'high_value' };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, topK);
+}
+
 export default { cmdPredict };
