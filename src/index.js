@@ -7,7 +7,10 @@ import { z } from 'zod';
 import { McpServer } from '/usr/local/lib/node_modules/mcporter/node_modules/@modelcontextprotocol/sdk/dist/cjs/server/mcp.js';
 import { StdioServerTransport } from '/usr/local/lib/node_modules/mcporter/node_modules/@modelcontextprotocol/sdk/dist/cjs/server/stdio.js';
 
-import { config, log } from './config.js';
+import { config, log as configLog } from './config.js';
+import { log as structuredLog, getLogger } from './logger.js';
+import { metrics, recordSearchLatency, recordStore, recordError } from './metrics.js';
+import { startTrace, endTrace, getTraceExport, clearTrace } from './tracer.js';
 import { getAllMemories, addMemory, deleteMemory, touchMemory, saveMemories } from './storage.js';
 import { hybridSearch } from './fusion.js';
 import { analyzeInsights } from './tools/insights.js';
@@ -39,6 +42,9 @@ import { mmrSelect, mmrSelectWithEmbedding } from './mmr.js';
 import { LlmReranker, keywordRerank } from './rerank.js';
 import { CrossEncoderRerank, rerankResults } from './tools/rerank.js';
 import { normalizeScope, filterByScope, SCOPE_LEVELS, SCOPE_HIERARCHY } from './scope.js';
+import { getProactiveManager } from './proactive_manager.js';
+import { getReminderScheduler } from './reminder.js';
+import { enhancedPredictRecall, predictRelatedOnAccess, predictHighValueMemories } from './tools/predict.js';
 
 const server = new McpServer(
   { name: 'unified-memory-mcp', version: '1.1.0' },
@@ -55,12 +61,17 @@ server.registerTool('memory_search', {
     mode: z.enum(['hybrid', 'bm25', 'vector']).optional().default('hybrid').describe('Search mode: hybrid=BM25+vector, bm25=keyword only, vector=semantic only'),
   }),
 }, async ({ query, topK = 5, mode = 'hybrid' }) => {
-  log('INFO', `Search: query="${query}" mode=${mode} topK=${topK}`);
+  const span = startTrace('memory_search', { query: query.slice(0, 50), scope: mode });
+  const timer = metrics.timer('memory_search', { scope: mode });
+    structuredLog.info( `Search: query="${query}" mode=${mode} topK=${topK}`);
   try {
     const results = await hybridSearch(query, topK, mode);
     for (const r of results) {
       touchMemory(r.memory.id);
     }
+    const duration = timer.end();
+    recordSearchLatency(duration * 1000, mode);
+    endTrace(span);
     return {
       content: [{
         type: 'text',
@@ -81,7 +92,11 @@ server.registerTool('memory_search', {
       }],
     };
   } catch (err) {
-    log('ERROR', `Search failed: ${err.message}`);
+    const duration = timer.end();
+    recordSearchLatency(duration * 1000, mode);
+    recordError('search');
+    endTrace(span, { error: err.message }, 'error');
+    structuredLog.error( `Search failed: ${err.message}`);
     return { content: [{ type: 'text', text: `Search error: ${err.message}` }], isError: true };
   }
 });
@@ -95,12 +110,17 @@ server.registerTool('memory_store', {
     tags: z.array(z.string()).optional().default([]).describe('Tags for the memory'),
   }),
 }, async ({ text, category = 'general', importance = 0.5, tags = [] }) => {
-  log('INFO', `Store: text="${text.slice(0, 50)}..." category=${category}`);
+  const span = startTrace('memory_store', { category });
+    structuredLog.info( `Store: text="${text.slice(0, 50)}..." category=${category}`);
   try {
     const mem = addMemory({ text, category, importance, tags });
+    recordStore(Buffer.byteLength(text, 'utf8'));
+    endTrace(span);
     return { content: [{ type: 'text', text: JSON.stringify({ success: true, id: mem.id }) }] };
   } catch (err) {
-    log('ERROR', `Store failed: ${err.message}`);
+    recordError('store');
+    endTrace(span, { error: err.message }, 'error');
+    structuredLog.error( `Store failed: ${err.message}`);
     return { content: [{ type: 'text', text: `Store error: ${err.message}` }], isError: true };
   }
 });
@@ -154,7 +174,7 @@ server.registerTool('memory_insights', {
   try {
     return await analyzeInsights();
   } catch (err) {
-    log('ERROR', `Insights failed: ${err.message}`);
+    log.error(`Insights failed: ${err.message}`);
     return { content: [{ type: 'text', text: `Insights error: ${err.message}` }], isError: true };
   }
 });
@@ -171,7 +191,7 @@ server.registerTool('memory_export', {
   try {
     return await exportMemories(args);
   } catch (err) {
-    log('ERROR', `Export failed: ${err.message}`);
+    log.error(`Export failed: ${err.message}`);
     return { content: [{ type: 'text', text: `Export error: ${err.message}` }], isError: true };
   }
 });
@@ -186,7 +206,7 @@ server.registerTool('memory_dedup', {
   try {
     return await dedupMemories({ threshold, dryRun });
   } catch (err) {
-    log('ERROR', `Dedup failed: ${err.message}`);
+    log.error(`Dedup failed: ${err.message}`);
     return { content: [{ type: 'text', text: `Dedup error: ${err.message}` }], isError: true };
   }
 });
@@ -200,7 +220,7 @@ server.registerTool('memory_decay', {
   try {
     return await decayMemories({ apply });
   } catch (err) {
-    log('ERROR', `Decay failed: ${err.message}`);
+    log.error(`Decay failed: ${err.message}`);
     return { content: [{ type: 'text', text: `Decay error: ${err.message}` }], isError: true };
   }
 });
@@ -214,7 +234,7 @@ server.registerTool('memory_qa', {
   try {
     return await askQuestion({ question });
   } catch (err) {
-    log('ERROR', `QA failed: ${err.message}`);
+    log.error(`QA failed: ${err.message}`);
     return { content: [{ type: 'text', text: `QA error: ${err.message}` }], isError: true };
   }
 });
@@ -233,7 +253,7 @@ server.registerTool('memory_preference_slots', {
   try {
     return memoryPreferenceSlotsTool({ action, key, value, slots });
   } catch (err) {
-    log('ERROR', `Preference slots error: ${err.message}`);
+    log.error(`Preference slots error: ${err.message}`);
     return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
   }
 });
@@ -257,7 +277,7 @@ server.registerTool('memory_lessons', {
   try {
     return memoryLessonsTool(args);
   } catch (err) {
-    log('ERROR', `Lesson system error: ${err.message}`);
+    log.error(`Lesson system error: ${err.message}`);
     return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
   }
 });
@@ -293,7 +313,7 @@ server.registerTool('memory_autostore', {
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log('ERROR', `Autostore error: ${err.message}`);
+    log.error(`Autostore error: ${err.message}`);
     return { content: [{ type: 'text', text: `Autostore error: ${err.message}` }], isError: true };
   }
 });
@@ -358,7 +378,7 @@ server.registerTool('memory_concurrent_search', {
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log('ERROR', `Concurrent search error: ${err.message}`);
+    log.error(`Concurrent search error: ${err.message}`);
     return { content: [{ type: 'text', text: `Concurrent search error: ${err.message}` }], isError: true };
   }
 });
@@ -389,7 +409,7 @@ server.registerTool('memory_predict', {
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log('ERROR', `Predict error: ${err.message}`);
+    log.error(`Predict error: ${err.message}`);
     return { content: [{ type: 'text', text: `Predict error: ${err.message}` }], isError: true };
   }
 });
@@ -427,7 +447,7 @@ server.registerTool('memory_recommend', {
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log('ERROR', `Recommend error: ${err.message}`);
+    log.error(`Recommend error: ${err.message}`);
     return { content: [{ type: 'text', text: `Recommend error: ${err.message}` }], isError: true };
   }
 });
@@ -465,7 +485,7 @@ server.registerTool('memory_inference', {
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log('ERROR', `Inference error: ${err.message}`);
+    log.error(`Inference error: ${err.message}`);
     return { content: [{ type: 'text', text: `Inference error: ${err.message}` }], isError: true };
   }
 });
@@ -500,7 +520,7 @@ server.registerTool('memory_summary', {
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log('ERROR', `Summary error: ${err.message}`);
+    log.error(`Summary error: ${err.message}`);
     return { content: [{ type: 'text', text: `Summary error: ${err.message}` }], isError: true };
   }
 });
@@ -541,7 +561,7 @@ server.registerTool('memory_feedback', {
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log('ERROR', `Feedback error: ${err.message}`);
+    log.error(`Feedback error: ${err.message}`);
     return { content: [{ type: 'text', text: `Feedback error: ${err.message}` }], isError: true };
   }
 });
@@ -587,7 +607,7 @@ server.registerTool('memory_qmd_search', {
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log('ERROR', `QMD search error: ${err.message}`);
+    log.error(`QMD search error: ${err.message}`);
     return { content: [{ type: 'text', text: `QMD search error: ${err.message}` }], isError: true };
   }
 });
@@ -622,7 +642,7 @@ server.registerTool('memory_templates', {
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log('ERROR', `Templates error: ${err.message}`);
+    log.error(`Templates error: ${err.message}`);
     return { content: [{ type: 'text', text: `Templates error: ${err.message}` }], isError: true };
   }
 });
@@ -684,6 +704,26 @@ server.registerTool('memory_health', {
     };
   } catch (err) {
     return { content: [{ type: 'text', text: `Health error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_metrics', {
+  description: 'View operational metrics: search latency, store counts, error rates.',
+  inputSchema: z.object({}),
+  handler: async () => {
+    const m = metrics.collect();
+    const trace = getTraceExport();
+    return { content: [{ type: 'text', text: JSON.stringify({ metrics: m, trace }, null, 2) }] };
+  }
+});
+
+server.registerTool('memory_trace', {
+  description: 'Export recent trace spans for debugging.',
+  inputSchema: z.object({ clear: z.boolean().default(false) }),
+  handler: async ({ clear }) => {
+    const t = getTraceExport();
+    if (clear) clearTrace();
+    return { content: [{ type: 'text', text: JSON.stringify(t, null, 2) }] };
   }
 });
 
@@ -981,17 +1021,539 @@ server.registerTool('memory_rerank_llm', {
   }
 });
 
+// ============ Proactive Memory Tools (v1.2) ============
+
+server.registerTool('memory_proactive_status', {
+  description: 'Check proactive memory system status: running state, recent predictions, care alerts.',
+  inputSchema: z.object({}),
+}, async () => {
+  try {
+    const m = getProactiveManager();
+    return { content: [{ type: 'text', text: JSON.stringify(m.getStatus(), null, 2) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Proactive status error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_proactive_trigger', {
+  description: 'Manually trigger a proactive memory tick (run care checks + recall predictions).',
+  inputSchema: z.object({}),
+}, async () => {
+  try {
+    const m = getProactiveManager();
+    const result = await m.trigger();
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Proactive trigger error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_proactive_start', {
+  description: 'Start the proactive memory background manager (auto care checks every N minutes).',
+  inputSchema: z.object({
+    intervalMinutes: z.number().optional().default(5).describe('Check interval in minutes (default 5)'),
+  }),
+}, async ({ intervalMinutes = 5 }) => {
+  try {
+    const m = getProactiveManager();
+    if (m.timer) {
+      return { content: [{ type: 'text', text: 'Already running' }] };
+    }
+    m.intervalMs = intervalMinutes * 60000;
+    m.start();
+    return { content: [{ type: 'text', text: `Started with ${intervalMinutes}min interval` }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Proactive start error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_proactive_stop', {
+  description: 'Stop the proactive memory background manager.',
+  inputSchema: z.object({}),
+}, async () => {
+  try {
+    const m = getProactiveManager();
+    m.stop();
+    return { content: [{ type: 'text', text: 'Stopped' }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Proactive stop error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ Proactive Care & Recall (v1.2 - wired from core stubs) ============
+
+// Import the proactive care check function
+import { runCheck as runProactiveCareCheck } from './core/proactive_care.js';
+import { predictRecall as corePredictRecall, printRecallReport } from './core/proactive_recall.js';
+
+server.registerTool('memory_proactive_care', {
+  description: 'Proactive care: detect Liu总 status changes and send caring messages. Checks meeting density, continuous work, negative keywords, and deadline pressure.',
+  inputSchema: z.object({
+    action: z.enum(['check', 'config', 'enable', 'disable', 'cache', 'test']).describe('Action to perform'),
+    text: z.string().optional().describe('Text to test for negative keywords (for test action)'),
+  }),
+}, async ({ action, text }) => {
+  try {
+    if (action === 'check') {
+      const results = await runProactiveCareCheck();
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            care_alerts: results.length,
+            alerts: results.map(r => ({
+              type: r.type,
+              message: r.message,
+              count: r.count,
+              hours: r.hours,
+            }))
+          }, null, 2)
+        }]
+      };
+    } else if (action === 'config') {
+      const { loadConfig } = await import('./core/proactive_care.js');
+      const config = await loadConfig();
+      return { content: [{ type: 'text', text: JSON.stringify(config, null, 2) }] };
+    } else if (action === 'enable') {
+      const { loadConfig, saveConfig } = await import('./core/proactive_care.js');
+      const config = await loadConfig();
+      config.enabled = true;
+      await saveConfig(config);
+      return { content: [{ type: 'text', text: 'Proactive care enabled' }] };
+    } else if (action === 'disable') {
+      const { loadConfig, saveConfig } = await import('./core/proactive_care.js');
+      const config = await loadConfig();
+      config.enabled = false;
+      await saveConfig(config);
+      return { content: [{ type: 'text', text: 'Proactive care disabled' }] };
+    } else if (action === 'cache') {
+      const { saveCache } = await import('./core/proactive_care.js');
+      await saveCache({ meetings: [], messages: [], tasks: [], timestamp: null });
+      return { content: [{ type: 'text', text: 'Cache cleared' }] };
+    } else if (action === 'test') {
+      if (!text) {
+        return { content: [{ type: 'text', text: 'Error: text is required for test action' }], isError: true };
+      }
+      const { loadConfig } = await import('./core/proactive_care.js');
+      const config = await loadConfig();
+      const keywords = config.rules?.negative_keywords?.keywords || [];
+      const matched = keywords.filter(kw => (text || '').includes(kw));
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            text,
+            matched_keywords: matched,
+            detected: matched.length > 0,
+          }, null, 2)
+        }]
+      };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    log.error(`Proactive care error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Proactive care error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_proactive_recall', {
+  description: 'Predict which memories to proactively recall based on current context. Uses keyword matching and importance scoring.',
+  inputSchema: z.object({
+    action: z.enum(['predict', 'report']).describe('Action: predict=run prediction, report=print human-readable report'),
+    context: z.string().optional().describe('Context string to match memories against (for predict action)'),
+    topK: z.number().optional().default(10).describe('Number of predictions to return'),
+  }),
+}, async ({ action, context, topK = 10 }) => {
+  try {
+    if (action === 'report') {
+      // Print human-readable report to console, return confirmation
+      printRecallReport(context || undefined);
+      return { content: [{ type: 'text', text: 'Report printed to stdout' }] };
+    }
+    // Default: predict
+    const predictions = corePredictRecall(context || 'recent');
+    const top = predictions.slice(0, topK);
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          context: context || 'time-based',
+          predictions: top.map(p => ({
+            id: p.memory?.id,
+            text: (p.memory?.text || '').slice(0, 100),
+            category: p.memory?.category,
+            importance: p.memory?.importance,
+            relevance: Math.round(p.relevance * 1000) / 1000,
+            reason: p.reason,
+          }))
+        }, null, 2)
+      }]
+    };
+  } catch (err) {
+    log.error(`Proactive recall error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Proactive recall error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_reminder_add', {
+  description: 'Add a reminder: one-time or recurring. Reminders are checked every 30 seconds.',
+  inputSchema: z.object({
+    text: z.string().describe('Reminder text'),
+    type: z.enum(['once', 'recurring']).default('once').describe('Reminder type'),
+    hours: z.number().optional().default(24).describe('Hours until reminder (default 24)'),
+  }),
+}, async ({ text, type = 'once', hours = 24 }) => {
+  try {
+    const scheduler = getReminderScheduler();
+    let id;
+    if (type === 'recurring') {
+      id = scheduler.addRecurringReminder(text, hours);
+    } else {
+      id = scheduler.add({ type: 'once', text, dueAt: Date.now() + hours * 3600 * 1000, repeat: null });
+    }
+    return { content: [{ type: 'text', text: JSON.stringify({ success: true, id }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Reminder add error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_reminder_list', {
+  description: 'List all active reminders.',
+  inputSchema: z.object({}),
+}, async () => {
+  try {
+    const scheduler = getReminderScheduler();
+    const reminders = scheduler.list();
+    return { content: [{ type: 'text', text: JSON.stringify({ count: reminders.length, reminders }, null, 2) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Reminder list error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_reminder_cancel', {
+  description: 'Cancel a reminder by ID.',
+  inputSchema: z.object({
+    id: z.string().describe('Reminder ID to cancel'),
+  }),
+}, async ({ id }) => {
+  try {
+    const scheduler = getReminderScheduler();
+    const removed = scheduler.cancel(id);
+    return { content: [{ type: 'text', text: JSON.stringify({ success: removed }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Reminder cancel error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_predict_enhanced', {
+  description: 'Enhanced prediction with time-awareness, TTL warnings, and importance scoring. Includes anniversary and high-value memory predictions.',
+  inputSchema: z.object({
+    action: z.enum(['predict', 'related', 'high_value']).describe('Action to perform'),
+    context: z.string().optional().describe('Context for prediction (for predict action)'),
+    memoryId: z.string().optional().describe('Memory ID for related predictions (for related action)'),
+    topK: z.number().optional().default(5).describe('Number of predictions to return'),
+  }),
+}, async ({ action, context, memoryId, topK = 5 }) => {
+  try {
+    if (action === 'predict') {
+      const results = await enhancedPredictRecall(context || '', { topK, includeTTL: true });
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            count: results.length,
+            predictions: results.map(r => ({
+              id: r.memory.id,
+              text: r.memory.text,
+              relevance: Math.round(r.relevance * 1000) / 1000,
+              reasons: r.reasons,
+              type: r.type,
+            }))
+          }, null, 2)
+        }]
+      };
+    } else if (action === 'related') {
+      if (!memoryId) {
+        return { content: [{ type: 'text', text: 'Error: memoryId required for related action' }], isError: true };
+      }
+      const results = predictRelatedOnAccess(memoryId, topK);
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            count: results.length,
+            predictions: results.map(r => ({
+              id: r.memory.id,
+              text: r.memory.text,
+              relevance: Math.round(r.relevance * 1000) / 1000,
+              reasons: r.reasons,
+            }))
+          }, null, 2)
+        }]
+      };
+    } else if (action === 'high_value') {
+      const results = predictHighValueMemories(topK);
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            count: results.length,
+            predictions: results.map(r => ({
+              id: r.memory.id,
+              text: r.memory.text,
+              score: Math.round(r.score * 1000) / 1000,
+              reasons: r.reasons,
+            }))
+          }, null, 2)
+        }]
+      };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Enhanced predict error: ${err.message}` }], isError: true };
+  }
+});
+
+
+// ============ Knowledge Graph Tools (Entity + Relation Extraction) ============
+
+import { extractEntities } from './graph/entity.js';
+import { extractRelations } from './graph/relation.js';
+import {
+  loadGraph,
+  addEntity,
+  addRelation,
+  findEntity,
+  findEntityById,
+  getNeighbors,
+  queryGraph,
+  getGraphStats,
+  mergeIntoGraph,
+  clearGraph,
+} from './graph/graph_store.js';
+import { getAllMemories, getMemory } from './storage.js';
+
+server.registerTool('memory_graph_entity', {
+  description: 'Extract entities (person/org/project/tool) from text or memories. Builds knowledge graph.',
+  inputSchema: z.object({
+    source: z.enum(['text', 'memory', 'all']).default('all').describe('Source to extract from'),
+    text: z.string().optional().describe('Text to extract from (for text source)'),
+    memoryId: z.string().optional().describe('Memory ID (for memory source)'),
+    useLLM: z.boolean().optional().default(false).describe('Use LLM for enhanced extraction'),
+  }),
+}, async ({ source, text, memoryId, useLLM = false }) => {
+  try {
+    let textsToProcess = [];
+
+    if (source === 'text' && text) {
+      textsToProcess = [{ id: 'inline', text }];
+    } else if (source === 'memory' && memoryId) {
+      const mem = getMemory(memoryId);
+      if (!mem) {
+        return { content: [{ type: 'text', text: `Memory not found: ${memoryId}` }], isError: true };
+      }
+      textsToProcess = [mem];
+    } else if (source === 'all') {
+      const memories = getAllMemories();
+      textsToProcess = memories.map(m => ({ id: m.id, text: m.text }));
+    }
+
+    if (textsToProcess.length === 0) {
+      return { content: [{ type: 'text', text: JSON.stringify({ entities: [], count: 0 }) }] };
+    }
+
+    /** @type {Array<{ id: string, name: string, type: string, method: string, memory_ids: string[] }>} */
+    const allEntities = [];
+
+    for (const item of textsToProcess) {
+      if (!item.text?.trim()) continue;
+      try {
+        const entities = await extractEntities(item.text, { useLLM });
+        for (const e of entities) {
+          const existing = allEntities.find(n => n.name === e.name && n.type === e.type);
+          if (existing) {
+            existing.memory_ids.push(item.id);
+          } else {
+            allEntities.push({ ...e, memory_ids: [item.id] });
+          }
+        }
+      } catch {
+        // Skip on error
+      }
+    }
+
+    // Add entities to graph store
+    for (const e of allEntities) {
+      addEntity(e);
+    }
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          count: allEntities.length,
+          entities: allEntities.map(e => ({
+            id: e.id,
+            name: e.name,
+            type: e.type,
+            method: e.method,
+            memory_ids: e.memory_ids.slice(0, 5),
+          })),
+          stats: getGraphStats(),
+        }, null, 2),
+      }],
+    };
+  } catch (err) {
+    structuredLog.error(`memory_graph_entity error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Entity extraction error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_graph_relation', {
+  description: 'Extract relationships between entities in the knowledge graph.',
+  inputSchema: z.object({
+    text: z.string().optional().describe('Text to extract relations from'),
+    memoryId: z.string().optional().describe('Memory ID to extract from'),
+    entityIds: z.array(z.string()).optional().describe('Entity IDs to find relations between'),
+    useLLM: z.boolean().optional().default(false).describe('Use LLM for relation extraction'),
+  }),
+}, async ({ text, memoryId, entityIds, useLLM = false }) => {
+  try {
+    let sourceText = '';
+
+    if (memoryId) {
+      const mem = getMemory(memoryId);
+      if (!mem) {
+        return { content: [{ type: 'text', text: `Memory not found: ${memoryId}` }], isError: true };
+      }
+      sourceText = mem.text;
+    } else if (text) {
+      sourceText = text;
+    } else {
+      return { content: [{ type: 'text', text: 'Error: text or memoryId is required' }], isError: true };
+    }
+
+    // Get entities from the source text
+    const entities = await extractEntities(sourceText, { useLLM });
+
+    // Extract relations between entities in the text
+    const relations = await extractRelations(sourceText, entities, {});
+
+    // Add to graph store
+    for (const r of relations) {
+      addRelation(r);
+    }
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          count: relations.length,
+          relations: relations.map(r => ({
+            id: r.id,
+            from: r.from,
+            to: r.to,
+            relation: r.relation,
+            confidence: r.confidence,
+            source: r.source,
+          })),
+          entities_found: entities.map(e => ({ id: e.id, name: e.name, type: e.type })),
+        }, null, 2),
+      }],
+    };
+  } catch (err) {
+    structuredLog.error(`memory_graph_relation error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Relation extraction error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_graph_query', {
+  description: 'Query the knowledge graph: find entity neighbors, paths, or related entities.',
+  inputSchema: z.object({
+    entity: z.string().describe('Entity name or ID'),
+    depth: z.number().default(1).describe('Query depth'),
+    relationType: z.string().optional().describe('Filter by relation type'),
+  }),
+}, async ({ entity, depth = 1, relationType }) => {
+  try {
+    const graph = loadGraph();
+
+    // Try to find entity by name or ID
+    let entityObj = graph.entities.find(e => e.id === entity || e.name === entity);
+
+    if (!entityObj) {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            error: `Entity not found: ${entity}`,
+            available_entities: graph.entities.slice(0, 20).map(e => ({ id: e.id, name: e.name, type: e.type })),
+          }, null, 2),
+        }],
+      };
+    }
+
+    // Get neighbors
+    const neighbors = getNeighbors(entityObj.id, relationType || null);
+
+    // Query paths
+    const pathResult = queryGraph(entity, relationType, depth);
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          entity: { id: entityObj.id, name: entityObj.name, type: entityObj.type, count: entityObj.count },
+          neighbors: neighbors.map(n => ({ id: n.entity.id, name: n.entity.name, type: n.entity.type, relation: n.relation, weight: n.weight })),
+          paths: (pathResult?.paths || []).map(p => ({
+            path: p.path,
+            relations: p.relations,
+            weight: p.totalWeight,
+          })),
+          stats: getGraphStats(),
+        }, null, 2),
+      }],
+    };
+  } catch (err) {
+    structuredLog.error(`memory_graph_query error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Graph query error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_graph_stats', {
+  description: 'Get knowledge graph statistics: entity counts, relation types, graph density.',
+  inputSchema: z.object({}),
+}, async () => {
+  try {
+    const stats = getGraphStats();
+    const graph = loadGraph();
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          ...stats,
+          sample_entities: graph.entities.slice(0, 10).map(e => ({ id: e.id, name: e.name, type: e.type })),
+          sample_relations: graph.relations.slice(0, 10).map(r => ({ id: r.id, from: r.from, to: r.to, relation: r.relation })),
+        }, null, 2),
+      }],
+    };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Graph stats error: ${err.message}` }], isError: true };
+  }
+});
+
 
 // ============ Start ============
 
 async function main() {
-  log('INFO', `Starting unified-memory-mcp v1.1.0`);
-  log('INFO', `Memory file: ${config.memoryFile}`);
-  log('INFO', `Ollama: ${config.ollamaUrl}`);
+    structuredLog.info( `Starting unified-memory-mcp v1.1.0`);
+    structuredLog.info( `Memory file: ${config.memoryFile}`);
+    structuredLog.info( `Ollama: ${config.ollamaUrl}`);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  log('INFO', 'MCP Server connected via stdio');
+    structuredLog.info( 'MCP Server connected via stdio');
 }
 
 main().catch((err) => {

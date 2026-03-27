@@ -8,11 +8,27 @@
  * @module graph/graph
  */
 
-import { getAllMemories } from '../storage.js';
+import { getAllMemories, getMemory } from '../storage.js';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { config } from '../config.js';
 import { dirname } from 'path';
+import { extractEntities } from './entity.js';
+import { extractRelations, buildAdjacencyList } from './relation.js';
+import {
+  loadGraph,
+  saveGraph as storeGraph,
+  addEntity as gsAddEntity,
+  addRelation as gsAddRelation,
+  findEntity,
+  findEntityById,
+  getNeighbors as gsGetNeighbors,
+  queryGraph,
+  getGraphStats,
+  mergeIntoGraph,
+  clearGraph as gsClearGraph,
+  getGraphStats as gsGetStats,
+} from './graph_store.js';
 
 /** @type {Map<string, EntityType>} */
 const ENTITY_TYPES = {
@@ -79,7 +95,7 @@ const ENTITY_COLORS = {
  * @param {string} text
  * @returns {Entity[]}
  */
-export function extractEntities(text) {
+export function extractEntitiesFromText(text) {
   /** @type {Entity[]} */
   const entities = [];
 
@@ -95,12 +111,22 @@ export function extractEntities(text) {
 }
 
 /**
+ * Extract entities using the new hybrid (rule + LLM) entity extractor.
+ * @param {string} text
+ * @param {object} options
+ * @returns {Promise<Array<{ id: string, name: string, type: string, method: string }>>}
+ */
+export async function extractEntitiesHybrid(text, options = {}) {
+  return extractEntities(text, options);
+}
+
+/**
  * Extract relations from a list of memories.
  * Supports: "喜欢", "使用", "决定" relations.
  * @param {Array<{id: string, text: string}>} memories
  * @returns {Relation[]}
  */
-export function extractRelations(memories) {
+export function extractRelationsFromMemories(memories) {
   /** @type {Relation[]} */
   const relations = [];
 
@@ -109,7 +135,7 @@ export function extractRelations(memories) {
 
     // "喜欢" relation
     if (text.includes('喜欢') || text.includes('偏好') || text.includes('爱用')) {
-      const entities = extractEntities(text);
+      const entities = extractEntitiesFromText(text);
       const person = entities.find((e) => e.type === 'person');
       const tool = entities.find((e) => e.type === 'tool');
 
@@ -125,7 +151,7 @@ export function extractRelations(memories) {
 
     // "使用" relation
     if (text.includes('使用') || text.includes('用')) {
-      const entities = extractEntities(text);
+      const entities = extractEntitiesFromText(text);
       const person = entities.find((e) => e.type === 'person');
       const tool = entities.find((e) => e.type === 'tool');
       const project = entities.find((e) => e.type === 'project');
@@ -145,7 +171,7 @@ export function extractRelations(memories) {
 
     // "决定" relation
     if (text.includes('决定') || text.includes('确定') || text.includes('选择')) {
-      const entities = extractEntities(text);
+      const entities = extractEntitiesFromText(text);
       const person = entities.find((e) => e.type === 'person');
       const project = entities.find((e) => e.type === 'project');
       const tool = entities.find((e) => e.type === 'tool');
@@ -194,7 +220,7 @@ export function searchContext(query, limit = 5) {
   /** @type {Entity[]} */
   const allEntities = [];
   for (const m of relevantMemories.slice(0, limit)) {
-    const entities = extractEntities(m.text || '');
+    const entities = extractEntitiesFromText(m.text || '');
     for (const e of entities) {
       allEntities.push({ ...e, memory_id: m.id, text: (m.text || '').slice(0, 100) });
     }
@@ -213,7 +239,7 @@ export function searchContext(query, limit = 5) {
   }
 
   // Extract relations from relevant memories
-  const relations = extractRelations(relevantMemories);
+  const relations = extractRelationsFromMemories(relevantMemories);
 
   return {
     query,
@@ -234,14 +260,14 @@ export function buildGraph() {
   /** @type {Entity[]} */
   const allEntities = [];
   for (const m of memories) {
-    const entities = extractEntities(m.text || '');
+    const entities = extractEntitiesFromText(m.text || '');
     for (const e of entities) {
       allEntities.push({ ...e, memory_id: m.id });
     }
   }
 
   // Extract relations
-  const relations = extractRelations(memories);
+  const relations = extractRelationsFromMemories(memories);
 
   // Count by type
   /** @type {Record<string, number>} */
@@ -266,7 +292,7 @@ export function buildGraph() {
  * Save the graph to disk.
  * @param {KnowledgeGraph} graph
  */
-export function saveGraph(graph) {
+export function saveGraphToFile(graph) {
   const dir = join(config.memoryDir);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
@@ -279,7 +305,7 @@ export function saveGraph(graph) {
  * Load the graph from disk (if it exists).
  * @returns {KnowledgeGraph|null}
  */
-export function loadGraph() {
+export function loadGraphFromFile() {
   const graphFile = join(config.memoryDir, 'graph.json');
   if (!existsSync(graphFile)) return null;
   try {
@@ -295,8 +321,70 @@ export function loadGraph() {
  */
 export function buildAndSaveGraph() {
   const graph = buildGraph();
-  saveGraph(graph);
+  saveGraphToFile(graph);
   return graph;
+}
+
+/**
+ * Build the new knowledge graph using hybrid entity + relation extraction.
+ * Stores in knowledge_graph.json via graph_store.js
+ * @param {object} options
+ * @returns {Promise<{ entities: number, relations: number, stats: object }>}
+ */
+export async function buildKnowledgeGraph(options = {}) {
+  const { useLLM = false } = options; // LLM extraction off by default for speed
+  const memories = getAllMemories();
+
+  /** @type {Array<{ id: string, name: string, type: string, method: string, memory_ids: string[] }>} */
+  const allNewEntities = [];
+
+  for (const m of memories) {
+    const text = m.text || '';
+    if (!text.trim()) continue;
+
+    try {
+      const entities = await extractEntities(text, { useLLM });
+      for (const e of entities) {
+        const existing = allNewEntities.find(n => n.name === e.name && n.type === e.type);
+        if (existing) {
+          existing.memory_ids.push(m.id);
+        } else {
+          allNewEntities.push({ ...e, memory_ids: [m.id] });
+        }
+      }
+    } catch {
+      // Skip on error
+    }
+  }
+
+  // Add entities to store
+  for (const e of allNewEntities) {
+    gsAddEntity(e);
+  }
+
+  // Extract relations using entity IDs
+  for (const m of memories) {
+    const text = m.text || '';
+    if (!text.trim()) continue;
+
+    try {
+      // Build entity list with IDs for this memory
+      const memoryEntities = await extractEntities(text, { useLLM });
+      const relations = await extractRelations(text, memoryEntities, {});
+      for (const r of relations) {
+        gsAddRelation(r);
+      }
+    } catch {
+      // Skip on error
+    }
+  }
+
+  const stats = gsGetStats();
+  return {
+    entities: allNewEntities.length,
+    relations: 0,
+    stats,
+  };
 }
 
 /**
@@ -403,8 +491,8 @@ export function exportHtml(graph) {
  * @param {KnowledgeGraph} graph
  * @returns {string}
  */
-export function getGraphStats() {
-  const graph = loadGraph();
+export function getGraphStatsFromFile() {
+  const graph = loadGraphFromFile();
   const nodes = graph?.nodes || [];
   const edges = graph?.edges || [];
   const entities = nodes.filter(n => n.type === 'entity').length;
@@ -421,3 +509,19 @@ export function getGraphStats() {
 export function exportJson(graph) {
   return JSON.stringify(graph, null, 2);
 }
+
+// Re-export graph_store functions for convenience
+export {
+  loadGraph,
+  storeGraph,
+  gsAddEntity as addEntityToGraph,
+  gsAddRelation as addRelationToGraph,
+  findEntity,
+  findEntityById,
+  gsGetNeighbors,
+  queryGraph,
+  getGraphStats,
+  mergeIntoGraph,
+  gsClearGraph,
+  gsGetStats,
+};

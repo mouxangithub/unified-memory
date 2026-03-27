@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧠 Unified Memory Dashboard</title>
+<style>
+  :root {
+    --bg: #f4f6fa;
+    --surface: #ffffff;
+    --surface2: #f0f2f5;
+    --border: #e2e8f0;
+    --text: #1a202c;
+    --text2: #718096;
+    --accent: #5b6af0;
+    --accent2: #7c85f5;
+    --danger: #e53e3e;
+    --success: #38a169;
+    --warning: #d69e2e;
+    --tag-cat: #ebf4ff;
+    --tag-cat2: #5b6af0;
+    --tag-imp: #fff5f5;
+    --tag-imp2: #e53e3e;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-lg: 0 4px 12px rgba(0,0,0,0.10), 0 2px 4px rgba(0,0,0,0.06);
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  [data-theme="dark"] {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242736;
+    --border: #2d3148;
+    --text: #e2e8f0;
+    --text2: #a0aec0;
+    --accent: #7c85f5;
+    --accent2: #9fa5f7;
+    --danger: #fc5c5c;
+    --success: #4fd1a5;
+    --warning: #f6c90e;
+    --tag-cat: #1e2640;
+    --tag-cat2: #7c85f5;
+    --tag-imp: #2d1a1a;
+    --tag-imp2: #fc5c5c;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+    --shadow-lg: 0 4px 12px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.2);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    transition: background 0.3s, color 0.3s;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+
+  /* Header */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 28px; flex-wrap: wrap; gap: 12px;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo-icon { font-size: 28px; }
+  .header-actions { display: flex; align-items: center; gap: 10px; }
+  .mode-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text2); border-radius: 8px; padding: 7px 14px;
+    cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px;
+    transition: all 0.2s;
+  }
+  .mode-btn:hover { background: var(--surface); border-color: var(--accent); color: var(--accent); }
+  .mode-badge {
+    background: var(--accent); color: #fff; border-radius: 4px;
+    padding: 2px 7px; font-size: 11px; font-weight: 600;
+  }
+  .mode-badge.live { background: var(--success); }
+  .mode-badge.mock { background: var(--warning); }
+
+  /* Stats Cards */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px; margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px;
+    box-shadow: var(--shadow); transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .stat-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+  .stat-label { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+  .stat-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .stat-icon { font-size: 20px; margin-bottom: 6px; }
+
+  /* Charts */
+  .charts-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 28px;
+  }
+  @media (max-width: 700px) { .charts-row { grid-template-columns: 1fr; } }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px;
+    box-shadow: var(--shadow);
+  }
+  .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 14px; color: var(--text); }
+  .bar-chart { display: flex; flex-direction: column; gap: 8px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; }
+  .bar-label { font-size: 12px; color: var(--text2); width: 80px; flex-shrink: 0; text-align: right; }
+  .bar-track { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+  .bar-fill.cat { background: var(--accent); }
+  .bar-fill.imp { background: var(--danger); }
+  .bar-val { font-size: 11px; color: var(--text2); width: 28px; flex-shrink: 0; }
+
+  /* Memory List Section */
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px; flex-wrap: wrap; gap: 10px;
+  }
+  .section-title { font-size: 16px; font-weight: 600; }
+  .search-wrap { position: relative; }
+  .search-wrap input {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 8px 12px 8px 34px;
+    font-size: 13px; width: 240px; outline: none; transition: border-color 0.2s;
+  }
+  .search-wrap input:focus { border-color: var(--accent); }
+  .search-wrap .search-icon {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    font-size: 14px; opacity: 0.5; pointer-events: none;
+  }
+  .btn {
+    background: var(--accent); color: #fff; border: none;
+    border-radius: 8px; padding: 8px 16px; font-size: 13px;
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .btn:hover { background: var(--accent2); transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: var(--radius-sm); }
+  .btn-danger { background: var(--danger); }
+  .btn-danger:hover { background: #c53030; }
+
+  /* Memory Cards */
+  .memory-list { display: flex; flex-direction: column; gap: 10px; }
+  .memory-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 18px;
+    box-shadow: var(--shadow); transition: box-shadow 0.2s, transform 0.2s;
+    position: relative;
+  }
+  .memory-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+  .memory-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .memory-id { font-size: 11px; color: var(--text2); font-family: monospace; margin-bottom: 4px; }
+  .memory-text { font-size: 14px; line-height: 1.6; color: var(--text); word-break: break-word; }
+  .memory-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .tag {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500;
+  }
+  .tag-cat { background: var(--tag-cat); color: var(--tag-cat2); }
+  .tag-imp { background: var(--tag-imp); color: var(--tag-imp2); }
+  .tag-time { background: var(--surface2); color: var(--text2); font-size: 10px; }
+  .memory-actions { display: flex; gap: 6px; margin-top: 10px; justify-content: flex-end; }
+  .empty-state {
+    text-align: center; padding: 48px 20px; color: var(--text2);
+    background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius);
+  }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 16px; display: none;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--surface); border-radius: 14px; padding: 28px;
+    width: 100%; max-width: 540px; box-shadow: var(--shadow-lg);
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 18px; }
+  .form-group { margin-bottom: 14px; }
+  .form-label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text2); }
+  .form-input, .form-select, .form-textarea {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 9px 12px;
+    font-size: 13px; outline: none; transition: border-color 0.2s;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+  .form-textarea { resize: vertical; min-height: 100px; font-family: inherit; line-height: 1.5; }
+  .form-select { appearance: none; cursor: pointer; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+  .btn-cancel {
+    background: var(--surface2); color: var(--text2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 16px; font-size: 13px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-cancel:hover { background: var(--bg); color: var(--text); }
+
+  /* Toast */
+  .toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }
+  .toast {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 16px; font-size: 13px;
+    box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 8px;
+    animation: slideIn 0.3s ease;
+    min-width: 220px;
+  }
+  .toast.success { border-left: 3px solid var(--success); }
+  .toast.error { border-left: 3px solid var(--danger); }
+  .toast.info { border-left: 3px solid var(--accent); }
+  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* Filter tabs */
+  .filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter-tab {
+    padding: 5px 12px; border-radius: 20px; font-size: 12px;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--text2); cursor: pointer; transition: all 0.2s;
+  }
+  .filter-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .filter-tab:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+
+  /* Tooltip for API info */
+  .api-info {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px; font-size: 12px;
+    color: var(--text2); margin-bottom: 20px; display: flex; align-items: flex-start; gap: 8px;
+  }
+  .api-info-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <span class="logo-icon">🧠</span>
+      <span>Unified Memory</span>
+    </div>
+    <div class="header-actions">
+      <span class="mode-badge mock" id="modeBadge">MOCK</span>
+      <button class="mode-btn" onclick="toggleTheme()" title="Toggle dark mode">
+        <span id="themeIcon">🌙</span>
+        <span id="themeLabel">Dark</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- API Info -->
+  <div class="api-info">
+    <span class="api-info-icon">💡</span>
+    <div>
+      <strong id="apiStatusText">Running in Mock Mode</strong> — memories are simulated locally.
+      To connect to a real backend, set <code>apiEndpoint</code> in the script below.
+    </div>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="stats-grid" id="statsGrid">
+    <div class="stat-card">
+      <div class="stat-icon">📦</div>
+      <div class="stat-label">Total Memories</div>
+      <div class="stat-value" id="statTotal">0</div>
+      <div class="stat-sub" id="statStorage">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🔍</div>
+      <div class="stat-label">Categories</div>
+      <div class="stat-value" id="statCategories">0</div>
+      <div class="stat-sub">Distinct types</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">⭐</div>
+      <div class="stat-label">Avg. Importance</div>
+      <div class="stat-value" id="statImportance">—</div>
+      <div class="stat-sub">0.0 – 1.0 scale</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🏷️</div>
+      <div class="stat-label">Total Tags</div>
+      <div class="stat-value" id="statTags">0</div>
+      <div class="stat-sub">Across all memories</div>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-title">📊 Category Distribution</div>
+      <div class="bar-chart" id="catChart"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">⭐ Importance Distribution</div>
+      <div class="bar-chart" id="impChart"></div>
+    </div>
+  </div>
+
+  <!-- Memory List -->
+  <div class="section-header">
+    <div class="section-title">💾 Memories</div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Search memories…" oninput="renderMemories()">
+      </div>
+      <div class="filter-tabs" id="filterTabs"></div>
+      <button class="btn" onclick="openAddModal()">+ Add Memory</button>
+    </div>
+  </div>
+
+  <div class="memory-list" id="memoryList"></div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">➕ Add Memory</div>
+    <input type="hidden" id="editId">
+    <div class="form-group">
+      <label class="form-label">Memory Text *</label>
+      <textarea class="form-textarea" id="fText" placeholder="What would you like to remember?"></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select class="form-select" id="fCategory">
+          <option value="general">general</option>
+          <option value="preference">preference</option>
+          <option value="fact">fact</option>
+          <option value="decision">decision</option>
+          <option value="entity">entity</option>
+          <option value="reflection">reflection</option>
+          <option value="other">other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Importance (0.0 – 1.0)</label>
+        <input type="number" class="form-input" id="fImportance" min="0" max="1" step="0.1" value="0.7">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tags (comma-separated)</label>
+      <input type="text" class="form-input" id="fTags" placeholder="e.g. work, urgent, project-x">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn" id="modalSaveBtn" onclick="saveMemory()">Save Memory</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────────
+const API_ENDPOINT = ''; // Set to e.g. 'http://localhost:8080' to use real API
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+let memories = [];
+let isMock = true;
+let activeFilter = 'all';
+
+// ─────────────────────────────────────────────
+// MOCK DATA
+// ─────────────────────────────────────────────
+function generateMockMemories() {
+  return [
+    { id: 'mem_a1b2c3d4', text: 'User prefers morning meetings before 11am for maximum productivity and focus', category: 'preference', importance: 0.85, tags: ['meetings', 'schedule', 'work'], created_at: '2026-03-25T09:15:00+08:00' },
+    { id: 'mem_b2c3d4e5', text: 'Project Alpha deadline is March 31, 2026. All deliverables must be submitted via the shared drive', category: 'fact', importance: 0.9, tags: ['project-alpha', 'deadline'], created_at: '2026-03-24T14:30:00+08:00' },
+    { id: 'mem_c3d4e5f6', text: 'The user prefers concise, direct responses without unnecessary pleasantries or filler phrases', category: 'preference', importance: 0.75, tags: ['communication', 'style'], created_at: '2026-03-23T11:00:00+08:00' },
+    { id: 'mem_d4e5f6g7', text: 'Decision made: use PostgreSQL as primary database for the new analytics platform', category: 'decision', importance: 0.8, tags: ['database', 'tech-stack', 'analytics'], created_at: '2026-03-22T16:45:00+08:00' },
+    { id: 'mem_e5f6g7h8', text: 'QingCloud OpenClaw agent is configured with memory-qdrant for semantic recall and unified-memory for structured storage', category: 'fact', importance: 0.6, tags: ['openclaw', 'setup', 'memory'], created_at: '2026-03-21T10:20:00+08:00' },
+    { id: 'mem_f6g7h8i9', text: 'Key stakeholders: CTO (David), PM (Sarah), Tech Lead (Alex). Escalation path is CTO → CEO for critical blockers', category: 'entity', importance: 0.88, tags: ['team', 'stakeholders', 'escalation'], created_at: '2026-03-20T13:00:00+08:00' },
+    { id: 'mem_g7h8i9j0', text: 'Retrospective insight: async communication works better than expected; consider reducing scheduled meetings by 20%', category: 'reflection', importance: 0.7, tags: ['retrospective', 'process', 'async'], created_at: '2026-03-19T17:30:00+08:00' },
+    { id: 'mem_h8i9j0k1', text: 'API rate limit is 1000 req/min. Implement exponential backoff with jitter for burst handling', category: 'fact', importance: 0.65, tags: ['api', 'rate-limit', 'backend'], created_at: '2026-03-18T09:00:00+08:00' },
+    { id: 'mem_i9j0k1l2', text: 'Favorite design reference sites: Dribbble, Behance, Awwwards. Use for client inspiration only, not direct copying', category: 'preference', importance: 0.55, tags: ['design', 'references', 'creative'], created_at: '2026-03-17T11:45:00+08:00' },
+    { id: 'mem_j0k1l2m3', text: 'Memory system health check passed: Qdrant vector DB connected, unified-memory storage at 78% capacity', category: 'fact', importance: 0.5, tags: ['system', 'health', 'memory'], created_at: '2026-03-26T08:00:00+08:00' },
+  ];
+}
+
+// ─────────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────────
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function randId() {
+  return Math.random().toString(36).substr(2, 8) + Math.random().toString(36).substr(2, 8);
+}
+
+function escHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function formatDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 86400000) return 'today';
+  if (diff < 172800000) return 'yesterday';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// ─────────────────────────────────────────────
+// API CALLS
+// ─────────────────────────────────────────────
+async function apiList() {
+  if (!API_ENDPOINT) {
+    await delay(150);
+    return memories;
+  }
+  const res = await fetch(`${API_ENDPOINT}/memories`);
+  if (!res.ok) throw new Error('Failed to fetch memories');
+  return res.json();
+}
+
+async function apiStats() {
+  if (!API_ENDPOINT) {
+    await delay(100);
+    return computeStats();
+  }
+  const res = await fetch(`${API_ENDPOINT}/stats`);
+  if (!res.ok) throw new Error('Failed to fetch stats');
+  return res.json();
+}
+
+async function apiCreate(data) {
+  if (!API_ENDPOINT) {
+    await delay(200);
+    const mem = { ...data, id: 'mem_' + randId(), created_at: new Date().toISOString() };
+    memories.unshift(mem);
+    return mem;
+  }
+  const res = await fetch(`${API_ENDPOINT}/memories`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+  if (!res.ok) throw new Error('Failed to create memory');
+  return res.json();
+}
+
+async function apiDelete(id) {
+  if (!API_ENDPOINT) {
+    await delay(150);
+    memories = memories.filter(m => m.id !== id);
+    return;
+  }
+  const res = await fetch(`${API_ENDPOINT}/memories/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to delete memory');
+}
+
+// ─────────────────────────────────────────────
+// STATS COMPUTATION
+// ─────────────────────────────────────────────
+function computeStats() {
+  const total = memories.length;
+  const cats = [...new Set(memories.map(m => m.category))];
+  const allTags = memories.flatMap(m => m.tags || []);
+  const avgImp = total > 0 ? (memories.reduce((s, m) => s + m.importance, 0) / total).toFixed(2) : '—';
+  return { total, categories: cats.length, avgImportance: avgImp, tagCount: allTags.length, tagSet: [...new Set(allTags)] };
+}
+
+function getCatDist() {
+  const dist = {};
+  memories.forEach(m => { dist[m.category] = (dist[m.category] || 0) + 1; });
+  return dist;
+}
+
+function getImpDist() {
+  return { high: memories.filter(m => m.importance >= 0.8).length,
+           medium: memories.filter(m => m.importance >= 0.5 && m.importance < 0.8).length,
+           low: memories.filter(m => m.importance < 0.5).length };
+}
+
+// ─────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────
+async function loadAll() {
+  try {
+    memories = await apiList();
+  } catch(e) {
+    toast('Failed to load memories: ' + e.message, 'error');
+    memories = generateMockMemories();
+  }
+  renderAll();
+}
+
+function renderAll() {
+  renderStats();
+  renderCharts();
+  renderMemories();
+  renderFilterTabs();
+}
+
+function renderStats() {
+  const s = computeStats();
+  document.getElementById('statTotal').textContent = s.total;
+  document.getElementById('statCategories').textContent = s.categories;
+  document.getElementById('statImportance').textContent = s.avgImportance;
+  document.getElementById('statTags').textContent = s.tagCount;
+  document.getElementById('statStorage').textContent = isMock ? 'Mock data' : 'Connected';
+}
+
+function renderCharts() {
+  // Category chart
+  const catDist = getCatDist();
+  const catEl = document.getElementById('catChart');
+  if (Object.keys(catDist).length === 0) {
+    catEl.innerHTML = '<div style="font-size:12px;color:var(--text2);text-align:center;padding:10px">No data</div>';
+  } else {
+    const max = Math.max(...Object.values(catDist));
+    catEl.innerHTML = Object.entries(catDist)
+      .sort((a,b) => b[1]-a[1])
+      .map(([cat, count]) => `
+        <div class="bar-row">
+          <span class="bar-label">${cat}</span>
+          <div class="bar-track"><div class="bar-fill cat" style="width:${(count/max*100).toFixed(1)}%"></div></div>
+          <span class="bar-val">${count}</span>
+        </div>`).join('');
+  }
+
+  // Importance chart
+  const impDist = getImpDist();
+  const impEl = document.getElementById('impChart');
+  const impMax = Math.max(impDist.high, impDist.medium, impDist.low, 1);
+  const impLabels = [['high','≥ 0.8',impDist.high],['medium','0.5–0.8',impDist.medium],['low','< 0.5',impDist.low]];
+  impEl.innerHTML = impLabels.map(([key, label, count]) => `
+    <div class="bar-row">
+      <span class="bar-label">${label}</span>
+      <div class="bar-track"><div class="bar-fill imp" style="width:${(count/impMax*100).toFixed(1)}%"></div></div>
+      <span class="bar-val">${count}</span>
+    </div>`).join('');
+}
+
+function renderMemories() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  let list = memories;
+  if (activeFilter !== 'all') list = list.filter(m => m.category === activeFilter);
+  if (q) list = list.filter(m => m.text.toLowerCase().includes(q) || (m.tags||[]).some(t=>t.toLowerCase().includes(q)));
+
+  const el = document.getElementById('memoryList');
+  if (list.length === 0) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">📭</div>
+      <div style="font-weight:600;margin-bottom:4px">No memories found</div>
+      <div style="font-size:13px">${q || activeFilter!=='all' ? 'Try adjusting your search or filter' : 'Add your first memory to get started'}</div>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = list.map(mem => `
+    <div class="memory-card">
+      <div class="memory-id">${mem.id}</div>
+      <div class="memory-text">${escHtml(mem.text)}</div>
+      <div class="memory-tags">
+        <span class="tag tag-cat">${mem.category}</span>
+        <span class="tag tag-imp">⭐ ${mem.importance}</span>
+        ${(mem.tags||[]).map(t => `<span class="tag tag-time">${escHtml(t)}</span>`).join('')}
+        <span class="tag tag-time">${formatDate(mem.created_at)}</span>
+      </div>
+      <div class="memory-actions">
+        <button class="btn btn-danger btn-sm" onclick="deleteMemory('${mem.id}')">🗑 Delete</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderFilterTabs() {
+  const cats = [...new Set(memories.map(m => m.category))];
+  const el = document.getElementById('filterTabs');
+  el.innerHTML = [
+    `<button class="filter-tab ${activeFilter==='all'?'active':''}" onclick="setFilter('all')">All</button>`,
+    ...cats.map(c => `<button class="filter-tab ${activeFilter===c?'active':''}" onclick="setFilter('${c}')">${c}</button>`)
+  ].join('');
+}
+
+function setFilter(f) {
+  activeFilter = f;
+  renderFilterTabs();
+  renderMemories();
+}
+
+// ─────────────────────────────────────────────
+// MODAL
+// ─────────────────────────────────────────────
+function openAddModal() {
+  document.getElementById('modalTitle').textContent = '➕ Add Memory';
+  document.getElementById('editId').value = '';
+  document.getElementById('fText').value = '';
+  document.getElementById('fCategory').value = 'general';
+  document.getElementById('fImportance').value = '0.7';
+  document.getElementById('fTags').value = '';
+  document.getElementById('modal').classList.add('show');
+  document.getElementById('fText').focus();
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+
+async function saveMemory() {
+  const text = document.getElementById('fText').value.trim();
+  if (!text) { toast('Memory text is required', 'error'); return; }
+  const importance = parseFloat(document.getElementById('fImportance').value);
+  if (isNaN(importance) || importance < 0 || importance > 1) { toast('Importance must be 0.0–1.0', 'error'); return; }
+  const data = {
+    text,
+    category: document.getElementById('fCategory').value,
+    importance,
+    tags: document.getElementById('fTags').value.split(',').map(t=>t.trim()).filter(Boolean)
+  };
+  try {
+    await apiCreate(data);
+    toast('Memory saved successfully!', 'success');
+    closeModal();
+    memories = await apiList();
+    renderAll();
+  } catch(e) {
+    toast('Error saving memory: ' + e.message, 'error');
+  }
+}
+
+async function deleteMemory(id) {
+  if (!confirm('Delete this memory? This cannot be undone.')) return;
+  try {
+    await apiDelete(id);
+    toast('Memory deleted', 'success');
+    memories = memories.filter(m => m.id !== id);
+    renderAll();
+  } catch(e) {
+    toast('Error deleting memory: ' + e.message, 'error');
+  }
+}
+
+// ─────────────────────────────────────────────
+// THEME
+// ─────────────────────────────────────────────
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (isDark) {
+    document.documentElement.removeAttribute('data-theme');
+    document.getElementById('themeIcon').textContent = '🌙';
+    document.getElementById('themeLabel').textContent = 'Dark';
+  } else {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.getElementById('themeIcon').textContent = '☀️';
+    document.getElementById('themeLabel').textContent = 'Light';
+  }
+}
+
+// ─────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────
+function toast(msg, type = 'info') {
+  const wrap = document.getElementById('toasts');
+  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  const div = document.createElement('div');
+  div.className = `toast ${type}`;
+  div.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${escHtml(msg)}</span>`;
+  wrap.appendChild(div);
+  setTimeout(() => div.style.opacity = '0', 3000);
+  setTimeout(() => div.remove(), 3500);
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  memories = generateMockMemories();
+  renderAll();
+});
+
+// Close modal on outside click
+document.getElementById('modal').addEventListener('click', (e) => {
+  if (e.target.id === 'modal') closeModal();
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+});
+</script>
+</body>
+</html>
