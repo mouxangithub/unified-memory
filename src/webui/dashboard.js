@@ -3,19 +3,24 @@
  * Provides HTTP server with HTML dashboard for memory management
  * 
  * Usage:
- *   node src/webui/dashboard.js [--port 38080]
+ *   node src/webui/dashboard.js [--port=3848]
  */
 
 import { createServer } from 'http';
 import { readFileSync } from 'fs';
 import { join, extname } from 'path';
-import { getAllMemories, addMemory, deleteMemory } from '../storage.js';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+import { getAllMemories, addMemory, deleteMemory, saveMemories } from '../storage.js';
 import { hybridSearch } from '../fusion.js';
 import { getSyncStatus } from '../backup/sync.js';
 import { getBackupStats, listBackups } from '../backup/backup.js';
 import { log } from '../utils/logger.js';
 
-const PORT = parseInt(process.argv.find(a => a.startsWith('--port='))?.split('=')[1]) || 38080;
+const PORT = parseInt(process.argv.find(a => a.startsWith('--port='))?.split('=')[1]) || 3848;
 
 /**
  * Send JSON response
@@ -132,6 +137,19 @@ async function handleAPI(req, res, path, query) {
         const ok = deleteMemory(id);
         return sendJSON(res, ok ? 200 : 404, { success: ok });
       }
+      if (req.method === 'PATCH') {
+        const body = await parseBody(req);
+        const memories = getAllMemories();
+        const idx = memories.findIndex(m => m.id === id);
+        if (idx === -1) return sendJSON(res, 404, { error: 'Not found' });
+        if (body.text !== undefined) memories[idx].text = body.text;
+        if (body.importance !== undefined) memories[idx].importance = body.importance;
+        if (body.category !== undefined) memories[idx].category = body.category;
+        if (body.tags !== undefined) memories[idx].tags = body.tags;
+        saveMemories(memories);
+        return sendJSON(res, 200, { success: true, memory: memories[idx] });
+      }
+      // GET
       const memories = getAllMemories();
       const mem = memories.find(m => m.id === id);
       if (mem) {
@@ -172,6 +190,31 @@ async function handleAPI(req, res, path, query) {
     // /api/health
     if (parts[0] === 'api' && parts[1] === 'health') {
       return sendJSON(res, 200, { status: 'ok', timestamp: new Date().toISOString() });
+    }
+
+    // GET /api/stats — memory stats with avg_quality and tier_distribution
+    if (parts[0] === 'api' && parts[1] === 'stats' && req.method === 'GET') {
+      const memories = getAllMemories();
+      const total = memories.length;
+      const avgQuality = total > 0
+        ? memories.reduce((s, m) => s + (m.importance != null ? m.importance : 0.5), 0) / total
+        : 0;
+      const tierDist = { working: 0, longterm: 0, archive: 0 };
+      for (const m of memories) {
+        const t = m.tier || (m.importance >= 0.7 ? 'working' : m.importance >= 0.4 ? 'longterm' : 'archive');
+        if (tierDist[t] !== undefined) tierDist[t]++;
+        else tierDist['longterm']++;
+      }
+      return sendJSON(res, 200, {
+        count: total,
+        avg_quality: Math.round(avgQuality * 1000) / 1000,
+        tier_distribution: tierDist,
+      });
+    }
+
+    // GET /api/insights — placeholder insights
+    if (parts[0] === 'api' && parts[1] === 'insights' && req.method === 'GET') {
+      return sendJSON(res, 200, { insights: [] });
     }
 
     sendJSON(res, 404, { error: 'API endpoint not found' });
@@ -705,7 +748,9 @@ async function handleRequest(req, res) {
   try {
     // Serve HTML pages
     if (path === '/' || path === '/index.html') {
-      return sendHTML(res, 200, DASHBOARD_HTML);
+      const htmlPath = join(__dirname, '..', 'dashboard.html');
+      const html = readFileSync(htmlPath, 'utf8');
+      return sendHTML(res, 200, html);
     }
     if (path === '/graph') {
       return sendHTML(res, 200, GRAPH_HTML);

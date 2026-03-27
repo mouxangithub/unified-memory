@@ -6,6 +6,10 @@
 import { z } from 'zod';
 import { McpServer } from '/usr/local/lib/node_modules/mcporter/node_modules/@modelcontextprotocol/sdk/dist/cjs/server/mcp.js';
 import { StdioServerTransport } from '/usr/local/lib/node_modules/mcporter/node_modules/@modelcontextprotocol/sdk/dist/cjs/server/stdio.js';
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import { config, log as configLog } from './config.js';
 import { log as structuredLog, getLogger } from './logger.js';
@@ -37,7 +41,7 @@ import { initWal, flushWal, listWalFiles } from './wal.js';
 import { assignTiers, partitionByTier, redistributeTiers, compressColdTier } from './tier.js';
 import { shouldSkipRetrieval } from './adaptive.js';
 import { buildBM25Index, bm25Search } from './bm25.js';
-import { getEmbedding, vectorSearch } from './vector.js';
+import { getEmbedding, vectorSearch } from './vector_lancedb.js';
 import { mmrSelect, mmrSelectWithEmbedding } from './mmr.js';
 import { LlmReranker, keywordRerank } from './rerank.js';
 import { CrossEncoderRerank, rerankResults } from './tools/rerank.js';
@@ -45,6 +49,7 @@ import { normalizeScope, filterByScope, SCOPE_LEVELS, SCOPE_HIERARCHY } from './
 import { getProactiveManager } from './proactive_manager.js';
 import { getReminderScheduler } from './reminder.js';
 import { enhancedPredictRecall, predictRelatedOnAccess, predictHighValueMemories } from './tools/predict.js';
+import { registerMultimodalTools } from './multimodal.js';
 
 const server = new McpServer(
   { name: 'unified-memory-mcp', version: '1.1.0' },
@@ -663,6 +668,62 @@ server.registerTool('memory_stats', {
         tagCounts[tag] = (tagCounts[tag] || 0) + 1;
       }
     }
+
+    // Category distribution (mapped to standard categories)
+    const categoryMap = { fact: 0, decision: 0, preference: 0, reflection: 0, other: 0 };
+    for (const m of memories) {
+      const cat = m.category || 'other';
+      if (cat === 'fact' || cat === 'entity') categoryMap.fact++;
+      else if (cat === 'decision') categoryMap.decision++;
+      else if (cat === 'preference') categoryMap.preference++;
+      else if (cat === 'reflection') categoryMap.reflection++;
+      else categoryMap.other++;
+    }
+
+    // Quality distribution (by importance score)
+    const qualityMap = { high: 0, medium: 0, low: 0 };
+    for (const m of memories) {
+      const imp = m.importance || 0.5;
+      if (imp > 0.6) qualityMap.high++;
+      else if (imp >= 0.3) qualityMap.medium++;
+      else qualityMap.low++;
+    }
+
+    // Tier distribution and size by tier
+    const tierMap = { HOT: 0, WARM: 0, COLD: 0 };
+    const sizeByTier = { HOT: 0, WARM: 0, COLD: 0 };
+    const DAY_MS = 86400000;
+    const now = Date.now();
+    for (const m of memories) {
+      const raw = m.timestamp || m.created_at || m.createdAt || now;
+      const ts = typeof raw === 'string' ? new Date(raw).getTime() : raw;
+      const ageDays = (now - ts) / DAY_MS;
+      let tier;
+      if (ageDays <= 7) tier = 'HOT';
+      else if (ageDays <= 30) tier = 'WARM';
+      else tier = 'COLD';
+      tierMap[tier]++;
+      const size = Buffer.byteLength(JSON.stringify(m), 'utf8');
+      sizeByTier[tier] += size;
+    }
+
+    // Scope distribution
+    const scopeMap = { USER: 0, TEAM: 0, AGENT: 0, GLOBAL: 0 };
+    for (const m of memories) {
+      const scope = (m.scope || 'GLOBAL').toUpperCase();
+      if (scope in scopeMap) scopeMap[scope]++;
+      else scopeMap.GLOBAL++;
+    }
+
+    // Read storage version from package.json
+    let storageVersion = '2.0.0';
+    try {
+      const { readFileSync } = await import('fs');
+      const pkgPath = new URL('../package.json', import.meta.url);
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+      storageVersion = pkg.version || '2.0.0';
+    } catch { /* use default */ }
+
     return {
       content: [{
         type: 'text',
@@ -670,6 +731,14 @@ server.registerTool('memory_stats', {
           total: memories.length,
           categories,
           topTags: Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([tag, count]) => ({ tag, count })),
+          // Enhanced fields (v2.0)
+          category_distribution: categoryMap,
+          quality_distribution: qualityMap,
+          tier_distribution: tierMap,
+          size_by_tier: sizeByTier,
+          scope_distribution: scopeMap,
+          memory_count: memories.length,
+          storage_version: storageVersion,
         }, null, 2),
       }],
     };
@@ -689,6 +758,89 @@ server.registerTool('memory_health', {
       const res = await fetch(`${config.ollamaUrl}/api/tags`);
       ollamaOk = res.ok;
     } catch { ollamaOk = false; }
+
+    // WAL integrity check
+    const walChecks = { status: 'ok', walRecordCount: 0, actualOpsCount: 0, discrepancy: 0, withinTolerance: true };
+    try {
+      const walFiles = listWalFiles();
+      let totalWalRecords = 0;
+      for (const wf of walFiles) {
+        try {
+          const content = await import('fs').then(fs => fs.readFileSync(new URL(`../wal/${wf}`, import.meta.url), 'utf8'));
+          totalWalRecords += content.trim().split('\n').filter(Boolean).length;
+        } catch { /* skip unreadable files */ }
+      }
+      walChecks.walRecordCount = totalWalRecords;
+      walChecks.actualOpsCount = memories.length;
+      walChecks.discrepancy = Math.abs(totalWalRecords - memories.length);
+      walChecks.withinTolerance = memories.length === 0
+        ? totalWalRecords === 0
+        : (walChecks.discrepancy / memories.length) <= 0.05;
+    } catch { walChecks.status = 'unknown'; }
+
+    // Vector cache completeness (memories with embeddings)
+    let vectorCount = 0;
+    for (const m of memories) {
+      if (m.embedding && Array.isArray(m.embedding) && m.embedding.length > 0) {
+        vectorCount++;
+      }
+    }
+    const vectorCompleteRate = memories.length > 0 ? Math.round((vectorCount / memories.length) * 1000) / 10 : 100;
+    const vectorStatus = vectorCompleteRate >= 95 ? 'ok' : (vectorCompleteRate >= 50 ? 'degraded' : 'critical');
+
+    // Tier distribution reasonableness
+    const DAY_MS = 86400000;
+    const now = Date.now();
+    const tierCounts = { HOT: 0, WARM: 0, COLD: 0 };
+    for (const m of memories) {
+      const raw = m.timestamp || m.created_at || m.createdAt || now;
+      const ts = typeof raw === 'string' ? new Date(raw).getTime() : raw;
+      const ageDays = (now - ts) / DAY_MS;
+      if (ageDays <= 7) tierCounts.HOT++;
+      else if (ageDays <= 30) tierCounts.WARM++;
+      else tierCounts.COLD++;
+    }
+    const totalMemories = memories.length || 1;
+    const coldRatio = tierCounts.COLD / totalMemories;
+    const hotRatio = tierCounts.HOT / totalMemories;
+    const tierWarnings = [];
+    if (coldRatio > 0.8) tierWarnings.push({ level: 'warning', message: `COLD tier占比${Math.round(coldRatio * 100)}% > 80%，分级可能有问题` });
+    if (hotRatio > 0.8) tierWarnings.push({ level: 'warning', message: `HOT tier占比${Math.round(hotRatio * 100)}% > 80%，没有正常衰减` });
+
+    // Long-time-no-access memories (>30 days)
+    const staleMemories = [];
+    const thirtyDaysAgo = now - 30 * DAY_MS;
+    for (const m of memories) {
+      const lastAcc = m.last_access || m.lastAccess || m.timestamp || m.created_at || m.createdAt || now;
+      const accTs = typeof lastAcc === 'string' ? new Date(lastAcc).getTime() : lastAcc;
+      if (accTs < thirtyDaysAgo) {
+        staleMemories.push({ id: m.id, last_access: new Date(accTs).toISOString() });
+        if (staleMemories.length >= 10) break;
+      }
+    }
+
+    // Corrupted memory detection
+    const corruptedMemories = [];
+    const requiredFields = ['id', 'text', 'category'];
+    for (const m of memories) {
+      let isCorrupted = false;
+      try {
+        // JSON parse check (already parsed by getAllMemories, so we check structural validity)
+        if (!m.id || typeof m.text !== 'string' || !m.category) {
+          isCorrupted = true;
+        }
+        // Check for essential numeric fields being valid
+        if (m.importance !== undefined && (typeof m.importance !== 'number' || m.importance < 0 || m.importance > 1)) {
+          isCorrupted = true;
+        }
+      } catch {
+        isCorrupted = true;
+      }
+      if (isCorrupted) {
+        corruptedMemories.push({ id: m.id || 'unknown', reason: 'missing required fields or invalid structure' });
+      }
+    }
+
     return {
       content: [{
         type: 'text',
@@ -699,6 +851,18 @@ server.registerTool('memory_health', {
           ollama: ollamaOk ? 'connected' : 'disconnected',
           embedModel: config.embedModel,
           llmModel: config.llmModel,
+          // Enhanced health checks (v2.0)
+          wal_integrity: walChecks,
+          vector_cache_complete_rate: `${vectorCompleteRate}%`,
+          vector_cache_status: vectorStatus,
+          tier_distribution: {
+            HOT: tierCounts.HOT,
+            WARM: tierCounts.WARM,
+            COLD: tierCounts.COLD,
+            warnings: tierWarnings,
+          },
+          stale_memories: staleMemories,
+          corrupted_memories: corruptedMemories,
         }, null, 2),
       }],
     };
@@ -1543,12 +1707,120 @@ server.registerTool('memory_graph_stats', {
 });
 
 
+// ============ HTTP Dashboard Server (Optional) ============
+
+function startDashboardServer(port = 3848) {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const dashboardPath = path.join(__dirname, 'dashboard.html');
+
+  const mimeTypes = {
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'application/javascript',
+    '.css': 'text/css',
+    '.json': 'application/json',
+    '.png': 'image/png',
+    '.ico': 'image/x-icon',
+  };
+
+  const server = http.createServer((req, res) => {
+    const url = req.url.split('?')[0];
+
+    // Serve dashboard
+    if (url === '/' || url === '/dashboard') {
+      fs.readFile(dashboardPath, 'utf8', (err, data) => {
+        if (err) {
+          res.writeHead(404, { 'Content-Type': 'text/plain' });
+          res.end('Dashboard not found');
+          return;
+        }
+        res.writeHead(200, { 'Content-Type': mimeTypes['.html'] });
+        res.end(data);
+      });
+      return;
+    }
+
+    // ---- API Routes ----
+    let apiResult;
+    try {
+      if (url === '/memories' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(getAllMemories()));
+        return;
+      }
+      if (url === '/stats') {
+        const all = getAllMemories();
+        const byCategory = {};
+        const byTier = { HOT: 0, WARM: 0, COLD: 0 };
+        const byScope = {};
+        all.forEach(m => {
+          byCategory[m.category || 'unknown'] = (byCategory[m.category || 'unknown'] || 0) + 1;
+          if (m.tier) byTier[m.tier] = (byTier[m.tier] || 0) + 1;
+          if (m.scope) byScope[m.scope] = (byScope[m.scope] || 0) + 1;
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          total: all.length,
+          byCategory,
+          byTier,
+          byScope,
+          memoryCount: all.length
+        }));
+        return;
+      }
+      const deleteMatch = url.match(/^\/memories\/([^/?]+)/);
+      if (deleteMatch && req.method === 'DELETE') {
+        const id = decodeURIComponent(deleteMatch[1]);
+        deleteMemory(id);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+        return;
+      }
+      if (url === '/memories' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+          try {
+            const { text, category, importance, tags } = JSON.parse(body);
+            const mem = addMemory({ text, category, importance, tags });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(mem));
+          } catch {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Invalid JSON' }));
+          }
+        });
+        return;
+      }
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+      return;
+    }
+
+    // 404
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not found');
+  });
+
+  server.listen(port, () => {
+    structuredLog.info(`Dashboard server listening on http://localhost:${port}`);
+  });
+
+  return server;
+}
+
+// Expose startDashboardServer so it can be called from outside
+global._startMemoryDashboard = startDashboardServer;
+
 // ============ Start ============
 
 async function main() {
     structuredLog.info( `Starting unified-memory-mcp v1.1.0`);
     structuredLog.info( `Memory file: ${config.memoryFile}`);
     structuredLog.info( `Ollama: ${config.ollamaUrl}`);
+
+  // Register multimodal tools (image/audio/file analysis)
+  registerMultimodalTools(server);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
