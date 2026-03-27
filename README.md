@@ -25,55 +25,47 @@
 ```
 unified-memory/
 ├── src/
-│   ├── core/              # 核心引擎
-│   │   ├── storage.js     # JSON/LanceDB 存储
+│   ├── index.js           # MCP Server 入口（34工具注册）
+│   ├── search.js          # 核心搜索管道（BM25→Vector→Rerank→MMR→RRF）
+│   │
+│   ├── core/               # 核心引擎（25个模块）
+│   │   ├── storage.js     # JSON 持久化存储
 │   │   ├── bm25.js        # BM25 关键词搜索
 │   │   ├── vector.js      # Ollama 向量搜索
-│   │   ├── fusion.js       # RRF 混合融合
+│   │   ├── fusion.js       # RRF 融合
 │   │   ├── tokenizer.js   # 智能分词
-│   │   └── cache.js        # 多级缓存
+│   │   ├── cache.js        # 多级缓存
+│   │   ├── adaptive.js     # 自适应检索策略
+│   │   ├── hierarchy.js   # 层级记忆
+│   │   └── ... (共25个)
 │   │
-│   ├── tools/             # 工具模块
-│   │   ├── index.js        # MCP Server 入口
-│   │   ├── insights.js     # 用户洞察分析
-│   │   ├── export.js       # 导出 json/markdown/csv
+│   ├── tools/             # 工具模块（17个）
+│   │   ├── search.js      # 混合搜索
+│   │   ├── store.js       # 存储
+│   │   ├── insights.js     # 用户洞察
 │   │   ├── dedup.js        # 相似去重
 │   │   ├── decay.js        # 时间衰减
-│   │   ├── qa.js          # RAG 智能问答
-│   │   └── autostore.js    # 自动存储
+│   │   ├── tier.js         # 三层分层
+│   │   └── ... (共17个)
 │   │
-│   ├── quality/            # 质量体系
-│   │   ├── smart_forgetter.js  # 智能遗忘
-│   │   ├── confidence.js       # 置信度验证
-│   │   └── noise_filter.js     # 噪声过滤
+│   ├── quality/           # 质量体系
+│   │   ├── noise_filter.js
+│   │   ├── confidence.js
+│   │   └── smart_forgetter.js
 │   │
-│   ├── graph/              # 知识图谱
-│   │   └── graph.js        # 实体关系图
-│   │
-│   ├── backup/             # 备份同步
-│   │   └── sync.js        # 多Agent同步
-│   │
+│   ├── graph/             # 知识图谱
+│   ├── backup/             # 多Agent同步
 │   ├── api/                # REST API
-│   │   └── server.js       # HTTP API 服务器
-│   │
 │   ├── agents/             # 智能体
-│   │   ├── memory_agent.js
-│   │   └── active_learner.js
-│   │
 │   ├── collab/             # 协作系统
-│   │   ├── agent_collab.js
-│   │   └── collab_bus.js
-│   │
+│   ├── visualize/          # 可视化
+│   ├── webui/              # Web界面
 │   ├── cli/                # CLI 入口
-│   │   └── index.js
-│   │
 │   └── utils/              # 工具函数
-│       ├── logger.js
-│       ├── counter.js
-│       └── text.js
 │
 ├── tests/
 ├── package.json
+├── SKILL.md               # OpenClaw Skill 规范（34工具完整文档）
 └── README.md
 ```
 
@@ -124,21 +116,73 @@ curl http://localhost:38421/memory
 curl http://localhost:38421/health
 ```
 
-## 📦 MCP 工具 (11个)
+## 📦 MCP 工具 (34个)
 
+### 核心工具
 | 工具 | 说明 |
 |------|------|
-| `memory_search` | BM25 + Vector 混合搜索 |
-| `memory_store` | 存储新记忆 |
+| `memory_search` | BM25 + Vector + RRF 混合搜索 |
+| `memory_store` | 存储新记忆（支持重要性/类别/来源） |
 | `memory_list` | 列出所有记忆 |
 | `memory_delete` | 删除记忆 |
-| `memory_insights` | 用户洞察分析 |
-| `memory_export` | 导出 json/markdown/csv |
-| `memory_dedup` | 相似记忆去重 |
-| `memory_decay` | 时间衰减 |
-| `memory_qa` | RAG 智能问答 |
 | `memory_stats` | 统计信息 |
 | `memory_health` | 健康检查 |
+
+### 检索增强
+| 工具 | 说明 |
+|------|------|
+| `memory_bm25` | 纯 BM25 关键词搜索 |
+| `memory_vector` | 纯向量语义搜索 |
+| `memory_mmr` | 最大边际相关性多样性 |
+| `memory_rerank_llm` | LLM 重排序 |
+| `memory_scope` | 四级隔离过滤（AGENT/USER/TEAM/GLOBAL） |
+| `memory_adaptive` | 自适应检索策略 |
+| `memory_intent` | 查询意图路由 |
+| `memory_noise` | 噪声过滤 |
+
+### 写入链路
+| 工具 | 说明 |
+|------|------|
+| `memory_extract` | LLM 8秒极速抽取 6类记忆 |
+| `memory_autostore` | Hooks 自动存储 |
+| `memory_wal` | Write-Ahead Log 写入日志 |
+
+### 智能处理
+| 工具 | 说明 |
+|------|------|
+| `memory_dedup` | 批量相似去重（Jaccard 0.75） |
+| `memory_decay` | Weibull 时间衰减 |
+| `memory_tier` | 三层自动分层（HOT/WARM/COLD） |
+| `memory_reflection` | 自我反思学习 |
+
+### RAG 与问答
+| 工具 | 说明 |
+|------|------|
+| `memory_qa` | RAG 智能问答 |
+| `memory_inference` | 上下文推理 |
+
+### 主动与预测
+| 工具 | 说明 |
+|------|------|
+| `memory_predict` | 记忆使用预测 |
+| `memory_recommend` | 智能推荐 |
+| `memory_preference_slots` | 用户偏好提取 |
+| `memory_lessons` | 经验教训学习 |
+
+### 增强智能
+| 工具 | 说明 |
+|------|------|
+| `memory_insights` | 用户洞察分析 |
+| `memory_summary` | 记忆摘要生成 |
+| `memory_feedback` | 反馈学习 |
+| `memory_concurrent_search` | 并发搜索 |
+| `memory_export` | 导出 json/markdown/csv |
+
+### 配置与偏好
+| 工具 | 说明 |
+|------|------|
+| `memory_templates` | 模板管理 |
+| `memory_qmd_search` | QMD 本地文档搜索 |
 
 ## ⚙️ 配置
 
