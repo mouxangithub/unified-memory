@@ -10,8 +10,16 @@ export const TIER_CONFIG = {
 
 const DAY_MS = 86400000;
 
+function parseTimestamp(memory) {
+  const raw = memory.timestamp || memory.created_at || memory.createdAt || Date.now();
+  // Handle ISO string format from Python
+  if (typeof raw === 'string') return new Date(raw).getTime();
+  return raw;
+}
+
 function getTier(memory, now = Date.now()) {
-  const age = now - (memory.timestamp || memory.createdAt || now);
+  const ts = parseTimestamp(memory);
+  const age = now - ts;
   const ageDays = age / DAY_MS;
   if (ageDays <= TIER_CONFIG.HOT.maxAgeDays) return 'HOT';
   if (ageDays <= TIER_CONFIG.WARM.maxAgeDays) return 'WARM';
