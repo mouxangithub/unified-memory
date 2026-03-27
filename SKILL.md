@@ -1,4 +1,4 @@
-# 🧠 Unified Memory v2.1 (unified-memory)
+# 🧠 Unified Memory v2.2 (unified-memory)
 
 > **完全使用 Node.js ESM 重构** | 33 个 MCP 工具 | 147 个 JS 模块 | 零外部依赖
 
