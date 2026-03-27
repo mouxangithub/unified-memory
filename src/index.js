@@ -11,7 +11,7 @@ import { config, log as configLog } from './config.js';
 import { log as structuredLog, getLogger } from './logger.js';
 import { metrics, recordSearchLatency, recordStore, recordError } from './metrics.js';
 import { startTrace, endTrace, getTraceExport, clearTrace } from './tracer.js';
-import { getAllMemories, addMemory, deleteMemory, touchMemory, saveMemories } from './storage.js';
+import { getAllMemories, getMemory, addMemory, deleteMemory, touchMemory, saveMemories } from './storage.js';
 import { hybridSearch } from './fusion.js';
 import { analyzeInsights } from './tools/insights.js';
 import { exportMemories } from './tools/export.js';
@@ -1331,7 +1331,6 @@ import {
   mergeIntoGraph,
   clearGraph,
 } from './graph/graph_store.js';
-import { getAllMemories, getMemory } from './storage.js';
 
 server.registerTool('memory_graph_entity', {
   description: 'Extract entities (person/org/project/tool) from text or memories. Builds knowledge graph.',

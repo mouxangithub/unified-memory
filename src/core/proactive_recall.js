@@ -61,7 +61,7 @@ export function printRecallReport(context) {
   console.log('');
 }
 
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
   printRecallReport(args.slice(1).join(' ') || undefined);
 }
