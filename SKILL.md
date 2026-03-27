@@ -1,8 +1,8 @@
-# 🧠 Unified Memory v2.0 (unified-memory-ts)
+# 🧠 Unified Memory v2.0 (unified-memory)
 
 > **完全使用 Node.js ESM 重构** | 129 个模块 | MCP + REST + CLI + WebUI
 
-**项目路径**: `/root/.openclaw/workspace/skills/unified-memory-ts/`
+**项目路径**: `/root/.openclaw/workspace/skills/unified-memory/`
 
 ---
 
@@ -10,7 +10,7 @@
 
 ```
 OpenClaw Agent
-└── unified-memory-ts (Node.js ESM 技能层)
+└── unified-memory (Node.js ESM 技能层)
     ├── memory-lancedb-pro (OpenClaw 内置插件) ← 核心存储引擎
     │   ├── Hybrid Search (BM25 + Vector)
     │   ├── Cross-Encoder Rerank
