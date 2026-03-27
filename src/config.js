@@ -13,16 +13,66 @@ const MEMORY_DIR = join(WORKSPACE, 'memory');
 const VECTOR_CACHE_DIR = join(MEMORY_DIR, 'vector_cache');
 const LOG_DIR = join(MEMORY_DIR, 'logs');
 
+// ─── Provider 配置 ───
+// Embedding providers: env var 或直接填值都行
+const EMBED_PROVIDERS = [
+  {
+    name: 'ollama',
+    baseURL: process.env.OLLAMA_BASE_URL || process.env.OLLAMA_HOST || 'http://localhost:11434',
+    model: process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text',
+    apiKey: null, // Ollama 不需要 key
+  },
+  {
+    name: 'openai',
+    baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+    model: process.env.OPENAI_EMBED_MODEL || 'text-embedding-3-small',
+    apiKey: process.env.OPENAI_API_KEY || null,
+  },
+  {
+    name: 'jina',
+    baseURL: process.env.JINA_BASE_URL || 'https://api.jina.ai/v1',
+    model: process.env.JINA_EMBED_MODEL || 'jina-embeddings-v3',
+    apiKey: process.env.JINA_API_KEY || null,
+  },
+  {
+    name: 'siliconflow',
+    baseURL: process.env.SILICONFLOW_BASE_URL || 'https://api.siliconflow.cn/v1',
+    model: process.env.SILICONFLOW_EMBED_MODEL || 'BAAI/bge-m3',
+    apiKey: process.env.SILICONFLOW_API_KEY || null,
+  },
+];
+
+// LLM providers
+const LLM_PROVIDERS = [
+  {
+    name: 'ollama',
+    baseURL: process.env.OLLAMA_BASE_URL || process.env.OLLAMA_HOST || 'http://localhost:11434',
+    model: process.env.OLLAMA_LLM_MODEL || 'qwen2.5:7b',
+    apiKey: null,
+  },
+  {
+    name: 'openai',
+    baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+    model: process.env.OPENAI_LLM_MODEL || 'gpt-4o-mini',
+    apiKey: process.env.OPENAI_API_KEY || null,
+  },
+  {
+    name: 'siliconflow',
+    baseURL: process.env.SILICONFLOW_BASE_URL || 'https://api.siliconflow.cn/v1',
+    model: process.env.SILICONFLOW_LLM_MODEL || 'Qwen/Qwen2.5-7B-Instruct',
+    apiKey: process.env.SILICONFLOW_API_KEY || null,
+  },
+];
+
 const defaultConfig = {
   memoryDir: MEMORY_DIR,
   memoryFile: join(MEMORY_DIR, 'memories.json'),
   vectorCacheDir: VECTOR_CACHE_DIR,
   logDir: LOG_DIR,
-  ollamaUrl: process.env.OLLAMA_HOST || 'http://localhost:11434',
-  embedModel: process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text:latest',
-  llmModel: process.env.OLLAMA_LLM_MODEL || 'minimax-m2.7:cloud',
   topK: 10,
   rrfK: 60,
+  embedProviders: EMBED_PROVIDERS,
+  llmProviders: LLM_PROVIDERS,
 };
 
 // Load config from file
