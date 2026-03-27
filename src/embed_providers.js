@@ -1,30 +1,13 @@
 /**
  * Multi-Provider Embeddings - Ollama / OpenAI / Jina / SiliconFlow
- * Auto-fallback on failure
+ * Auto-fallback on failure. Reads from config.js (env vars or hardcoded)
  */
-import crypto from 'crypto';
+import { config } from './config.js';
 
-const PROVIDERS = {
-  ollama: {
-    baseURL: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
-    model: process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text',
-  },
-  openai: {
-    baseURL: 'https://api.openai.com/v1',
-    model: process.env.OPENAI_EMBED_MODEL || 'text-embedding-3-small',
-    apiKey: process.env.OPENAI_API_KEY,
-  },
-  jina: {
-    baseURL: 'https://api.jina.ai/v1',
-    model: 'jina-embeddings-v3',
-    apiKey: process.env.JINA_API_KEY,
-  },
-  siliconflow: {
-    baseURL: 'https://api.siliconflow.cn/v1',
-    model: 'BAAI/bge-m3',
-    apiKey: process.env.SILICONFLOW_API_KEY,
-  },
-};
+const PROVIDERS = {};
+for (const p of (config.embedProviders || [])) {
+  PROVIDERS[p.name] = p;
+}
 
 function getProvider(name = 'ollama') {
   const p = PROVIDERS[name];

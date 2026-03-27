@@ -1,15 +1,25 @@
 /**
  * Cross-encoder/LLM Reranking
  * Re-scores BM25+Vector results using LLM understanding
- * Adapted from memory_qmd_search.py LocalReranker
+ * Reads from config.js (env vars or hardcoded)
  */
-import http from 'http';
 import { config } from './config.js';
+
+function getLlmProvider() {
+  const providers = config.llmProviders || [];
+  // Prefer ollama if available
+  return providers.find(p => p.name === 'ollama') || providers[0] || {
+    baseURL: process.env.OLLAMA_HOST || 'http://localhost:11434',
+    model: 'qwen2.5:7b',
+    apiKey: null,
+  };
+}
 
 export class LlmReranker {
   constructor(llmUrl = null, model = null) {
-    this.llmUrl = llmUrl || process.env.OLLAMA_HOST || 'http://localhost:11434';
-    this.model = model || config.llmModel || 'qwen2.5:7b';
+    const defaultProvider = getLlmProvider();
+    this.llmUrl = llmUrl || defaultProvider.baseURL;
+    this.model = model || defaultProvider.model;
     this.initialized = true;
   }
 
