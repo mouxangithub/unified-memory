@@ -1,0 +1,34 @@
+{
+  "enabled": true,
+  "check_interval_minutes": 30,
+  "triggers": {
+    "meeting_density": {
+      "enabled": true,
+      "threshold": 5,
+      "cooldown_hours": 2,
+      "message": "刘总，今天会议挺密集的({count}个)，记得适当休息，喝口水活动一下~"
+    },
+    "work_duration": {
+      "enabled": true,
+      "threshold_hours": 4,
+      "cooldown_hours": 1,
+      "message": "刘总，连续工作{hours}小时了，休息一下喝口水吧！"
+    },
+    "negative_keywords": {
+      "enabled": true,
+      "keywords": ["累", "烦", "忙", "烦死了", "好累", "太忙", "崩溃", "压力大", "头疼", "无语"],
+      "cooldown_hours": 3,
+      "message": "刘总，看你今天挺累的，注意身体啊！需要我帮忙处理什么吗？"
+    },
+    "task_deadline": {
+      "enabled": true,
+      "threshold_hours": 24,
+      "cooldown_hours": 6,
+      "message": "刘总，有{count}个任务截止时间快到了(< {hours}小时)，注意优先级安排~"
+    }
+  },
+  "user": {
+    "open_id": "ou_dcdc467a4de8cd4667474ccb99522e80",
+    "name": "刘总"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "name": "unified-memory",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "🧠 Unified Memory System v2.0 - AI Agent专用记忆系统，多层级、持久化、主动式记忆",
+  "main": "src/index.js",
+  "bin": {
+    "memory": "./src/cli/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "cli": "node src/cli/index.js",
+    "test": "node --test src/**/*.test.js"
+  },
+  "keywords": [
+    "memory",
+    "ai-agent",
+    "bm25",
+    "vector-search",
+    "hybrid-search",
+    "ollama",
+    "mcp"
+  ],
+  "author": "mouxangithub",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mouxangithub/unified-memory"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "file:/usr/local/lib/node_modules/mcporter/node_modules/@modelcontextprotocol/sdk",
+    "zod": "^3.22.0"
+  }
+}

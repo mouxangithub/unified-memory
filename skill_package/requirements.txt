@@ -1,0 +1,8 @@
+# 统一记忆系统 - 依赖
+# 核心功能（必需）
+# - psutil (系统监控，已内置)
+
+# 可选功能
+# - lancedb (向量存储): pip install lancedb
+# - sentence-transformers (Rerank): pip install sentence-transformers
+# - pytest (测试): pip install pytest

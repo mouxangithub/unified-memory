@@ -1,0 +1,158 @@
+name: "内容创作"
+description: "内容创作流程 SOP - 从选题到发布"
+
+steps:
+  - id: ideation
+    role: content_strategist
+    action: ideation
+    description: "选题策划"
+    output: ideation.md
+    prompt: |
+      内容选题策划：
+      
+      主题方向：{{topic}}
+      目标受众：{{audience}}
+      
+      输出：
+      1. 选题理由
+      2. 内容定位
+      3. 预期目标
+      4. 差异化卖点
+    timeout: 60
+
+  - id: research
+    role: researcher
+    action: research
+    description: "内容调研"
+    input: [ideation]
+    output: research.md
+    depends_on: [ideation]
+    prompt: |
+      内容调研：
+      
+      选题：{{ideation}}
+      
+      调研内容：
+      1. 相关内容分析
+      2. 关键信息收集
+      3. 数据与案例
+      4. 专家观点
+    timeout: 180
+
+  - id: outline
+    role: writer
+    action: create_outline
+    description: "创建大纲"
+    input: [ideation, research]
+    output: outline.md
+    depends_on: [research]
+    prompt: |
+      创建内容大纲：
+      
+      选题：{{ideation}}
+      调研：{{research}}
+      
+      大纲要求：
+      1. 清晰的结构层次
+      2. 每个章节的核心观点
+      3. 预计字数分配
+      4. 重点突出
+    timeout: 60
+
+  - id: draft
+    role: writer
+    action: write_draft
+    description: "撰写初稿"
+    input: [outline, research]
+    output: draft.md
+    depends_on: [outline]
+    prompt: |
+      撰写内容初稿：
+      
+      大纲：{{outline}}
+      素材：{{research}}
+      
+      写作要求：
+      1. 遵循大纲结构
+      2. 语言生动有趣
+      3. 论点清晰有力
+      4. 段落层次分明
+      5. 加入实例和数据
+    timeout: 600
+    retry: 1
+
+  - id: edit
+    role: editor
+    action: edit
+    description: "编辑润色"
+    input: [draft]
+    output: edited.md
+    depends_on: [draft]
+    prompt: |
+      编辑润色内容：
+      
+      初稿：{{draft}}
+      
+      编辑重点：
+      1. 逻辑连贯性
+      2. 语言精炼
+      3. 错别字修正
+      4. 标点规范
+      5. 格式统一
+    timeout: 300
+
+  - id: optimize
+    role: seo_specialist
+    action: optimize
+    description: "SEO 优化"
+    input: [edited]
+    output: optimized.md
+    depends_on: [edited]
+    prompt: |
+      SEO 优化：
+      
+      内容：{{edited}}
+      
+      优化项：
+      1. 标题优化
+      2. 关键词布局
+      3. 元描述
+      4. 内链建议
+      5. 图片 alt 文本
+    timeout: 60
+
+  - id: final
+    role: content_lead
+    action: finalize
+    description: "最终审核"
+    input: [optimized]
+    output: final.md
+    depends_on: [optimize]
+    prompt: |
+      最终审核：
+      
+      内容：{{optimized}}
+      
+      审核要点：
+      1. 质量标准
+      2. 品牌调性
+      3. 合规性
+      4. 发布准备
+    timeout: 120
+
+  - id: publish
+    role: publisher
+    action: publish
+    description: "发布内容"
+    input: [final]
+    output: publish_guide.md
+    depends_on: [final]
+    prompt: |
+      发布指南：
+      
+      1. 发布渠道
+      2. 发布时间
+      3. 标签分类
+      4. 推广建议
+      5. 互动引导
+    timeout: 60
