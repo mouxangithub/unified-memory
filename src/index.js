@@ -15,6 +15,17 @@ import { exportMemories } from './tools/export.js';
 import { dedupMemories } from './tools/dedup.js';
 import { decayMemories } from './tools/decay.js';
 import { askQuestion } from './tools/qa.js';
+import { memoryPreferenceSlotsTool } from './preference_slots.js';
+import { memoryLessonsTool } from './lesson.js';
+import { extractImportantInfo, isSensitive, autoStore } from './tools/autostore.js';
+import { ConcurrentSearch } from './tools/concurrent_search.js';
+import { cmdPredict } from './tools/predict.js';
+import { cmdRecommend } from './tools/recommend.js';
+import { MemoryInference, cmdInference } from './tools/inference.js';
+import { MemorySummarizer, cmdSummary } from './tools/summary.js';
+import { FeedbackLearner, OUTCOME_HELPFUL, OUTCOME_IRRELEVANT, OUTCOME_WRONG, OUTCOME_OUTDATED } from './tools/feedback_learner.js';
+import { qmdSearch } from './tools/qmd_search.js';
+import { TemplateManager, cmdTemplates } from './tools/templates.js';
 
 const server = new McpServer(
   { name: 'unified-memory-mcp', version: '1.1.0' },
@@ -192,6 +203,414 @@ server.registerTool('memory_qa', {
   } catch (err) {
     log('ERROR', `QA failed: ${err.message}`);
     return { content: [{ type: 'text', text: `QA error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ Preference Slots (v1.2) ============
+
+server.registerTool('memory_preference_slots', {
+  description: 'Structured user preference slots: get, update, merge, reset, or stats on preference key-value store. Used to personalise memory recall.',
+  inputSchema: z.object({
+    action: z.enum(['get', 'update', 'merge', 'delete', 'reset', 'stats']).describe('Action to perform'),
+    key: z.string().optional().describe('Slot key (required for update/delete)'),
+    value: z.unknown().optional().describe('Slot value (required for update)'),
+    slots: z.record(z.string(), z.unknown()).optional().describe('Key-value map for merge action'),
+  }),
+}, async ({ action, key, value, slots }) => {
+  try {
+    return memoryPreferenceSlotsTool({ action, key, value, slots });
+  } catch (err) {
+    log('ERROR', `Preference slots error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ Lesson System (v1.2) ============
+
+server.registerTool('memory_lessons', {
+  description: 'Lesson management: extract durable high-level principles from recurring memory recall patterns. Supports extract, recall, list, stats, delete.',
+  inputSchema: z.object({
+    action: z.enum(['extract', 'recall', 'list', 'stats', 'delete', 'touch', 'candidates']).describe('Action to perform'),
+    memory_id: z.string().optional().describe('Source memory ID (for extract)'),
+    title: z.string().optional().describe('Lesson title (for extract)'),
+    body: z.string().optional().describe('Lesson body (for extract)'),
+    tags: z.array(z.string()).optional().describe('Tags (for extract)'),
+    query: z.string().optional().describe('Search query (for recall)'),
+    lesson_id: z.string().optional().describe('Lesson ID (for delete/touch)'),
+    limit: z.number().optional().describe('Max results (for list/recall)'),
+    tag: z.string().optional().describe('Filter by tag (for list)'),
+  }),
+}, async (args) => {
+  try {
+    return memoryLessonsTool(args);
+  } catch (err) {
+    log('ERROR', `Lesson system error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ AutoStore (v1.2) ============
+
+server.registerTool('memory_autostore', {
+  description: 'Auto-extract important information from conversation text and store as memories. Detects sensitive info and filters appropriately.',
+  inputSchema: z.object({
+    action: z.enum(['extract', 'stats']).describe('Action to perform'),
+    text: z.string().optional().describe('Conversation text to extract from (for extract action)'),
+  }),
+}, async ({ action, text }) => {
+  try {
+    if (action === 'extract') {
+      if (!text) {
+        return { content: [{ type: 'text', text: 'Error: text is required for extract action' }], isError: true };
+      }
+      const extracted = extractImportantInfo(text);
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            extracted: extracted.length,
+            items: extracted.map(e => ({ text: e.text, category: e.category, source: e.source }))
+          }, null, 2)
+        }]
+      };
+    } else if (action === 'stats') {
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ message: 'Autostore stats: extraction is rule-based, call extract action to process text' }, null, 2) }]
+      };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    log('ERROR', `Autostore error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Autostore error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ Concurrent Search (v1.2) ============
+
+server.registerTool('memory_concurrent_search', {
+  description: 'Parallel BM25 + Vector + QMD hybrid search with multi-query support and timeout control.',
+  inputSchema: z.object({
+    action: z.enum(['search', 'multi', 'stats']).describe('Action to perform'),
+    query: z.string().optional().describe('Search query (for search action)'),
+    queries: z.array(z.string()).optional().describe('Multiple queries for parallel search (for search action)'),
+    topK: z.number().optional().default(5).describe('Number of results to return'),
+    text: z.string().optional().describe('Text to search (for multi action)'),
+    tags: z.array(z.string()).optional().describe('Tags to filter by (for multi action)'),
+    category: z.string().optional().describe('Category to filter by (for multi action)'),
+  }),
+}, async ({ action, query, queries, topK = 5, text, tags, category }) => {
+  try {
+    const searcher = new ConcurrentSearch();
+    if (action === 'search') {
+      const qList = queries || (query ? [query] : []);
+      if (qList.length === 0) {
+        return { content: [{ type: 'text', text: 'Error: query or queries is required' }], isError: true };
+      }
+      const results = await searcher.searchMultiple(qList, topK);
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            count: results.length,
+            results: results.slice(0, topK).map(r => ({
+              id: r.memory?.id,
+              text: (r.memory?.text || '').slice(0, 100),
+              category: r.memory?.category,
+              score: Math.round(r.score * 1000) / 1000,
+              match_type: r.match_type
+            }))
+          }, null, 2)
+        }]
+      };
+    } else if (action === 'multi') {
+      if (!text) {
+        return { content: [{ type: 'text', text: 'Error: text is required for multi action' }], isError: true };
+      }
+      const results = await searcher.multiSearch({ text, tags: tags || [], category }, topK);
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            count: results.length,
+            results: results.map(r => ({
+              id: r.memory?.id,
+              text: (r.memory?.text || '').slice(0, 100),
+              score: Math.round(r.score * 1000) / 1000
+            }))
+          }, null, 2)
+        }]
+      };
+    } else if (action === 'stats') {
+      return { content: [{ type: 'text', text: JSON.stringify(searcher.getStats(), null, 2) }] };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    log('ERROR', `Concurrent search error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Concurrent search error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ Predict (v1.2) ============
+
+server.registerTool('memory_predict', {
+  description: 'Predict user needs based on time patterns, behavior patterns, and project deadlines.',
+  inputSchema: z.object({
+    action: z.enum(['predict', 'patterns', 'trends', 'train', 'today', 'config']).describe('Action to perform'),
+    topic: z.string().optional().describe('Topic for prediction (for predict action)'),
+    json: z.boolean().optional().default(false).describe('Return JSON format'),
+  }),
+}, async ({ action, topic, json = false }) => {
+  try {
+    if (action === 'predict' || action === 'today') {
+      const result = cmdPredict('today', { json });
+      return { content: [{ type: 'text', text: result.type === 'json' ? JSON.stringify(result.data, null, 2) : result.text }] };
+    } else if (action === 'patterns' || action === 'train') {
+      const result = cmdPredict('train', { json });
+      return { content: [{ type: 'text', text: result.type === 'json' ? JSON.stringify(result.data, null, 2) : result.text }] };
+    } else if (action === 'trends') {
+      const result = cmdPredict('week', { json });
+      return { content: [{ type: 'text', text: result.text || result.error || 'Not implemented' }] };
+    } else if (action === 'config') {
+      const result = cmdPredict('config', { json });
+      return { content: [{ type: 'text', text: result.type === 'json' ? JSON.stringify(result.data, null, 2) : result.text }] };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    log('ERROR', `Predict error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Predict error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ Recommend (v1.2) ============
+
+server.registerTool('memory_recommend', {
+  description: 'Smart memory recommendations based on vector similarity, co-occurrence, and tag correlation.',
+  inputSchema: z.object({
+    action: z.enum(['recommend', 'reason', 'hot', 'related']).describe('Action to perform'),
+    context: z.string().optional().describe('Query/context for recommendation (for recommend action)'),
+    id: z.string().optional().describe('Memory ID (for related action)'),
+    k: z.number().optional().default(5).describe('Number of recommendations to return'),
+    json: z.boolean().optional().default(false).describe('Return JSON format'),
+  }),
+}, async ({ action, context, id, k = 5, json = false }) => {
+  try {
+    if (action === 'recommend') {
+      if (!context) {
+        return { content: [{ type: 'text', text: 'Error: context is required for recommend action' }], isError: true };
+      }
+      const result = await cmdRecommend('recommend', { query: context, k: String(k), json });
+      return { content: [{ type: 'text', text: result.type === 'json' ? JSON.stringify(result.data, null, 2) : result.text }] };
+    } else if (action === 'reason') {
+      return { content: [{ type: 'text', text: JSON.stringify({ explanation: 'Recommendations use vector similarity (50%), tag correlation (30%), and co-occurrence (20%) combined with importance weighting (30%)' }) }] };
+    } else if (action === 'hot') {
+      const result = await cmdRecommend('hot', { k: String(k), json });
+      return { content: [{ type: 'text', text: result.type === 'json' ? JSON.stringify(result.data, null, 2) : result.text }] };
+    } else if (action === 'related') {
+      if (!id) {
+        return { content: [{ type: 'text', text: 'Error: id is required for related action' }], isError: true };
+      }
+      const result = await cmdRecommend('related', { id, k: String(k), json });
+      return { content: [{ type: 'text', text: result.type === 'json' ? JSON.stringify(result.data, null, 2) : result.text }] };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    log('ERROR', `Recommend error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Recommend error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ Inference (v1.2) ============
+
+server.registerTool('memory_inference', {
+  description: 'Joint inference combining vector search with ontology graph path expansion for enhanced memory retrieval.',
+  inputSchema: z.object({
+    action: z.enum(['infer', 'context', 'stats']).describe('Action to perform'),
+    query: z.string().optional().describe('Query for inference (for infer action)'),
+    entityId: z.string().optional().describe('Entity ID (for context action)'),
+    limit: z.number().optional().default(10).describe('Max results (for infer action)'),
+    depth: z.number().optional().default(2).describe('Graph traversal depth (for infer action)'),
+    json: z.boolean().optional().default(false).describe('Return JSON format'),
+  }),
+}, async ({ action, query, entityId, limit = 10, depth = 2, json = false }) => {
+  try {
+    const inference = new MemoryInference();
+    if (action === 'infer') {
+      if (!query) {
+        return { content: [{ type: 'text', text: 'Error: query is required for infer action' }], isError: true };
+      }
+      const result = await inference.inferRelated(query, limit, depth);
+      return { content: [{ type: 'text', text: json ? JSON.stringify(result, null, 2) : JSON.stringify(result.merged?.slice(0, 5) || [], null, 2) }] };
+    } else if (action === 'context') {
+      if (!entityId) {
+        return { content: [{ type: 'text', text: 'Error: entityId is required for context action' }], isError: true };
+      }
+      const chain = inference.getContextChain(entityId);
+      return { content: [{ type: 'text', text: json ? JSON.stringify(chain, null, 2) : JSON.stringify(chain.slice(0, 10), null, 2) }] };
+    } else if (action === 'stats') {
+      const stats = inference.getStats();
+      return { content: [{ type: 'text', text: JSON.stringify(stats, null, 2) }] };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    log('ERROR', `Inference error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Inference error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ Summary (v1.2) ============
+
+server.registerTool('memory_summary', {
+  description: 'Generate memory summaries at different granularities using LLM or rule-based extraction.',
+  inputSchema: z.object({
+    action: z.enum(['summarize', 'stats']).describe('Action to perform'),
+    text: z.string().optional().describe('Text to summarize (for summarize action)'),
+    memoryId: z.string().optional().describe('Memory ID to summarize (for summarize action)'),
+    style: z.enum(['short', 'medium', 'long']).optional().default('medium').describe('Summary style'),
+  }),
+}, async ({ action, text, memoryId, style = 'medium' }) => {
+  try {
+    const summarizer = new MemorySummarizer();
+    if (action === 'summarize') {
+      if (!text && !memoryId) {
+        return { content: [{ type: 'text', text: 'Error: text or memoryId is required' }], isError: true };
+      }
+      let summary;
+      if (memoryId) {
+        summary = await summarizer.summarizeMemory(memoryId, style);
+      } else {
+        summary = await summarizer.generateSummary(text, style);
+      }
+      return { content: [{ type: 'text', text: JSON.stringify({ summary, style }, null, 2) }] };
+    } else if (action === 'stats') {
+      const cache = summarizer.cache || {};
+      return { content: [{ type: 'text', text: JSON.stringify({ cached_summaries: Object.keys(cache.summaries || {}).length }, null, 2) }] };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    log('ERROR', `Summary error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Summary error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ Feedback Learner (v1.2) ============
+
+server.registerTool('memory_feedback', {
+  description: 'Feedback learning闭环: record memory usage outcomes (helpful/irrelevant/wrong/outdated) and adjust importance accordingly.',
+  inputSchema: z.object({
+    action: z.enum(['record', 'recommendations', 'stats', 'learn']).describe('Action to perform'),
+    memoryId: z.string().optional().describe('Memory ID to record feedback for'),
+    outcome: z.enum(['helpful', 'irrelevant', 'wrong', 'outdated']).optional().describe('Outcome type (for record action)'),
+    correction: z.string().optional().describe('Correction text (for learn action)'),
+  }),
+}, async ({ action, memoryId, outcome, correction }) => {
+  try {
+    const learner = new FeedbackLearner();
+    if (action === 'record') {
+      if (!memoryId || !outcome) {
+        return { content: [{ type: 'text', text: 'Error: memoryId and outcome are required' }], isError: true };
+      }
+      const feedback = learner.track(memoryId, outcome);
+      return { content: [{ type: 'text', text: JSON.stringify({ success: true, feedback }, null, 2) }] };
+    } else if (action === 'recommendations') {
+      const memories = getAllMemories();
+      const adjustments = learner.adjustImportance(memories);
+      const suggestions = learner.suggestForgetting(memories);
+      return { content: [{ type: 'text', text: JSON.stringify({ adjustments: Object.keys(adjustments).length, forget_suggestions: suggestions.length }, null, 2) }] };
+    } else if (action === 'stats') {
+      const stats = learner.getFeedbackStats();
+      return { content: [{ type: 'text', text: JSON.stringify(stats, null, 2) }] };
+    } else if (action === 'learn') {
+      if (!correction) {
+        return { content: [{ type: 'text', text: 'Error: correction is required for learn action' }], isError: true };
+      }
+      const entry = learner.learn(correction);
+      return { content: [{ type: 'text', text: JSON.stringify({ success: true, entry }, null, 2) }] };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    log('ERROR', `Feedback error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Feedback error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ QMD Search (v1.2) ============
+
+server.registerTool('memory_qmd_search', {
+  description: 'QMD-style search using BM25 keyword matching with Ollama vector fallback.',
+  inputSchema: z.object({
+    action: z.enum(['search', 'status']).describe('Action to perform'),
+    query: z.string().optional().describe('Search query (for search action)'),
+    topK: z.number().optional().default(5).describe('Number of results to return'),
+    mode: z.enum(['bm25', 'vector', 'hybrid', 'auto']).optional().default('hybrid').describe('Search mode'),
+  }),
+}, async ({ action, query, topK = 5, mode = 'hybrid' }) => {
+  try {
+    if (action === 'search') {
+      if (!query) {
+        return { content: [{ type: 'text', text: 'Error: query is required for search action' }], isError: true };
+      }
+      const results = await qmdSearch(query, { topK, mode });
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            count: results.length,
+            query,
+            mode,
+            results: results.map(r => ({
+              id: r.id,
+              text: r.text,
+              category: r.category,
+              score: Math.round(r.score * 1000) / 1000,
+              match_mode: r.mode
+            }))
+          }, null, 2)
+        }]
+      };
+    } else if (action === 'status') {
+      const { getQMDStatus } = await import('./tools/qmd_search.js');
+      const status = await getQMDStatus();
+      return { content: [{ type: 'text', text: JSON.stringify(status, null, 2) }] };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    log('ERROR', `QMD search error: ${err.message}`);
+    return { content: [{ type: 'text', text: `QMD search error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ Templates (v1.2) ============
+
+server.registerTool('memory_templates', {
+  description: 'Memory template system for structured memory creation (project, meeting, decision, preference, task, contact, learning).',
+  inputSchema: z.object({
+    action: z.enum(['list', 'generate', 'get']).describe('Action to perform'),
+    command: z.string().optional().describe('Template type (for generate action)'),
+    templateType: z.string().optional().describe('Template type to get (for get action)'),
+    data: z.record(z.string(), z.unknown()).optional().describe('Template data (for generate action)'),
+  }),
+}, async ({ action, command, templateType, data }) => {
+  try {
+    if (action === 'list') {
+      const result = cmdTemplates('list', { json: true });
+      return { content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }] };
+    } else if (action === 'get') {
+      if (!templateType) {
+        return { content: [{ type: 'text', text: 'Error: templateType is required for get action' }], isError: true };
+      }
+      const result = cmdTemplates('get', { type: templateType, json: true });
+      return { content: [{ type: 'text', text: JSON.stringify(result.data || result.error, null, 2) }] };
+    } else if (action === 'generate') {
+      if (!command) {
+        return { content: [{ type: 'text', text: 'Error: command (template type) is required for generate action' }], isError: true };
+      }
+      const result = cmdTemplates('fill', { type: command, data: data ? JSON.stringify(data) : '{}', json: true });
+      return { content: [{ type: 'text', text: result.type === 'json' ? JSON.stringify(result.data, null, 2) : result.text }] };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    log('ERROR', `Templates error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Templates error: ${err.message}` }], isError: true };
   }
 });
 
