@@ -1,0 +1,58 @@
+# 软件开发标准 SOP
+name: "软件开发流程"
+description: "从需求到部署的完整软件开发流程"
+version: "1.0"
+
+steps:
+  - id: "req_analysis"
+    role: "pm"
+    action: "analyze_requirements"
+    description: "分析需求，输出 PRD 文档"
+    output: "prd.md"
+    
+  - id: "arch_design"
+    role: "architect"
+    action: "design_architecture"
+    description: "设计系统架构"
+    input: ["prd.md"]
+    output: "architecture.md"
+    depends_on: ["req_analysis"]
+    
+  - id: "frontend_impl"
+    role: "frontend_engineer"
+    action: "implement_feature"
+    description: "实现前端功能"
+    input: ["architecture.md"]
+    output: "frontend/"
+    depends_on: ["arch_design"]
+    parallel: true
+    
+  - id: "backend_impl"
+    role: "backend_engineer"
+    action: "implement_feature"
+    description: "实现后端功能"
+    input: ["architecture.md"]
+    output: "backend/"
+    depends_on: ["arch_design"]
+    parallel: true
+    
+  - id: "code_review"
+    role: "engineer"
+    action: "code_review"
+    description: "代码审查"
+    input: ["frontend/", "backend/"]
+    depends_on: ["frontend_impl", "backend_impl"]
+    
+  - id: "testing"
+    role: "qa"
+    action: "execute_tests"
+    description: "执行测试"
+    input: ["frontend/", "backend/"]
+    depends_on: ["code_review"]
+    
+  - id: "deploy"
+    role: "devops"
+    action: "deploy_system"
+    description: "部署系统"
+    input: ["frontend/", "backend/"]
+    depends_on: ["testing"]

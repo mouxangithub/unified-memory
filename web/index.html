@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧠 统一记忆系统 - Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #eee;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 30px 0;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            background: linear-gradient(90deg, #4fc3f7, #29b6f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #888;
+            font-size: 0.9em;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .card h2 {
+            font-size: 1.2em;
+            color: #4fc3f7;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .stat:last-child {
+            border-bottom: none;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+        
+        .search-box {
+            width: 100%;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            font-size: 1em;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: #4fc3f7;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #4fc3f7;
+            color: #1a1a2e;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .btn:hover {
+            background: #29b6f6;
+        }
+        
+        .memory-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .memory-item {
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border-left: 3px solid #4fc3f7;
+        }
+        
+        .memory-item .text {
+            color: #ccc;
+            margin-bottom: 5px;
+        }
+        
+        .memory-item .meta {
+            font-size: 0.8em;
+            color: #666;
+            display: flex;
+            gap: 15px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            background: rgba(79, 195, 247, 0.2);
+            color: #4fc3f7;
+        }
+        
+        .badge.preference { background: rgba(233, 30, 99, 0.2); color: #e91e63; }
+        .badge.decision { background: rgba(255, 152, 0, 0.2); color: #ff9800; }
+        .badge.task { background: rgba(76, 175, 80, 0.2); color: #4caf50; }
+        .badge.fact { background: rgba(33, 150, 243, 0.2); color: #2196f3; }
+        
+        .chart-container {
+            height: 200px;
+            display: flex;
+            align-items: flex-end;
+            gap: 5px;
+            padding: 10px 0;
+        }
+        
+        .bar {
+            flex: 1;
+            background: linear-gradient(180deg, #4fc3f7, #29b6f6);
+            border-radius: 4px 4px 0 0;
+            min-height: 10px;
+        }
+        
+        .bar-label {
+            text-align: center;
+            font-size: 0.7em;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 40px 0;
+            color: #666;
+            font-size: 0.85em;
+        }
+        
+        .footer a {
+            color: #4fc3f7;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧠 统一记忆系统</h1>
+            <p class="subtitle">Unified Memory System Dashboard</p>
+        </header>
+        
+        <div class="grid">
+            <!-- 搜索卡片 -->
+            <div class="card">
+                <h2>🔍 搜索记忆</h2>
+                <input type="text" class="search-box" id="searchInput" placeholder="输入关键词搜索...">
+                <div id="searchResults" class="memory-list" style="margin-top: 15px;"></div>
+            </div>
+            
+            <!-- 统计卡片 -->
+            <div class="card">
+                <h2>📊 系统统计</h2>
+                <div class="stat">
+                    <span>总记忆数</span>
+                    <span class="stat-value" id="totalMemories">-</span>
+                </div>
+                <div class="stat">
+                    <span>健康度</span>
+                    <span class="stat-value" id="healthScore">-</span>
+                </div>
+                <div class="stat">
+                    <span>缓存命中率</span>
+                    <span class="stat-value" id="cacheHitRate">-</span>
+                </div>
+                <div class="stat">
+                    <span>最后更新</span>
+                    <span class="stat-value" id="lastUpdate">-</span>
+                </div>
+            </div>
+            
+            <!-- 分类分布 -->
+            <div class="card">
+                <h2>📈 分类分布</h2>
+                <div class="chart-container" id="categoryChart"></div>
+                <div id="categoryLegend" style="margin-top: 10px; font-size: 0.85em;"></div>
+            </div>
+            
+            <!-- 记忆列表 -->
+            <div class="card">
+                <h2>📝 最近记忆</h2>
+                <div id="recentMemories" class="memory-list"></div>
+            </div>
+            
+            <!-- 缓存状态 -->
+            <div class="card">
+                <h2>💾 缓存状态</h2>
+                <div class="stat">
+                    <span>LRU 缓存</span>
+                    <span class="stat-value" id="lruCache">-</span>
+                </div>
+                <div class="stat">
+                    <span>SQLite 缓存</span>
+                    <span class="stat-value" id="sqliteCache">-</span>
+                </div>
+                <div class="stat">
+                    <span>总命中数</span>
+                    <span class="stat-value" id="totalHits">-</span>
+                </div>
+            </div>
+            
+            <!-- 快捷操作 -->
+            <div class="card">
+                <h2>⚡ 快捷操作</h2>
+                <button class="btn" onclick="refreshData()">🔄 刷新数据</button>
+                <button class="btn" onclick="clearCache()">🗑️ 清空缓存</button>
+                <button class="btn" onclick="exportData()">📤 导出数据</button>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>统一记忆系统 v2.7 | <a href="https://github.com/mouxangithub/unified-memory">GitHub</a></p>
+        </div>
+    </div>
+    
+    <script>
+        // 模拟数据（实际使用时替换为 API 调用）
+        const mockData = {
+            total: 22,
+            health: 85,
+            cacheHitRate: 0.73,
+            lastUpdate: new Date().toLocaleTimeString('zh-CN'),
+            byCategory: {
+                'preference': 5,
+                'decision': 8,
+                'task': 4,
+                'fact': 5
+            },
+            recent: [
+                { id: 1, text: '用户喜欢简洁界面设计', category: 'preference', confidence: 0.9 },
+                { id: 2, text: '采用微服务架构方案', category: 'decision', confidence: 0.8 },
+                { id: 3, text: '需要完成首页功能', category: 'task', confidence: 0.7 }
+            ],
+            cache: {
+                lru: '45/500',
+                sqlite: 12,
+                hits: 156
+            }
+        };
+        
+        function init() {
+            updateStats();
+            updateCategoryChart();
+            updateRecentMemories();
+            updateCacheStatus();
+        }
+        
+        function updateStats() {
+            document.getElementById('totalMemories').textContent = mockData.total;
+            document.getElementById('healthScore').textContent = mockData.health + '/100';
+            document.getElementById('cacheHitRate').textContent = (mockData.cacheHitRate * 100).toFixed(0) + '%';
+            document.getElementById('lastUpdate').textContent = mockData.lastUpdate;
+        }
+        
+        function updateCategoryChart() {
+            const chart = document.getElementById('categoryChart');
+            const legend = document.getElementById('categoryLegend');
+            const categories = mockData.byCategory;
+            const total = Object.values(categories).reduce((a, b) => a + b, 0);
+            
+            chart.innerHTML = '';
+            legend.innerHTML = '';
+            
+            const colors = {
+                'preference': '#e91e63',
+                'decision': '#ff9800',
+                'task': '#4caf50',
+                'fact': '#2196f3'
+            };
+            
+            for (const [cat, count] of Object.entries(categories)) {
+                const height = (count / total * 100).toFixed(0);
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                bar.style.height = height + '%';
+                bar.style.background = colors[cat] || '#4fc3f7';
+                chart.appendChild(bar);
+                
+                const label = document.createElement('div');
+                label.className = 'bar-label';
+                label.textContent = cat;
+                chart.appendChild(label);
+                
+                const legendItem = document.createElement('span');
+                legendItem.style.color = colors[cat] || '#4fc3f7';
+                legendItem.textContent = `${cat}: ${count} `;
+                legend.appendChild(legendItem);
+            }
+        }
+        
+        function updateRecentMemories() {
+            const container = document.getElementById('recentMemories');
+            container.innerHTML = '';
+            
+            mockData.recent.forEach(mem => {
+                const item = document.createElement('div');
+                item.className = 'memory-item';
+                item.innerHTML = `
+                    <div class="text">${mem.text}</div>
+                    <div class="meta">
+                        <span class="badge ${mem.category}">${mem.category}</span>
+                        <span>置信度: ${(mem.confidence * 100).toFixed(0)}%</span>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+        
+        function updateCacheStatus() {
+            document.getElementById('lruCache').textContent = mockData.cache.lru;
+            document.getElementById('sqliteCache').textContent = mockData.cache.sqlite + ' 条';
+            document.getElementById('totalHits').textContent = mockData.cache.hits;
+        }
+        
+        function refreshData() {
+            init();
+            alert('数据已刷新！');
+        }
+        
+        function clearCache() {
+            if (confirm('确定要清空缓存吗？')) {
+                alert('缓存已清空！');
+            }
+        }
+        
+        function exportData() {
+            alert('数据导出功能开发中...');
+        }
+        
+        // 搜索功能
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const query = this.value.trim();
+                if (query) {
+                    document.getElementById('searchResults').innerHTML = '<div class="memory-item">搜索: ' + query + '</div>';
+                }
+            }
+        });
+        
+        // 初始化
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+# 研究调研 SOP
+name: "研究调研流程"
+description: "主题研究和调研流程"
+version: "1.0"
+
+steps:
+  - id: "topic_define"
+    role: "pm"
+    action: "define_scope"
+    description: "定义研究范围"
+    output: "scope.md"
+    
+  - id: "literature_review"
+    role: "engineer"
+    action: "search_literature"
+    description: "文献检索"
+    input: ["scope.md"]
+    output: "literature.md"
+    depends_on: ["topic_define"]
+    
+  - id: "analysis"
+    role: "architect"
+    action: "analyze_findings"
+    description: "分析研究结果"
+    input: ["literature.md"]
+    output: "analysis.md"
+    depends_on: ["literature_review"]
