@@ -1,6 +1,6 @@
 {
     "name": "unified-memory",
-    "version": "2.2.0",
+    "version": "2.5.0",
     "description": "AI Agent Memory System - Node.js ESM with 33 MCP tools, BM25+Vector hybrid search, Weibull decay, Scope isolation, self-improving. Zero external dependencies.",
     "author": "mouxangithub",
     "license": "MIT",
