@@ -11,17 +11,11 @@
     "start": "node src/index.js",
     "cli": "node src/cli/index.js",
     "test": "vitest run",
-    "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
   "keywords": [
-    "memory",
-    "ai-agent",
-    "bm25",
-    "vector-search",
-    "hybrid-search",
-    "ollama",
-    "mcp"
+    "memory", "ai-agent", "bm25", "vector-search",
+    "hybrid-search", "ollama", "mcp", "unified-memory"
   ],
   "author": "mouxangithub",
   "license": "MIT",
@@ -30,10 +24,11 @@
     "url": "https://github.com/mouxangithub/unified-memory"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "file:/usr/local/lib/node_modules/mcporter/node_modules/@modelcontextprotocol/sdk",
-    "zod": "^3.22.0",
-    "@lancedb/lancedb": "^0.27.1",
-    "@xenova/transformers": "^2.17.0"
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "peerDependencies": {
+    "@lancedb/lancedb": "provided-by-host",
+    "@xenova/transformers": "provided-by-host"
   },
   "devDependencies": {
     "vitest": "^1.6.0"
