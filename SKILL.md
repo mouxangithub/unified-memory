@@ -5,7 +5,7 @@
 # 🧠 Unified Memory v2.4 (unified-memory)
 
 > **🤖 本项目由小智 AI（OpenClaw）创建生成**  
-> 作者：刘选权（ou_7b3a4352f86486ebdaf0de572093afb1）  
+> 作者：程序员小刘（@mouxangithub）  
 > 框架：OpenClaw Agent | 完全使用 Node.js ESM 重构 | 86 个 MCP 工具
 
 **项目路径**: `/root/.openclaw/workspace/skills/unified-memory/`
