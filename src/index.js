@@ -2485,6 +2485,21 @@ async function main() {
     structuredLog.info( `Memory file: ${config.memoryFile}`);
     structuredLog.info( `Ollama: ${config.ollamaUrl}`);
 
+  // Start v2.7.0 Dashboard Web UI (port 3850)
+  try {
+    // dashboard.js 是自包含的服务器，通过 child_process 启动
+    import { spawn } from 'child_process';
+    const dashboardProcess = spawn('node', ['src/webui/dashboard.js', '--port=3850'], {
+      stdio: 'ignore',
+      detached: true
+    });
+    dashboardProcess.unref();
+    structuredLog.info('v2.7.0 Dashboard started on port 3850');
+    
+  } catch (err) {
+    structuredLog.warn(`Failed to start dashboard: ${err.message}`);
+  }
+
   // Register multimodal tools (image/audio/file analysis)
   registerMultimodalTools(server);
 
