@@ -1,4 +1,4 @@
-# 🧠 Unified Memory v2.5
+# 🧠 Unified Memory v2.6
 
 > AI Agent Memory System — Multi-layered, Persistent, Proactive
 
@@ -182,4 +182,4 @@ node run-tests.cjs
 
 MIT
 
-*Last updated: 2026-03-28 | v2.5.0*
+*Last updated: 2026-03-28 | v2.6.0*
