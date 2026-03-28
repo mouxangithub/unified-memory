@@ -11,7 +11,8 @@
     "start": "node src/index.js",
     "cli": "node src/cli/index.js",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "postinstall": "node -e \"const v=process.version.match(/^v(\\d+)/)[1]; if(v<22){console.error('⚠️  Node.js 22+ required, current '+process.version);process.exit(1);} console.log('✅ Node.js', process.version)\""
   },
   "keywords": [
     "memory", "ai-agent", "bm25", "vector-search",
