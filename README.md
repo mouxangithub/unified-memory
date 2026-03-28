@@ -1,4 +1,96 @@
+---
+
+<div align="center">
+
 # 🧠 Unified Memory v2.0
+
+*AI Agent 专用记忆系统 - 多层级、持久化、主动式记忆*
+
+> **🤖 本项目由小智 AI（OpenClaw）创建生成**  
+> 作者：刘选权（ou_7b3a4352f86486ebdaf0de572093afb1）  
+> 基于 OpenClaw Agent 框架驱动，集成 BM25 + 向量混合搜索、RAG、主动召回等 86 个工具
+
+[![GitHub stars](https://img.shields.io/github/stars/mouxangithub/unified-memory)](https://github.com/mouxangithub/unified-memory)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-22+-green.svg)](https://nodejs.org/)
+
+---
+
+## 🌍 Documentation Index | 文档索引
+
+| Language | README | Skill |
+|----------|--------|-------|
+| 🇨🇳 中文 | [README.md](README.md) ✅ | [SKILL.md](SKILL.md) |
+| 🇺🇸 English | [README_EN.md](README_EN.md) | [SKILL_EN.md](SKILL_EN.md) |
+
+> **SKILL.md 默认语言为中文**，如需英文版见 [SKILL_EN.md](SKILL_EN.md)
+
+---
+
+## 🌟 Core Features | 核心特性
+
+| Feature | 说明 |
+|---------|------|
+| 🔄 **持久化上下文** | 不再每次重新理解，持久化上下文窗口 |
+| 🔍 **混合搜索** | BM25 + 向量 + RRF 融合 (完全本地) |
+| 💬 **自动存储** | Hooks 模式，无需手动调用 |
+| 📊 **用户洞察** | 类别分布、工具使用分析 |
+| 🧹 **智能遗忘** | 低价值记忆自动淘汰 |
+| 🔗 **知识图谱** | 实体提取和关系可视化 |
+| 🤝 **多Agent协作** | 多 Agent 记忆同步 |
+| 🏥 **健康检查** | 完整的系统健康监控 |
+
+---
+
+## 🚀 Quick Start | 快速开始
+
+### 方式一：OpenClaw 技能市场（一键安装）
+
+```bash
+# 查看技能信息
+clawhub info unified-memory
+
+# 一键安装
+clawhub install unified-memory
+
+# 重启 OpenClaw
+openclaw gateway restart
+```
+
+### 方式二：curl 安装脚本（任意 AI Agent）
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mouxangithub/unified-memory/main/install.sh | bash
+```
+
+### 方式三：手动安装
+
+```bash
+git clone https://github.com/mouxangithub/unified-memory.git
+cd unified-memory
+npm install --ignore-scripts
+node src/index.js
+```
+
+---
+
+## 📋 前置要求 | Prerequisites
+
+| Dependency | 版本 | 说明 |
+|------------|------|------|
+| Node.js | ≥ 22 | 推荐使用最新 LTS |
+| Ollama | ≥ 0.1.40 | 本地向量搜索（可选，无则降级到 BM25） |
+| OpenClaw | ≥ 2026.3 | Skill 系统接入（可选） |
+
+```bash
+# 安装 Ollama（可选）
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull nomic-embed-text   # 嵌入模型
+```
+
+---
+
+## 🔌 接入任意 AI Agent | Integrate with Any AI Agent
 
 > AI Agent 专用记忆系统 - 多层级、持久化、主动式记忆
 

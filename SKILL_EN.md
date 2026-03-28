@@ -1,8 +1,27 @@
-# 🧠 Unified Memory v2.0 (unified-memory-ts)
+---
 
-> **Node.js ESM Implementation** | 129 modules | MCP + REST + CLI + WebUI
+<div align="center">
 
-**Project Path**: `/root/.openclaw/workspace/skills/unified-memory-ts/`
+# 🧠 Unified Memory v2.2 (unified-memory)
+
+> **🤖 Created by 小智 AI (OpenClaw)**  
+> Author: 刘选权 (ou_7b3a4352f86486ebdaf0de572093afb1)  
+> Framework: OpenClaw Agent | Node.js ESM | 86 MCP Tools
+
+**Project Path**: `/root/.openclaw/workspace/skills/unified-memory/`
+
+---
+
+## 🌍 Documentation Index | 文档索引
+
+| Language | README | Skill |
+|----------|--------|-------|
+| 🇨🇳 中文 | [README.md](README.md) | [SKILL.md](SKILL.md) |
+| 🇺🇸 English | [README_EN.md](README_EN.md) ✅ | [SKILL_EN.md](SKILL_EN.md) ✅ |
+
+---
+
+</div>
 
 ---
 

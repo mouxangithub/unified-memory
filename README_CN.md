@@ -1,112 +1,90 @@
-# unified-memory - 统一记忆系统 v2.0.0
+# 🧠 Unified Memory v2.0
 
-> 零依赖 AI Agent 框架，集成记忆、搜索、协作、工作流自动化
+## 🇨🇳 中文文档
 
----
-
-## 核心特性
-
-### 对标 QMD
-
-- ✅ **Context Tree** - 项目级上下文管理
-- ✅ **智能摘要** - 压缩历史，提取精华
-- ✅ **混合搜索** - BM25 + 向量 + RRF
-
-### 对标 MetaGPT
-
-- ✅ **项目模板** - 快速启动
-- ✅ **多 Agent 协作** - 智能调度
-- ✅ **工作流 SOP** - YAML 定义
-
-### 独有优势
-
-- ✅ **多模态** - OCR/STT（独有）
-- ✅ **智能分类** - 自动打标签（独有）
-- ✅ **零依赖** - 开箱即用（独有）
+> **🤖 本项目由小智 AI（OpenClaw）创建生成**  
+> 作者：刘选权（刘总）| 框架：OpenClaw Agent | 86 个 MCP 工具
 
 ---
 
-## 快速开始
+## 📖 文档索引
+
+| 文档 | 说明 |
+|------|------|
+| [README.md](README.md) | **主文档（推荐）** - 含完整接入指南 |
+| [README_EN.md](README_EN.md) | 英文版完整文档 |
+| [SKILL.md](SKILL.md) | OpenClaw Skill 规范（中文工具说明） |
+| [SKILL_EN.md](SKILL_EN.md) | OpenClaw Skill 规范（English） |
+| [CHANGELOG.md](CHANGELOG.md) | 更新日志 |
+
+---
+
+## 🚀 快速开始
+
+### 一键安装
 
 ```bash
-# 安装
-git clone https://github.com/mouxangithub/unified-memory.git
+curl -fsSL https://raw.githubusercontent.com/mouxangithub/unified-memory/main/install.sh | bash
+```
 
-# 初始化项目
-mem template create software-project ./my-app
+### OpenClaw 用户
+
+```bash
+clawhub install unified-memory
+openclaw gateway restart
+```
+
+### 快速测试
+
+```bash
+# 搜索记忆
+node src/cli/index.js search "测试"
 
 # 存储记忆
-mem store "重要决策" --tags "架构"
+node src/cli/index.js store "学习了什么" --category learning --importance 0.8
 
-# 搜索记忆
-mem search "架构"
-
-# 更新上下文
-mem ctx update "任务" --progress 50
-
-# 压缩历史
-mem summary compress --days 7
+# 启动 REST API
+node src/cli/index.js server --port 38421
 ```
 
 ---
 
-## 核心命令
+## 📦 核心工具（必记）
+
+| 工具 | 用途 |
+|------|------|
+| `memory_search` | 混合搜索（BM25+向量） |
+| `memory_store` | 存储记忆 |
+| `memory_episode_start/end` | 开启/结束会话片段 |
+| `memory_procedure_add` | 添加流程记忆 |
+| `memory_rule_check` | 检查规则 |
+
+完整工具列表见 [SKILL.md](SKILL.md)
+
+---
+
+## 🔧 配置
 
 ```bash
-# Context Tree
-mem ctx init/update/decision/status/export
+# 环境变量（可选）
+export OLLAMA_HOST=http://192.168.2.155:11434
 
-# 智能摘要
-mem summary compress/decisions/summary
-
-# 项目模板
-mem template list/create
-
-# 系统管理
-mem health
-mem validate
+# 或配置文件
+echo '{"ollamaUrl":"http://192.168.2.155:11434"}' > ~/.openclaw/workspace/memory/config.json
 ```
 
 ---
 
-## 对比优势
+## 📊 服务状态
 
-| 维度 | 我们 | QMD | MetaGPT |
-|------|------|-----|---------|
-| 依赖数量 | 0 ✅ | ~5 | 70+ |
-| Context Tree | ✅ | ✅ | ⚠️ |
-| 智能摘要 | ✅ | ✅ | ❌ |
-| 多模态 | ✅ 独有 | ❌ | ⚠️ |
-| 零依赖 | ✅ 独有 | ❌ | ❌ |
+```bash
+# 查看服务
+mcporter list 2>/dev/null | grep unified-memory
 
----
-
-## 文档
-
-- [快速开始](docs/QUICK_START.md)
-- [真实案例](docs/REAL_CASES.md)
-- [变更日志](CHANGELOG_v2.md)
-- [路线图](docs/ROADMAP_v1.1.md)
+# 健康检查
+curl http://localhost:38421/health
+```
 
 ---
 
-## 链接
-
-- **GitHub**: https://github.com/mouxangithub/unified-memory
-- **ClawHub**: https://clawhub.com/skill/unified-memory
-
----
-
-*更新: 2026-03-23*
-
----
-
-## 🔗 其他语言版本
-
-- [English Documentation](./README.md) - Full English documentation
-- [快速入门](./README_QUICK_START.md) - 🚀 3步快速上手
-- [SKILL.md](./SKILL.md) - OpenClaw Skill 规范
-
----
-
-*更新: 2026-03-27*
+*更多内容见 [README.md](README.md)*
