@@ -17,14 +17,14 @@
 
 import { shouldSkipRetrieval } from './adaptive.js';
 import { routeSearch, getCategoryWeights } from './intent.js';
-import { EmbeddingCache } from './embed_cache.js';
+import { embedCache, EmbedCache } from './embed_cache.js';
 import { bm25Search } from './bm25.js';
 import { vectorSearch } from './vector.js';
 import { keywordRerank, LlmReranker } from './rerank.js';
 import { mmrSelect } from './mmr.js';
 import { applyDecayBoost } from './decay.js';
 import { filterByScope, getScopeOrder } from './scope.js';
-import { filterNoiseMemories } from './noise.js';
+import { filterByQuality } from './noise.js';
 import { qualityScore } from './quality.js';
 import { config } from './config.js';
 import { loadMemories } from './storage.js';
@@ -79,7 +79,7 @@ export async function knowledgeGraphSearch(query, topK = 5) {
 }
 
 // Global embedding cache instance (shared across calls)
-const embedCache = new EmbeddingCache(256, 30);
+const embedCacheInstance = new EmbedCache(256, 30);
 let llmReranker = null;
 
 function getReranker() {
@@ -202,7 +202,7 @@ export async function search(query, options = {}) {
   }
 
   // Apply noise filter (remove low-quality entries)
-  memories = filterNoiseMemories(memories);
+  memories = filterByQuality(memories);
 
   // Deduplicate by id
   const seen = new Set();
@@ -329,7 +329,7 @@ export async function searchBm25(query, options = {}) {
   for (const s of scopeOrder) {
     memories.push(...filterByScope(allMemories, s));
   }
-  memories = filterNoiseMemories(memories);
+  memories = filterByQuality(memories);
 
   const results = bm25Search(query, topK);
   return results.slice(0, topK).map((r, i) => ({

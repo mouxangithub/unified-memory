@@ -8,7 +8,7 @@
 
 ## 概述
 
-Unified Memory 是一个为 AI Agent 设计的记忆系统，具备持久化、混合检索、智能遗忘和主动注入能力。通过 MCP 协议提供 58 个工具，支持 BM25 + 向量 + RRF 融合搜索、LLM 增强提取、Weibull 时间衰减、多级Scope隔离、Preference Slots、Semantic Versioning 等特性。
+Unified Memory 是一个为 AI Agent 设计的记忆系统，具备持久化、混合检索、智能遗忘和主动注入能力。通过 MCP 协议提供 86 个工具，支持 BM25 + 向量 + RRF 融合搜索、LLM 增强提取、Weibull 时间衰减、多级Scope隔离、Preference Slots、Semantic Versioning 等特性。
 
 **存储后端**: JSON 文件（`~/.openclaw/workspace/memory/memories.json`）+ Ollama 向量引擎（完全本地）
 
