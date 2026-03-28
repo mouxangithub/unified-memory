@@ -45,10 +45,11 @@ function reciprocalRankFusion(resultLists, k = 60) {
  * @param {string} [mode='hybrid']
  * @returns {Promise<Array<{memory: object, fusionScore: number, highlight: string, bm25Score?: number, vectorScore?: number}>>}
  */
-export async function hybridSearch(query, topK = 10, mode = 'hybrid') {
+export async function hybridSearch(query, topK = 10, mode = 'hybrid', scope = null) {
   const k = config.rrfK || 60;
 
   if (mode === 'bm25') {
+    // BM25 has no scope filtering — return all (BM25 is scope-agnostic in this implementation)
     const results = bm25Search(query, topK * 2);
     return results.map((r, i) => ({
       memory: r.memory,
@@ -59,7 +60,7 @@ export async function hybridSearch(query, topK = 10, mode = 'hybrid') {
   }
 
   if (mode === 'vector') {
-    const results = await vectorSearch(query, topK * 2);
+    const results = await vectorSearch(query, topK * 2, scope);
     return results.map((r, i) => ({
       memory: r.memory,
       fusionScore: 1 / (k + i + 1),
@@ -68,10 +69,10 @@ export async function hybridSearch(query, topK = 10, mode = 'hybrid') {
     }));
   }
 
-  // Hybrid: BM25 + Vector RRF
+  // Hybrid: BM25 + Vector RRF — vector search gets scope filter, BM25 is scope-agnostic
   const [bm25Results, vectorResults] = await Promise.all([
     Promise.resolve(bm25Search(query, topK * 2)),
-    vectorSearch(query, topK * 2),
+    vectorSearch(query, topK * 2, scope),
   ]);
 
   const fused = reciprocalRankFusion([bm25Results, vectorResults], k);

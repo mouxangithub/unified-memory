@@ -90,6 +90,13 @@ export class VectorMemory {
         // Index creation may fail on empty table; that's ok
         console.warn('[vector_lancedb] Index creation warning:', e.message);
       }
+
+      // Create scalar B-tree index on scope column for fast scope filtering
+      try {
+        await this._table.createIndex('scope', { type: 'btree' });
+      } catch (e) {
+        console.warn('[vector_lancedb] Scope index warning:', e.message);
+      }
     } else {
       this._table = await this._db.openTable(TABLE_NAME);
     }
@@ -151,22 +158,24 @@ export class VectorMemory {
   }
 
   /**
-   * Search ANN vectors by embedding
+   * Search ANN vectors by embedding with optional scope filtering
    * @param {number[]} queryEmbedding - 768-dim query vector
    * @param {number} topK - Number of results to return
+   * @param {string|null} scope - Scope to filter by (AGENT, USER, TEAM, GLOBAL, or null for all)
    * @returns {Array<{id, text, score, metadata}>}
    */
-  async searchVectors(queryEmbedding, topK = 10) {
+  async searchVectors(queryEmbedding, topK = 10, scope = null) {
     await this.initialize();
     if (!queryEmbedding || queryEmbedding.length !== DIMENSIONS) {
       throw new Error(`Query embedding must be ${DIMENSIONS}-dimensional float array`);
     }
 
-    const results = await this._table
-      .query()
-      .nearestTo(queryEmbedding)
-      .limit(topK)
-      .execute();
+    let query = this._table.query().nearestTo(queryEmbedding);
+    if (scope) {
+      // Scope filtering at DB level — avoid scanning all vectors
+      query = query.where(`scope = "${scope}"`);
+    }
+    const results = await query.limit(topK).execute();
 
     return results.map((row) => ({
       id: row.id,
@@ -300,13 +309,14 @@ export async function getEmbeddingCached(text) {
  * Vector search using LanceDB ANN (backward compatible with vector.js API)
  * @param {string} query
  * @param {number} topK
+ * @param {string|null} scope - Scope to filter by (AGENT, USER, TEAM, GLOBAL, or null for all)
  * @returns {Promise<Array<{memory: object, score: number, highlight: string}>>}
  */
-export async function vectorSearch(query, topK = 10) {
+export async function vectorSearch(query, topK = 10, scope = null) {
   const queryEmbedding = await getEmbeddingCached(query);
   if (!queryEmbedding) return [];
 
-  const results = await vectorStore.searchVectors(queryEmbedding, topK);
+  const results = await vectorStore.searchVectors(queryEmbedding, topK, scope);
 
   return results.map((r) => {
     let highlight = r.text.slice(0, 150);
@@ -316,6 +326,7 @@ export async function vectorSearch(query, topK = 10) {
         id: r.id,
         text: r.text,
         category: r.metadata.category,
+        scope: r.metadata.scope,
         importance: r.metadata.importance,
         created_at: r.metadata.created_at,
       },
