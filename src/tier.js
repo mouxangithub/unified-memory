@@ -64,20 +64,103 @@ export function redistributeTiers(memories) {
 
 /**
  * Compress cold tier memories (summarize / drop details)
+ * Uses summarization to reduce storage while keeping essential meaning.
  * @param {Array} coldMemories
  * @returns {Array}
  */
 export function compressColdTier(coldMemories) {
-  return coldMemories.map(m => ({
-    ...m,
-    compressed: true,
-    // Keep essential fields only
-    id: m.id,
-    text: m.text?.slice(0, 200) || m.text,
-    category: m.category,
-    timestamp: m.timestamp,
-    tier: 'COLD',
-  }));
+  return coldMemories.map(m => {
+    // Already compressed — skip
+    if (m.compressed) return m;
+
+    const text = m.text || '';
+    // Keep first 200 chars as rough summary
+    const summary = text.length > 200 ? text.slice(0, 200) : text;
+
+    return {
+      ...m,
+      compressed: true,
+      original_length: text.length,
+      // Keep essential fields
+      id: m.id,
+      text: summary,
+      category: m.category,
+      importance: m.importance,
+      tags: m.tags || [],
+      scope: m.scope,
+      timestamp: m.timestamp,
+      created_at: m.created_at,
+      tier: 'COLD',
+      // Drop heavy fields to save space
+      embedding: undefined,
+      last_access: undefined,
+    };
+  });
+}
+
+/**
+ * Automatic tier migration based on access frequency and importance.
+ * Heuristics:
+ * - HOT → WARM: not accessed in 3+ days and importance < 0.5
+ * - HOT → COLD: not accessed in 7+ days and importance < 0.3
+ * - WARM → HOT: accessed in last 2 days and importance >= 0.5
+ * - WARM → COLD: not accessed in 14+ days
+ * - COLD → WARM: accessed in last 7 days and importance >= 0.4
+ * - COLD → HOT: accessed in last 2 days and importance >= 0.7
+ *
+ * @param {Array} memories - All memories
+ * @param {{ dryRun?: boolean }} options
+ * @returns {{ memories: Array, changes: Array }}
+ */
+export function autoMigrateTiers(memories, { dryRun = false } = {}) {
+  const now = Date.now();
+  const DAY_MS = 86400000;
+  const changes = [];
+
+  // Work on a copy
+  const updated = memories.map(m => ({ ...m }));
+  const tierMap = new Map(updated.map(m => [m.id, getTier(m, now)]));
+
+  for (const mem of updated) {
+    const currentTier = tierMap.get(mem.id);
+    const lastAcc = mem.last_access || mem.lastAccess || mem.timestamp || mem.created_at || mem.createdAt || now;
+    const lastAccTs = typeof lastAcc === 'string' ? new Date(lastAcc).getTime() : lastAcc;
+    const daysSinceAccess = (now - lastAccTs) / DAY_MS;
+    const importance = mem.importance || 0.5;
+    let newTier = currentTier;
+
+    if (currentTier === 'HOT') {
+      // Demote HOT → WARM or HOT → COLD
+      if (daysSinceAccess >= 7 && importance < 0.3) {
+        newTier = 'COLD';
+      } else if (daysSinceAccess >= 3 && importance < 0.5) {
+        newTier = 'WARM';
+      }
+    } else if (currentTier === 'WARM') {
+      // Promote WARM → HOT or demote WARM → COLD
+      if (daysSinceAccess <= 2 && importance >= 0.5) {
+        newTier = 'HOT';
+      } else if (daysSinceAccess >= 14) {
+        newTier = 'COLD';
+      }
+    } else if (currentTier === 'COLD') {
+      // Promote COLD → WARM or COLD → HOT
+      if (daysSinceAccess <= 2 && importance >= 0.7) {
+        newTier = 'HOT';
+      } else if (daysSinceAccess <= 7 && importance >= 0.4) {
+        newTier = 'WARM';
+      }
+    }
+
+    if (newTier !== currentTier) {
+      const reason = `${currentTier} → ${newTier}: daysSinceAccess=${Math.round(daysSinceAccess * 10) / 10}, importance=${importance}`;
+      changes.push({ id: mem.id, fromTier: currentTier, toTier: newTier, reason, memory: mem });
+      tierMap.set(mem.id, newTier);
+      mem.tier = newTier;
+    }
+  }
+
+  return { memories: updated, changes };
 }
 
 /**
@@ -185,4 +268,4 @@ export function runLifecycle() {
   return { archived, forgotten, decayed };
 }
 
-export default { TIER_CONFIG, getTier, assignTiers, partitionByTier, redistributeTiers, compressColdTier, getTierStats, runLifecycle };
+export default { TIER_CONFIG, getTier, assignTiers, partitionByTier, redistributeTiers, compressColdTier, getTierStats, runLifecycle, autoMigrateTiers };

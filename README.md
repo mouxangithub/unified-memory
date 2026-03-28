@@ -1,11 +1,11 @@
-# 🧠 Unified Memory v2.6
+# 🧠 Unified Memory v2.7
 
 > AI Agent Memory System — Multi-layered, Persistent, Proactive
 
 **Author**: 程序员小刘 (@mouxangithub)  
 **GitHub**: https://github.com/mouxangithub/unified-memory  
 **Registry**: `clawhub install unified-memory`  
-**Framework**: OpenClaw Agent | Node.js ESM | 76 MCP Tools
+**Framework**: OpenClaw Agent | Node.js ESM | 76 MCP Tools | Web Dashboard v2.7
 
 ---
 
@@ -190,8 +190,42 @@ node run-tests.cjs
 | `src/decay/` | Weibull decay model |
 | `src/core/` | BM25, vector, fusion, tier, dedup, etc. |
 | `src/cli/` | CLI tools |
+| `src/webui/dashboard.js` | Web monitoring dashboard (v2.7) |
 | `wal/` | Write-ahead log |
 | `memories.json` | Memory persistence |
+
+---
+
+## Web UI Dashboard (v2.7)
+
+A real-time monitoring dashboard for memory system health and statistics.
+
+```bash
+# Start dashboard
+npm run dashboard
+
+# Or with custom port
+npm run dashboard:port -- --port=3850
+```
+
+**Access**: http://localhost:3849
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Dashboard UI |
+| `/api/stats` | GET | Memory statistics (categories, tiers, scopes, tags) |
+| `/api/health` | GET | System health (Ollama, LanceDB, storage) |
+| `/api/memories` | GET | All memories |
+| `/api/export` | GET | Export memories as JSON file |
+| `/api/manage` | POST | Management actions (cleanup) |
+
+**Dashboard Features**:
+- Real-time search stats (total, 7d growth, access counts)
+- Memory distribution by category, scope, tier, importance, tags
+- System health monitoring with color-coded status
+- 14-day memory growth trend chart
+- Cleanup old memories (30 days threshold)
+- Auto-refresh every 5 seconds
 
 ---
 

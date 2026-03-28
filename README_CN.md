@@ -1,11 +1,11 @@
-# 🧠 Unified Memory v2.6
+# 🧠 Unified Memory v2.7
 
 > AI Agent 专用记忆系统 — 多层级、持久化、主动式
 
 **作者**：程序员小刘（@mouxangithub）  
 **GitHub**：https://github.com/mouxangithub/unified-memory  
 **安装**：`clawhub install unified-memory`  
-**框架**：OpenClaw Agent | Node.js ESM | 76 个 MCP 工具
+**框架**：OpenClaw Agent | Node.js ESM | 76 个 MCP 工具 | Web 仪表板 v2.7
 
 ---
 
@@ -170,12 +170,48 @@ node src/index.js
 # 启动 REST API
 node src/cli/index.js server --port 38421
 
+# 启动 Web 监控仪表板 (v2.7)
+npm run dashboard
+
 # CLI 帮助
 node src/cli/index.js --help
 
 # 运行测试
 node run-tests.cjs
 ```
+
+---
+
+## Web UI 仪表板 (v2.7)
+
+实时监控记忆系统的健康状况和统计数据。
+
+```bash
+# 启动仪表板
+npm run dashboard
+
+# 自定义端口
+npm run dashboard:port -- --port=3850
+```
+
+**访问地址**: http://localhost:3849
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/` | GET | 仪表板界面 |
+| `/api/stats` | GET | 记忆统计（分类、层级、作用域、标签） |
+| `/api/health` | GET | 系统健康（Ollama、LanceDB、存储） |
+| `/api/memories` | GET | 所有记忆 |
+| `/api/export` | GET | 导出记忆为 JSON 文件 |
+| `/api/manage` | POST | 管理操作（清理） |
+
+**仪表板功能**:
+- 实时统计（总数、7天增长、访问次数）
+- 按分类、作用域、层级、重要性和标签的记忆分布
+- 带颜色标识的系统健康监控
+- 14天记忆增长趋势图
+- 清理旧记忆（30天阈值）
+- 每5秒自动刷新
 
 ---
 
@@ -190,6 +226,7 @@ node run-tests.cjs
 | `src/decay/` | Weibull 衰减模型 |
 | `src/core/` | BM25、vector、fusion、tier、dedup 等 |
 | `src/cli/` | CLI 工具 |
+| `src/webui/dashboard.js` | Web 监控仪表板 (v2.7) |
 | `wal/` | 写前日志 |
 | `memories.json` | 记忆持久化 |
 
@@ -199,4 +236,4 @@ node run-tests.cjs
 
 MIT
 
-*最后更新：2026-03-28 | v2.6.0*
+*最后更新：2026-03-28 | v2.7.0*

@@ -1,791 +1,709 @@
 /**
- * dashboard.js - Web UI Dashboard
- * Provides HTTP server with HTML dashboard for memory management
+ * unified-memory v2.7.0 — Dashboard Web UI Server
+ * 
+ * A lightweight Express-based monitoring dashboard for unified-memory.
+ * Serves real-time stats, health, and management via AJAX.
  * 
  * Usage:
- *   node src/webui/dashboard.js [--port=3848]
+ *   node src/webui/dashboard.js [--port=3849]
+ * 
+ * Access: http://localhost:3849
  */
 
-import { createServer } from 'http';
-import { readFileSync } from 'fs';
-import { join, extname } from 'path';
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { createRequire } from 'module';
+import { homedir } from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-import { getAllMemories, addMemory, deleteMemory, saveMemories } from '../storage.js';
-import { hybridSearch } from '../fusion.js';
-import { getSyncStatus } from '../backup/sync.js';
-import { getBackupStats, listBackups } from '../backup/backup.js';
-import { log } from '../utils/logger.js';
 
-const PORT = parseInt(process.argv.find(a => a.startsWith('--port='))?.split('=')[1]) || 3848;
-
-/**
- * Send JSON response
- */
-function sendJSON(res, status, data) {
-  res.writeHead(status, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(data));
+// Try to load express from MCP SDK (peer dependency path)
+let express = null;
+try {
+  const require = createRequire(import.meta.url);
+  express = require('@modelcontextprotocol/sdk/node_modules/express');
+} catch {
+  // Fallback: use built-in http module
 }
 
-/**
- * Send HTML response
- */
-function sendHTML(res, status, html) {
-  res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(html);
-}
+const HOME = homedir();
+const WORKSPACE = join(HOME, '.openclaw', 'workspace');
+const MEMORY_FILE = join(WORKSPACE, 'memory', 'memories.json');
+const VECTOR_DB_DIR = join(HOME, '.unified-memory', 'vector.lance');
+const PORT = parseInt(process.argv.find(a => a.startsWith('--port='))?.split('=')[1]) || 3849;
 
-/**
- * Send static file
- */
-function sendFile(res, path, mimeType) {
+// ============================================================
+// Data Loading Helpers
+// ============================================================
+
+function loadMemories() {
   try {
-    const content = readFileSync(path);
-    res.writeHead(200, { 'Content-Type': mimeType });
-    res.end(content);
+    if (!existsSync(MEMORY_FILE)) return [];
+    const data = JSON.parse(readFileSync(MEMORY_FILE, 'utf-8'));
+    return Array.isArray(data) ? data : (data.memories || []);
+  } catch { return []; }
+}
+
+function saveMemories(memories) {
+  try {
+    mkdirSync(path.dirname(MEMORY_FILE), { recursive: true });
+    writeFileSync(MEMORY_FILE, JSON.stringify(memories, null, 2), 'utf-8');
+  } catch (e) { /* ignore */ }
+}
+
+// ============================================================
+// Metrics Computation
+// ============================================================
+
+let _metricsCache = null;
+let _metricsCacheTime = 0;
+const METRICS_CACHE_TTL = 2000; // 2 seconds
+
+function getStats() {
+  const now = Date.now();
+  if (_metricsCache && (now - _metricsCacheTime) < METRICS_CACHE_TTL) {
+    return _metricsCache;
+  }
+
+  const memories = loadMemories();
+  const byCategory = {};
+  const byScope = { AGENT: 0, USER: 0, TEAM: 0, GLOBAL: 0, unknown: 0 };
+  const byTier = { HOT: 0, WARM: 0, COLD: 0 };
+  const byImportance = { high: 0, medium: 0, low: 0 };
+  let totalAccessCount = 0;
+  const accessCounts = [];
+
+  for (const m of memories) {
+    // Category
+    const cat = m.category || 'unknown';
+    byCategory[cat] = (byCategory[cat] || 0) + 1;
+
+    // Scope
+    const scope = m.scope || 'unknown';
+    if (scope in byScope) byScope[scope]++;
+    else byScope.unknown++;
+
+    // Tier
+    if (m.tier) byTier[m.tier] = (byTier[m.tier] || 0) + 1;
+
+    // Importance
+    const imp = m.importance ?? 0.5;
+    if (imp >= 0.7) byImportance.high++;
+    else if (imp >= 0.4) byImportance.medium++;
+    else byImportance.low++;
+
+    // Access
+    totalAccessCount += m.access_count || 0;
+    if (m.access_count) accessCounts.push(m.access_count);
+  }
+
+  // Recent growth (last 7 days)
+  const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+  const growth7d = memories.filter(m => new Date(m.created_at) >= sevenDaysAgo).length;
+
+  // Per-day growth for chart (last 14 days)
+  const growthTrend = [];
+  for (let i = 13; i >= 0; i--) {
+    const dayStart = new Date(now - i * 24 * 60 * 60 * 1000);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+    const count = memories.filter(m => {
+      const d = new Date(m.created_at);
+      return d >= dayStart && d < dayEnd;
+    }).length;
+    const label = `${dayStart.getMonth() + 1}/${dayStart.getDate()}`;
+    growthTrend.push({ label, count });
+  }
+
+  _metricsCache = {
+    total: memories.length,
+    byCategory,
+    byScope,
+    byTier,
+    byImportance,
+    totalAccessCount,
+    avgAccessCount: accessCounts.length ? (totalAccessCount / accessCounts.length).toFixed(2) : 0,
+    growth7d,
+    growthTrend,
+    topTags: getTopTags(memories),
+  };
+  _metricsCacheTime = now;
+  return _metricsCache;
+}
+
+function getTopTags(memories, topN = 10) {
+  const tagCount = {};
+  for (const m of memories) {
+    if (Array.isArray(m.tags)) {
+      for (const tag of m.tags) {
+        tagCount[tag] = (tagCount[tag] || 0) + 1;
+      }
+    }
+  }
+  return Object.entries(tagCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, topN)
+    .map(([tag, count]) => ({ tag, count }));
+}
+
+// ============================================================
+// Health Check
+// ============================================================
+
+async function getHealth() {
+  const health = {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    ollama: { status: 'unknown' },
+    lancedb: { status: 'unknown' },
+    memoryFile: { status: 'unknown' },
+    storage: { status: 'unknown', used: 0, total: 0, percent: 0 },
+    memory: { status: 'unknown' },
+  };
+
+  // Ollama check
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch('http://localhost:11434/api/tags', { signal: controller.signal });
+    clearTimeout(timeout);
+    if (res.ok) {
+      health.ollama = { status: 'online', url: 'http://localhost:11434' };
+    } else {
+      health.ollama = { status: 'degraded', code: res.status };
+      health.status = 'degraded';
+    }
   } catch {
-    res.writeHead(404);
-    res.end('Not found');
-  }
-}
-
-/**
- * Parse JSON body from request
- */
-function parseBody(req) {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', () => {
-      try {
-        resolve(body ? JSON.parse(body) : {});
-      } catch {
-        reject(new Error('Invalid JSON'));
-      }
-    });
-    req.on('error', reject);
-  });
-}
-
-/**
- * API handler
- */
-async function handleAPI(req, res, path, query) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204);
-    res.end();
-    return;
+    health.ollama = { status: 'offline', url: 'http://localhost:11434' };
+    health.status = health.status === 'healthy' ? 'degraded' : health.status;
   }
 
-  const parts = path.split('/').filter(Boolean);
-
+  // Memory file check
   try {
-    // /api/status
-    if (parts[0] === 'api' && parts[1] === 'status') {
-      const memories = getAllMemories();
-      const syncStatus = getSyncStatus();
-      const backupStats = getBackupStats();
-      let ollamaOk = false;
-      try {
-        const r = await fetch('http://localhost:11434/api/tags');
-        ollamaOk = r.ok;
-      } catch { }
-      return sendJSON(res, 200, {
+    if (existsSync(MEMORY_FILE)) {
+      const stat = fs.statSync(MEMORY_FILE);
+      health.memoryFile = {
         status: 'ok',
-        timestamp: new Date().toISOString(),
-        memories: memories.length,
-        ollama: ollamaOk ? 'connected' : 'disconnected',
-        sync: syncStatus,
-        backup: backupStats
-      });
+        size: stat.size,
+        sizeMB: (stat.size / 1024 / 1024).toFixed(2),
+        path: MEMORY_FILE,
+      };
+      health.memory = { status: 'ok', count: loadMemories().length };
+    } else {
+      health.memoryFile = { status: 'not_found', path: MEMORY_FILE };
+      health.memory = { status: 'empty', count: 0 };
     }
-
-    // /api/memories
-    if (parts[0] === 'api' && parts[1] === 'memories') {
-      if (req.method === 'GET') {
-        const limit = parseInt(query.get('limit') || 50);
-        const offset = parseInt(query.get('offset') || 0);
-        const memories = getAllMemories();
-        return sendJSON(res, 200, {
-          memories: memories.slice(offset, offset + limit),
-          total: memories.length
-        });
-      }
-      if (req.method === 'POST') {
-        const body = await parseBody(req);
-        const mem = addMemory({
-          text: body.text || '',
-          category: body.category || 'general',
-          importance: body.importance || 0.5,
-          tags: body.tags || []
-        });
-        return sendJSON(res, 201, { success: true, id: mem.id });
-      }
-    }
-
-    // /api/memories/:id
-    if (parts[0] === 'api' && parts[1] === 'memories' && parts[2]) {
-      const id = parts[2];
-      if (req.method === 'DELETE') {
-        const ok = deleteMemory(id);
-        return sendJSON(res, ok ? 200 : 404, { success: ok });
-      }
-      if (req.method === 'PATCH') {
-        const body = await parseBody(req);
-        const memories = getAllMemories();
-        const idx = memories.findIndex(m => m.id === id);
-        if (idx === -1) return sendJSON(res, 404, { error: 'Not found' });
-        if (body.text !== undefined) memories[idx].text = body.text;
-        if (body.importance !== undefined) memories[idx].importance = body.importance;
-        if (body.category !== undefined) memories[idx].category = body.category;
-        if (body.tags !== undefined) memories[idx].tags = body.tags;
-        saveMemories(memories);
-        return sendJSON(res, 200, { success: true, memory: memories[idx] });
-      }
-      // GET
-      const memories = getAllMemories();
-      const mem = memories.find(m => m.id === id);
-      if (mem) {
-        return sendJSON(res, 200, { memory: mem });
-      }
-      return sendJSON(res, 404, { error: 'Not found' });
-    }
-
-    // /api/search
-    if (parts[0] === 'api' && parts[1] === 'search') {
-      const q = query.get('q') || query.get('query') || '';
-      const topK = parseInt(query.get('topK') || query.get('k') || 10);
-      if (!q) return sendJSON(res, 400, { error: 'q is required' });
-      const results = await hybridSearch(q, topK, 'hybrid');
-      return sendJSON(res, 200, {
-        query: q,
-        count: results.length,
-        results: results.map(r => ({
-          id: r.memory.id,
-          text: r.memory.text,
-          category: r.memory.category,
-          score: Math.round(r.fusionScore * 1000) / 1000
-        }))
-      });
-    }
-
-    // /api/backups
-    if (parts[0] === 'api' && parts[1] === 'backups') {
-      const backups = listBackups();
-      return sendJSON(res, 200, { backups });
-    }
-
-    // /api/graph
-    if (parts[0] === 'api' && parts[1] === 'graph') {
-      return sendJSON(res, 200, { entities: [], relations: [] });
-    }
-
-    // /api/health
-    if (parts[0] === 'api' && parts[1] === 'health') {
-      return sendJSON(res, 200, { status: 'ok', timestamp: new Date().toISOString() });
-    }
-
-    // GET /api/stats — memory stats with avg_quality and tier_distribution
-    if (parts[0] === 'api' && parts[1] === 'stats' && req.method === 'GET') {
-      const memories = getAllMemories();
-      const total = memories.length;
-      const avgQuality = total > 0
-        ? memories.reduce((s, m) => s + (m.importance != null ? m.importance : 0.5), 0) / total
-        : 0;
-      const tierDist = { working: 0, longterm: 0, archive: 0 };
-      for (const m of memories) {
-        const t = m.tier || (m.importance >= 0.7 ? 'working' : m.importance >= 0.4 ? 'longterm' : 'archive');
-        if (tierDist[t] !== undefined) tierDist[t]++;
-        else tierDist['longterm']++;
-      }
-      return sendJSON(res, 200, {
-        count: total,
-        avg_quality: Math.round(avgQuality * 1000) / 1000,
-        tier_distribution: tierDist,
-      });
-    }
-
-    // GET /api/insights — placeholder insights
-    if (parts[0] === 'api' && parts[1] === 'insights' && req.method === 'GET') {
-      return sendJSON(res, 200, { insights: [] });
-    }
-
-    sendJSON(res, 404, { error: 'API endpoint not found' });
-  } catch (err) {
-    log('ERROR', `Dashboard API error: ${err.message}`);
-    sendJSON(res, 500, { error: err.message });
+  } catch (e) {
+    health.memoryFile = { status: 'error', error: e.message };
+    health.status = 'unhealthy';
   }
-}
 
-/**
- * Main HTML page
- */
-const DASHBOARD_HTML = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🧠 统一记忆系统</title>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #0f172a;
-  color: #e2e8f0;
-  min-height: 100vh;
-}
-.container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-h1 {
-  font-size: 2rem;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-nav a {
-  color: #94a3b8;
-  text-decoration: none;
-  margin-left: 1.5rem;
-  font-size: 0.95rem;
-}
-nav a:hover { color: #3b82f6; }
-nav a.active { color: #3b82f6; border-bottom: 2px solid #3b82f6; }
-
-.stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-.stat-card {
-  background: #1e293b;
-  border-radius: 12px;
-  padding: 1.25rem;
-  border: 1px solid #334155;
-}
-.stat-value {
-  font-size: 2rem;
-  font-weight: bold;
-  color: #3b82f6;
-}
-.stat-label { color: #94a3b8; font-size: 0.875rem; margin-top: 0.25rem; }
-
-.search-box {
-  background: #1e293b;
-  border-radius: 12px;
-  padding: 1.25rem;
-  margin-bottom: 1.5rem;
-}
-.search-row { display: flex; gap: 0.75rem; }
-.search-input {
-  flex: 1;
-  padding: 0.875rem 1rem;
-  background: #0f172a;
-  border: 1px solid #334155;
-  border-radius: 8px;
-  color: #e2e8f0;
-  font-size: 1rem;
-}
-.search-input:focus { outline: none; border-color: #3b82f6; }
-.btn {
-  background: #3b82f6;
-  color: white;
-  border: none;
-  padding: 0.875rem 1.5rem;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.95rem;
-  transition: background 0.2s;
-}
-.btn:hover { background: #2563eb; }
-.btn-ghost {
-  background: transparent;
-  border: 1px solid #334155;
-  color: #94a3b8;
-}
-.btn-ghost:hover { border-color: #3b82f6; color: #3b82f6; }
-
-.section {
-  background: #1e293b;
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-}
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-h2 { font-size: 1.1rem; color: #e2e8f0; }
-
-.memory-item {
-  padding: 1rem;
-  border-bottom: 1px solid #334155;
-  border-radius: 8px;
-  margin-bottom: 0.5rem;
-  background: #0f172a;
-}
-.memory-item:hover { background: #1a2744; }
-.memory-text { color: #e2e8f0; line-height: 1.5; word-break: break-all; }
-.memory-meta {
-  display: flex;
-  gap: 1rem;
-  margin-top: 0.5rem;
-  font-size: 0.8rem;
-  color: #64748b;
-}
-.memory-meta span { display: flex; align-items: center; gap: 0.25rem; }
-.badge {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  background: #334155;
-  color: #94a3b8;
-}
-.score { color: #3b82f6; font-weight: bold; }
-.empty { color: #64748b; text-align: center; padding: 2rem; }
-
-.add-form {
-  background: #0f172a;
-  border-radius: 8px;
-  padding: 1.25rem;
-  margin-top: 1rem;
-}
-.add-form textarea {
-  width: 100%;
-  padding: 0.75rem;
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 6px;
-  color: #e2e8f0;
-  font-size: 0.95rem;
-  resize: vertical;
-  min-height: 80px;
-  margin-bottom: 0.75rem;
-}
-.add-form textarea:focus { outline: none; border-color: #3b82f6; }
-.form-row { display: flex; gap: 0.75rem; margin-bottom: 0.75rem; }
-.form-row input {
-  padding: 0.5rem 0.75rem;
-  background: #1e293b;
-  border: 1px solid #334155;
-  border-radius: 6px;
-  color: #e2e8f0;
-  font-size: 0.875rem;
-}
-.form-row input:focus { outline: none; border-color: #3b82f6; }
-.form-row input[type="number"] { width: 100px; }
-
-.alert {
-  padding: 1rem;
-  border-radius: 8px;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-}
-.alert-success { background: #052e16; border: 1px solid #166534; color: #86efac; }
-.alert-error { background: #2c1515; border: 1px solid #991b1b; color: #fca5a5; }
-
-.footer {
-  text-align: center;
-  color: #475569;
-  font-size: 0.8rem;
-  padding: 2rem 0;
-}
-</style>
-</head>
-<body>
-<div class="container">
-  <header>
-    <h1>🧠 统一记忆系统</h1>
-    <nav>
-      <a href="/" class="active">Dashboard</a>
-      <a href="/graph">知识图谱</a>
-      <a href="/backups">备份</a>
-    </nav>
-  </header>
-
-  <div class="stats" id="stats">
-    <div class="stat-card"><div class="stat-value" id="mem-count">-</div><div class="stat-label">记忆总数</div></div>
-    <div class="stat-card"><div class="stat-value" id="sync-nodes">-</div><div class="stat-label">同步节点</div></div>
-    <div class="stat-card"><div class="stat-value" id="backups">-</div><div class="stat-label">备份数</div></div>
-    <div class="stat-card"><div class="stat-value" id="ollama-status">-</div><div class="stat-label">Ollama</div></div>
-  </div>
-
-  <div class="search-box">
-    <div class="search-row">
-      <input type="text" class="search-input" id="search-input" placeholder="🔍 搜索记忆... (按 Enter 搜索)">
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-header">
-      <h2>📋 最近记忆</h2>
-      <button class="btn btn-ghost" onclick="showAddForm()">+ 添加记忆</button>
-    </div>
-    <div id="add-form" class="add-form" style="display:none">
-      <textarea id="new-text" placeholder="记忆内容..."></textarea>
-      <div class="form-row">
-        <input type="text" id="new-category" placeholder="分类" value="general">
-        <input type="number" id="new-importance" placeholder="重要性" value="0.5" min="0" max="1" step="0.1">
-        <button class="btn" onclick="addMemory()">保存</button>
-        <button class="btn btn-ghost" onclick="hideAddForm()">取消</button>
-      </div>
-    </div>
-    <div id="alert-box"></div>
-    <div id="memories-list"><p class="empty">加载中...</p></div>
-  </div>
-
-  <div class="footer">
-    Unified Memory System v1.0 | Memory API on port 38421
-  </div>
-</div>
-
-<script>
-let alertTimeout;
-function showAlert(msg, type) {
-  clearTimeout(alertTimeout);
-  const box = document.getElementById('alert-box');
-  box.className = 'alert alert-' + type;
-  box.textContent = msg;
-  alertTimeout = setTimeout(() => { box.textContent = ''; box.className = ''; }, 4000);
-}
-
-async function loadStatus() {
+  // LanceDB check
   try {
-    const r = await fetch('/api/status');
-    const d = await r.json();
-    document.getElementById('mem-count').textContent = d.memories || 0;
-    document.getElementById('sync-nodes').textContent = d.sync?.nodes || 0;
-    document.getElementById('backups').textContent = d.backup?.backup_count || 0;
-    document.getElementById('ollama-status').textContent = d.ollama === 'connected' ? '✅' : '⚠️';
-  } catch(e) { console.error(e); }
-}
-
-async function loadMemories(limit=20) {
-  try {
-    const r = await fetch('/api/memories?limit=' + limit);
-    const d = await r.json();
-    const list = document.getElementById('memories-list');
-    if (!d.memories || d.memories.length === 0) {
-      list.innerHTML = '<p class="empty">暂无记忆，添加第一条吧！</p>';
-      return;
+    if (existsSync(VECTOR_DB_DIR)) {
+      health.lancedb = { status: 'ok', path: VECTOR_DB_DIR };
+    } else {
+      health.lancedb = { status: 'not_initialized', path: VECTOR_DB_DIR };
     }
-    list.innerHTML = d.memories.map(m => {
-      const text = (m.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').slice(0, 300);
-      const cat = m.category || 'general';
-      const imp = m.importance != null ? m.importance.toFixed(1) : '0.5';
-      const score = m.fusionScore != null ? Math.round(m.fusionScore * 100) + '%' : '';
-      return \`<div class="memory-item">
-        <div class="memory-text">\${text}\${text.length >= 300 ? '...' : ''}</div>
-        <div class="memory-meta">
-          <span class="badge">\${cat}</span>
-          <span>重要性: \${imp}</span>
-          \${score ? '<span class="score">匹配 ' + score + '</span>' : ''}
-        </div>
-      </div>\`;
+  } catch (e) {
+    health.lancedb = { status: 'error', error: e.message };
+  }
+
+  // Storage check (workspace)
+  try {
+    const workspaceStat = fs.statSync(WORKSPACE);
+    health.storage.path = WORKSPACE;
+    // Check disk usage
+    const { execSync } = await import('child_process');
+    try {
+      const df = execSync('df -B1 ' + WORKSPACE + ' 2>/dev/null').toString().split('\n')[1];
+      if (df) {
+        const parts = df.split(/\s+/);
+        const total = parseInt(parts[1]) || 0;
+        const used = parseInt(parts[2]) || 0;
+        health.storage.total = total;
+        health.storage.used = used;
+        health.storage.percent = total > 0 ? Math.round((used / total) * 100) : 0;
+        health.storage.status = health.storage.percent > 90 ? 'critical' : health.storage.percent > 75 ? 'warning' : 'ok';
+      }
+    } catch { /* df not available */ }
+  } catch (e) {
+    health.storage.status = 'error';
+  }
+
+  return health;
+}
+
+// ============================================================
+// HTML Dashboard Template
+// ============================================================
+
+function buildDashboard(stats, health) {
+  const s = stats || {};
+  const h = health || {};
+  const statusColor = { healthy: '#22c55e', degraded: '#f59e0b', unhealthy: '#ef4444', offline: '#ef4444' };
+  const status = h.status || 'unknown';
+
+  const categoryBars = Object.entries(s.byCategory || {})
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([cat, count]) => {
+      const max = Math.max(...Object.values(s.byCategory || {}), 1);
+      const pct = Math.round((count / max) * 100);
+      return `<div class="bar-row"><span class="bar-label">${cat}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-count">${count}</span></div>`;
     }).join('');
-  } catch(e) { console.error(e); }
-}
 
-function showAddForm() { document.getElementById('add-form').style.display = 'block'; }
-function hideAddForm() { document.getElementById('add-form').style.display = 'none'; }
+  const scopeData = Object.entries(s.byScope || {})
+    .filter(([k]) => k !== 'unknown')
+    .map(([k, v]) => `{ label: '${k}', value: ${v} }`).join(',');
 
-async function addMemory() {
-  const text = document.getElementById('new-text').value.trim();
-  const category = document.getElementById('new-category').value.trim() || 'general';
-  const importance = parseFloat(document.getElementById('new-importance').value) || 0.5;
-  if (!text) { showAlert('请输入记忆内容', 'error'); return; }
-  try {
-    const r = await fetch('/api/memories', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, category, importance })
-    });
-    const d = await r.json();
-    if (d.success) {
-      showAlert('✅ 记忆已添加', 'success');
-      hideAddForm();
-      document.getElementById('new-text').value = '';
-      loadMemories();
-      loadStatus();
-    } else {
-      showAlert('❌ 添加失败', 'error');
-    }
-  } catch(e) { showAlert('❌ ' + e.message, 'error'); }
-}
+  const growthLabels = (s.growthTrend || []).map(d => `'${d.label}'`).join(',');
+  const growthData = (s.growthTrend || []).map(d => d.count).join(',');
 
-document.getElementById('search-input').addEventListener('keypress', async (e) => {
-  if (e.key !== 'Enter') return;
-  const q = e.target.value.trim();
-  if (!q) return;
-  const r = await fetch('/api/search?q=' + encodeURIComponent(q));
-  const d = await r.json();
-  const list = document.getElementById('memories-list');
-  if (!d.results || d.results.length === 0) {
-    list.innerHTML = '<p class="empty">未找到相关记忆</p>';
-    return;
-  }
-  list.innerHTML = d.results.map(m => {
-    const text = (m.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').slice(0, 300);
-    return \`<div class="memory-item">
-      <div class="memory-text">\${text}\${text.length >= 300 ? '...' : ''}</div>
-      <div class="memory-meta">
-        <span class="badge">\${m.category || 'general'}</span>
-        <span class="score">匹配 \${Math.round(m.score * 100)}%</span>
-      </div>
-    </div>\`;
+  const tagCloud = (s.topTags || []).map(({ tag, count }) => {
+    const max = s.topTags?.[0]?.count || 1;
+    const size = 12 + Math.round((count / max) * 12);
+    return `<span class="tag-item" style="font-size:${size}px">${tag}(${count})</span>`;
   }).join('');
-});
 
-loadStatus();
-loadMemories();
-</script>
-</body>
-</html>`;
-
-/**
- * Graph page HTML
- */
-const GRAPH_HTML = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📊 知识图谱 - 统一记忆系统</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🧠 Unified Memory v2.7 — Dashboard</title>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
-.container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
-h1 { font-size: 2rem; background: linear-gradient(135deg, #10b981, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-nav a { color: #94a3b8; text-decoration: none; margin-left: 1.5rem; font-size: 0.95rem; }
-nav a:hover { color: #3b82f6; }
-nav a.active { color: #3b82f6; border-bottom: 2px solid #3b82f6; }
-.graph-container { background: #1e293b; border-radius: 12px; padding: 2rem; min-height: 500px; }
-.info-card { background: #0f172a; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
-.info-card h3 { color: #3b82f6; margin-bottom: 0.75rem; font-size: 1rem; }
-.info-row { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #334155; color: #94a3b8; font-size: 0.9rem; }
-.info-row:last-child { border-bottom: none; }
-.empty { color: #64748b; text-align: center; padding: 3rem; }
-.footer { text-align: center; color: #475569; font-size: 0.8rem; padding: 2rem 0; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+header{background:#1e293b;padding:16px 24px;border-bottom:1px solid #334155;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:18px;color:#f1f5f9}
+header .version{color:#94a3b8;font-size:12px}
+.main{padding:20px;max-width:1400px;margin:0 auto}
+.status-bar{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.card{background:#1e293b;border-radius:10px;padding:18px;border:1px solid #334155}
+.card h2{font-size:13px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:#1e293b;border-radius:10px;padding:16px;border:1px solid #334155;text-align:center}
+.stat-card .num{font-size:28px;font-weight:700;color:#f1f5f9}
+.stat-card .lbl{font-size:11px;color:#94a3b8;margin-top:4px;text-transform:uppercase}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.bar-row{display:flex;align-items:center;gap:8px;margin:4px 0}
+.bar-label{width:80px;font-size:12px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-track{flex:1;height:8px;background:#334155;border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;background:#3b82f6;border-radius:4px;transition:width .3s}
+.bar-count{width:36px;text-align:right;font-size:12px;color:#94a3b8}
+.tag-cloud{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.tag-item{background:#334155;padding:3px 8px;border-radius:4px;color:#94a3b8}
+.health-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #334155}
+.health-item:last-child{border-bottom:none}
+.health-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:8px}
+.btn{background:#3b82f6;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px}
+.btn:hover{background:#2563eb}
+.btn-danger{background:#ef4444}
+.btn-danger:hover{background:#dc2626}
+.btn-row{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+.chart-container{position:relative;height:160px}
+#growthChart{width:100%;height:160px}
+.row{display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+.col{flex:1;min-width:300px}
+.refresh-info{font-size:11px;color:#64748b;text-align:right;margin-top:4px}
+.health-badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:12px;font-size:12px;font-weight:600}
+.health-badge.healthy{background:#166534;color:#4ade80}
+.health-badge.degraded{background:#854d0e;color:#fbbf24}
+.health-badge.unhealthy{background:#991b1b;color:#f87171}
+.hidden{display:none}
+#apiMsg{font-size:13px;margin-top:8px;padding:8px;border-radius:6px}
+#apiMsg.success{background:#166534;color:#4ade80}
+#apiMsg.error{background:#991b1b;color:#f87171}
+canvas{width:100%!important;height:160px!important}
 </style>
 </head>
 <body>
-<div class="container">
-  <header>
-    <h1>📊 知识图谱</h1>
-    <nav>
-      <a href="/">Dashboard</a>
-      <a href="/graph" class="active">知识图谱</a>
-      <a href="/backups">备份</a>
-    </nav>
-  </header>
+<header>
+  <h1>🧠 Unified Memory v2.7 — Dashboard</h1>
+  <div>
+    <span class="version">v2.6 → v2.7</span>
+    <span id="healthBadge" class="health-badge ${status}">${status}</span>
+  </div>
+</header>
+<div class="main">
+  <!-- Stats Row -->
+  <div class="stat-grid">
+    <div class="stat-card"><div class="num" id="statTotal">${s.total || 0}</div><div class="lbl">Total Memories</div></div>
+    <div class="stat-card"><div class="num" id="statGrowth">${s.growth7d || 0}</div><div class="lbl">+7 Days</div></div>
+    <div class="stat-card"><div class="num" id="statAccess">${s.totalAccessCount || 0}</div><div class="lbl">Total Accesses</div></div>
+    <div class="stat-card"><div class="num" id="statAvgAccess">${s.avgAccessCount || 0}</div><div class="lbl">Avg Access</div></div>
+  </div>
 
-  <div class="graph-container">
-    <div class="info-card">
-      <h3>图谱统计</h3>
-      <div id="graph-info">
-        <div class="info-row"><span>实体数量</span><span id="entity-count">-</span></div>
-        <div class="info-row"><span>关系数量</span><span id="relation-count">-</span></div>
-        <div class="info-row"><span>节点总数</span><span id="node-count">-</span></div>
-        <div class="info-row"><span>边总数</span><span id="edge-count">-</span></div>
+  <!-- Health + Scope -->
+  <div class="row">
+    <div class="col">
+      <div class="card">
+        <h2>🔧 System Health</h2>
+        <div class="health-item">
+          <span><span class="health-dot" style="background:${statusColor[health.ollama?.status]||'#94a3b8'}"></span>Ollama</span>
+          <span style="color:#94a3b8;font-size:12px">${h.ollama?.status || 'unknown'}</span>
+        </div>
+        <div class="health-item">
+          <span><span class="health-dot" style="background:${statusColor[health.memoryFile?.status]||'#94a3b8'}"></span>Memory File</span>
+          <span style="color:#94a3b8;font-size:12px">${h.memoryFile?.sizeMB || '?'} MB</span>
+        </div>
+        <div class="health-item">
+          <span><span class="health-dot" style="background:${statusColor[health.lancedb?.status]||'#94a3b8'}"></span>LanceDB</span>
+          <span style="color:#94a3b8;font-size:12px">${h.lancedb?.status || 'unknown'}</span>
+        </div>
+        <div class="health-item">
+          <span><span class="health-dot" style="background:${statusColor[health.storage?.status]||'#94a3b8'}"></span>Storage</span>
+          <span style="color:#94a3b8;font-size:12px">${h.storage?.percent || 0}% used</span>
+        </div>
+        <div id="apiMsg"></div>
+        <div class="btn-row">
+          <button class="btn btn-danger" onclick="doCleanup()">🗑️ Cleanup Old</button>
+          <button class="btn" onclick="doExport()">📤 Export JSON</button>
+          <button class="btn" onclick="refreshAll()">🔄 Refresh</button>
+        </div>
       </div>
     </div>
-
-    <div class="info-card">
-      <h3>最近实体</h3>
-      <div id="entities" class="empty">加载中...</div>
+    <div class="col">
+      <div class="card">
+        <h2>📊 Memory Growth (14d)</h2>
+        <canvas id="growthChart"></canvas>
+        <div class="refresh-info">Updated: <span id="updateTime">${new Date().toLocaleTimeString()}</span></div>
+      </div>
     </div>
   </div>
 
-  <div class="footer">Unified Memory System v1.0</div>
-</div>
-<script>
-async function loadGraph() {
-  try {
-    const r = await fetch('/api/graph');
-    const d = await r.json();
-    document.getElementById('entity-count').textContent = (d.entities || []).length;
-    document.getElementById('relation-count').textContent = (d.relations || []).length;
-    document.getElementById('node-count').textContent = d.node_count || 0;
-    document.getElementById('edge-count').textContent = d.edge_count || 0;
-    
-    const entities = d.entities || [];
-    const el = document.getElementById('entities');
-    if (entities.length === 0) {
-      el.innerHTML = '<p class="empty">暂无实体数据，运行 "memory graph build" 构建图谱</p>';
-    } else {
-      el.innerHTML = entities.slice(0, 20).map(e => 
-        '<div class="info-row"><span>' + e + '</span></div>'
-      ).join('');
-    }
-  } catch(e) { console.error(e); }
-}
-loadGraph();
-</script>
-</body>
-</html>`;
-
-/**
- * Backups page HTML
- */
-const BACKUPS_HTML = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🗂️ 备份管理 - 统一记忆系统</title>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
-.container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
-h1 { font-size: 2rem; background: linear-gradient(135deg, #f59e0b, #ef4444); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-nav a { color: #94a3b8; text-decoration: none; margin-left: 1.5rem; font-size: 0.95rem; }
-nav a:hover { color: #3b82f6; }
-nav a.active { color: #3b82f6; border-bottom: 2px solid #3b82f6; }
-.section { background: #1e293b; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
-.info-row { display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid #334155; color: #94a3b8; }
-.info-row:last-child { border-bottom: none; }
-.info-row span:first-child { color: #e2e8f0; }
-.empty { color: #64748b; text-align: center; padding: 2rem; }
-.btn { background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; cursor: pointer; font-size: 0.95rem; }
-.btn:hover { background: #2563eb; }
-.btn-danger { background: #dc2626; }
-.btn-danger:hover { background: #b91c1c; }
-.footer { text-align: center; color: #475569; font-size: 0.8rem; padding: 2rem 0; }
-</style>
-</head>
-<body>
-<div class="container">
-  <header>
-    <h1>🗂️ 备份管理</h1>
-    <nav>
-      <a href="/">Dashboard</a>
-      <a href="/graph">知识图谱</a>
-      <a href="/backups" class="active">备份</a>
-    </nav>
-  </header>
-
-  <div class="section">
-    <h2 style="margin-bottom:1rem;">备份统计</h2>
-    <div id="backup-stats">
-      <div class="info-row"><span>备份数量</span><span id="backup-count">-</span></div>
-      <div class="info-row"><span>总大小</span><span id="backup-size">-</span></div>
-      <div class="info-row"><span>最新备份</span><span id="newest-backup">-</span></div>
-      <div class="info-row"><span>最旧备份</span><span id="oldest-backup">-</span></div>
+  <!-- Categories -->
+  <div class="row">
+    <div class="col">
+      <div class="card">
+        <h2>📂 By Category</h2>
+        ${categoryBars || '<p style="color:#64748b;font-size:13px">No data</p>'}
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h2>🏷️ Top Tags</h2>
+        <div class="tag-cloud">${tagCloud || '<span style="color:#64748b;font-size:13px">No tags</span>'}</div>
+      </div>
     </div>
   </div>
 
-  <div class="section">
-    <h2 style="margin-bottom:1rem;">可用备份</h2>
-    <div id="backup-list"><p class="empty">加载中...</p></div>
+  <!-- Tiers + Scopes -->
+  <div class="row">
+    <div class="col">
+      <div class="card">
+        <h2>🌡️ By Tier (HOT/WARM/COLD)</h2>
+        <div style="display:flex;gap:16px;margin-top:8px">
+          ${['HOT','WARM','COLD'].map(tier => {
+            const colors = { HOT: '#ef4444', WARM: '#f59e0b', COLD: '#3b82f6' };
+            const count = s.byTier?.[tier] || 0;
+            const max = Math.max(s.byTier?.HOT||1, s.byTier?.WARM||1, s.byTier?.COLD||1, 1);
+            return `<div style="flex:1;text-align:center">
+              <div style="font-size:22px;font-weight:700;color:${colors[tier]}">${count}</div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:4px">${tier}</div>
+              <div style="height:6px;background:#334155;border-radius:3px;margin-top:6px">
+                <div style="height:100%;width:${Math.round((count/max)*100)}%;background:${colors[tier]};border-radius:3px"></div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h2>🔒 By Scope</h2>
+        <canvas id="scopeChart"></canvas>
+      </div>
+    </div>
   </div>
 
-  <div class="footer">Unified Memory System v1.0</div>
+  <!-- Importance -->
+  <div class="row">
+    <div class="col">
+      <div class="card">
+        <h2>⭐ By Importance</h2>
+        <div style="display:flex;gap:16px;margin-top:8px">
+          ${[['high','≥0.7','#22c55e'],['medium','0.4-0.7','#f59e0b'],['low','<0.4','#94a3b8']].map(([lvl,range,color]) => {
+            const count = s.byImportance?.[lvl] || 0;
+            return `<div style="flex:1;text-align:center">
+              <div style="font-size:22px;font-weight:700;color:${color}">${count}</div>
+              <div style="font-size:11px;color:#94a3b8;margin-top:4px">${lvl} (${range})</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h2>⚡ Quick Info</h2>
+        <div class="health-item"><span>Memory File</span><span style="color:#94a3b8;font-size:12px">${h.memoryFile?.path || '-'}</span></div>
+        <div class="health-item"><span>LanceDB Path</span><span style="color:#94a3b8;font-size:12px">${h.lancedb?.path ? h.lancedb.path.split('/').slice(-2).join('/') : '-'}</span></div>
+        <div class="health-item"><span>Dashboard</span><span style="color:#94a3b8;font-size:12px">port ${PORT}</span></div>
+        <div class="health-item"><span>Version</span><span style="color:#94a3b8;font-size:12px">v2.7.0</span></div>
+      </div>
+    </div>
+  </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-async function loadBackups() {
-  try {
-    const r = await fetch('/api/status');
-    const d = await r.json();
-    const bs = d.backup || {};
-    document.getElementById('backup-count').textContent = bs.backup_count || 0;
-    document.getElementById('backup-size').textContent = (bs.total_size_mb || 0) + ' MB';
-    document.getElementById('newest-backup').textContent = bs.newest_backup || '无';
-    document.getElementById('oldest-backup').textContent = bs.oldest_backup || '无';
-    
-    const rb = await fetch('/api/backups');
-    const bd = await rb.json();
-    const bl = document.getElementById('backup-list');
-    if (!bd.backups || bd.backups.length === 0) {
-      bl.innerHTML = '<p class="empty">暂无备份</p>';
-    } else {
-      bl.innerHTML = bd.backups.map(b => 
-        '<div class="info-row"><span>' + b.filename + '</span><span>' + b.memory_count + ' 条 | ' + b.created + '</span></div>'
-      ).join('');
-    }
-  } catch(e) { console.error(e); }
+// Chart.js init
+let growthChart, scopeChart;
+
+function initCharts(growthLabels, growthData, scopeData) {
+  const growthCtx = document.getElementById('growthChart').getContext('2d');
+  growthChart = new Chart(growthCtx, {
+    type: 'bar',
+    data: {
+      labels: growthLabels,
+      datasets: [{
+        label: 'Memories Added',
+        data: growthData,
+        backgroundColor: 'rgba(59,130,246,0.7)',
+        borderRadius: 4,
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#334155' } }, y: { ticks: { color: '#64748b' }, grid: { color: '#334155' }, beginAtZero: true } } }
+  });
+
+  const scopeCtx = document.getElementById('scopeChart').getContext('2d');
+  scopeChart = new Chart(scopeCtx, {
+    type: 'doughnut',
+    data: {
+      labels: ['AGENT', 'USER', 'TEAM', 'GLOBAL'],
+      datasets: [{
+        data: scopeData,
+        backgroundColor: ['#ef4444','#3b82f6','#22c55e','#f59e0b'],
+        borderWidth: 0,
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12 } } } }
+  });
 }
-loadBackups();
+
+async function refreshAll() {
+  try {
+    const [statsRes, healthRes] = await Promise.all([
+      fetch('/api/stats'),
+      fetch('/api/health')
+    ]);
+    const stats = await statsRes.json();
+    const health = await healthRes.json();
+    updateDashboard(stats, health);
+  } catch (e) { console.error('Refresh failed', e); }
+}
+
+function updateDashboard(stats, health) {
+  // Update stats
+  document.getElementById('statTotal').textContent = stats.total || 0;
+  document.getElementById('statGrowth').textContent = stats.growth7d || 0;
+  document.getElementById('statAccess').textContent = stats.totalAccessCount || 0;
+  document.getElementById('statAvgAccess').textContent = stats.avgAccessCount || 0;
+  document.getElementById('updateTime').textContent = new Date().toLocaleTimeString();
+
+  // Update health badge
+  const status = health.status || 'unknown';
+  const badge = document.getElementById('healthBadge');
+  badge.className = 'health-badge ' + status;
+  badge.textContent = status;
+
+  // Update charts
+  if (growthChart && stats.growthTrend) {
+    growthChart.data.labels = stats.growthTrend.map(d => d.label);
+    growthChart.data.datasets[0].data = stats.growthTrend.map(d => d.count);
+    growthChart.update();
+  }
+}
+
+async function doCleanup() {
+  if (!confirm('清理30天前未访问的记忆？')) return;
+  try {
+    const r = await fetch('/api/manage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cleanup', days: 30 }) });
+    const data = await r.json();
+    showMsg(data.message || JSON.stringify(data), r.ok);
+    if (r.ok) setTimeout(refreshAll, 500);
+  } catch (e) { showMsg('请求失败: ' + e.message, false); }
+}
+
+async function doExport() {
+  try {
+    const r = await fetch('/api/export');
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'memories_export_' + new Date().toISOString().slice(0,10) + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showMsg('导出成功', true);
+  } catch (e) { showMsg('导出失败: ' + e.message, false); }
+}
+
+function showMsg(text, success) {
+  const el = document.getElementById('apiMsg');
+  el.textContent = text;
+  el.className = success ? 'success' : 'error';
+  el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 4000);
+}
+
+// Poll every 5s
+let initialized = false;
+async function init() {
+  try {
+    const [statsRes, healthRes] = await Promise.all([fetch('/api/stats'), fetch('/api/health')]);
+    const stats = await statsRes.json();
+    const health = await healthRes.json();
+    if (!initialized) {
+      const gl = (stats.growthTrend || []).map(d => d.label);
+      const gd = (stats.growthTrend || []).map(d => d.count);
+      const scopeVals = ['AGENT','USER','TEAM','GLOBAL'].map(k => stats.byScope?.[k] || 0);
+      initCharts(gl, gd, scopeVals);
+      initialized = true;
+    }
+    updateDashboard(stats, health);
+  } catch (e) { console.error(e); }
+  setTimeout(init, 5000);
+}
+init();
 </script>
 </body>
 </html>`;
+}
 
-/**
- * Request handler
- */
+// ============================================================
+// Management Actions
+// ============================================================
+
+function doCleanup(days = 30) {
+  const memories = loadMemories();
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  const before = memories.length;
+  const filtered = memories.filter(m => {
+    const lastAccess = m.last_accessed ? new Date(m.last_accessed).getTime() : 0;
+    const created = new Date(m.created_at).getTime();
+    // Keep if accessed recently or created recently
+    return lastAccess >= cutoff || created >= cutoff;
+  });
+  saveMemories(filtered);
+  _metricsCache = null;
+  return { cleaned: before - filtered.length, remaining: filtered.length };
+}
+
+// ============================================================
+// Server
+// ============================================================
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.ico': 'image/x-icon',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+};
+
 async function handleRequest(req, res) {
-  const url = new URL(req.url, `http://localhost:${PORT}`);
-  const path = url.pathname;
-  const query = url.searchParams;
+  const url = req.url.split('?')[0];
 
-  // CORS
+  // CORS + JSON headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204);
-    res.end();
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+  // ── HTML Dashboard ───────────────────────────────────────
+  if ((url === '/' || url === '/dashboard') && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    const stats = getStats();
+    const health = await getHealth();
+    res.end(buildDashboard(stats, health));
     return;
   }
 
-  try {
-    // Serve HTML pages
-    if (path === '/' || path === '/index.html') {
-      const htmlPath = join(__dirname, '..', 'dashboard.html');
-      const html = readFileSync(htmlPath, 'utf8');
-      return sendHTML(res, 200, html);
-    }
-    if (path === '/graph') {
-      return sendHTML(res, 200, GRAPH_HTML);
-    }
-    if (path === '/backups') {
-      return sendHTML(res, 200, BACKUPS_HTML);
-    }
+  // ── API Routes ──────────────────────────────────────────
+  res.setHeader('Content-Type', 'application/json');
 
-    // API routes
-    if (path.startsWith('/api/')) {
-      return handleAPI(req, res, path, query);
-    }
-
-    sendHTML(res, 200, DASHBOARD_HTML);
-  } catch (err) {
-    log('ERROR', `Dashboard error: ${err.message}`);
-    sendJSON(res, 500, { error: err.message });
+  if (url === '/api/stats' && req.method === 'GET') {
+    res.end(JSON.stringify(getStats()));
+    return;
   }
+
+  if (url === '/api/health' && req.method === 'GET') {
+    const health = await getHealth();
+    res.end(JSON.stringify(health));
+    return;
+  }
+
+  if (url === '/api/memories' && req.method === 'GET') {
+    const memories = loadMemories();
+    res.end(JSON.stringify(memories));
+    return;
+  }
+
+  if (url === '/api/export' && req.method === 'GET') {
+    const memories = loadMemories();
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Content-Disposition': `attachment; filename="memories_${new Date().toISOString().slice(0,10)}.json"`
+    });
+    res.end(JSON.stringify(memories, null, 2));
+    return;
+  }
+
+  if (url === '/api/manage' && req.method === 'POST') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', async () => {
+      try {
+        const { action, days } = JSON.parse(body);
+        if (action === 'cleanup') {
+          const result = doCleanup(days || 30);
+          res.end(JSON.stringify({ success: true, ...result }));
+        } else {
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'Unknown action' }));
+        }
+      } catch (e) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+
+  // 404
+  res.writeHead(404);
+  res.end(JSON.stringify({ error: 'Not found' }));
 }
 
-/**
- * Start the dashboard server
- */
-export function startDashboard(port = PORT) {
-  const server = createServer(handleRequest);
-  server.listen(port, () => {
-    log('INFO', `🌐 Dashboard running at http://localhost:${port}/`);
-    log('INFO', `   Graph: http://localhost:${port}/graph`);
-    log('INFO', `   Backups: http://localhost:${port}/backups`);
-    log('INFO', `   API: http://localhost:${port}/api/status`);
+// ── Express path (if available) ──────────────────────────
+if (express) {
+  const app = express();
+  app.use((req, res) => handleRequest(req, res));
+  app.listen(PORT, () => {
+    console.log(`\n✅ Dashboard ready: http://localhost:${PORT}`);
+    console.log(`   Stats:    http://localhost:${PORT}/api/stats`);
+    console.log(`   Health:   http://localhost:${PORT}/api/health`);
+    console.log(`   Memories: http://localhost:${PORT}/api/memories\n`);
   });
-  return server;
-}
-
-// CLI
-if (process.argv[1] && process.argv[1].endsWith('dashboard.js')) {
-  startDashboard();
+} else {
+  // Fallback: pure HTTP server
+  http.createServer((req, res) => handleRequest(req, res)).listen(PORT, () => {
+    console.log(`\n✅ Dashboard ready: http://localhost:${PORT}`);
+    console.log(`   (using built-in HTTP server)`);
+    console.log(`   Stats:    http://localhost:${PORT}/api/stats`);
+    console.log(`   Health:   http://localhost:${PORT}/api/health`);
+    console.log(`   Memories: http://localhost:${PORT}/api/memories\n`);
+  });
 }

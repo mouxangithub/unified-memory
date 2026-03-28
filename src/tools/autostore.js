@@ -15,7 +15,22 @@ const SENSITIVE_WORDS = [
   'sk-', 'ak-', 'Bearer'
 ];
 
-// 重要信息提取模式
+// v2.7.0 Identity 记忆类型提取模式（优先级最高，importance 默认 0.9）
+// 使用 [\s\S] 或非贪婪匹配来捕获句中 "我..." 表述
+const IDENTITY_PATTERNS = [
+  // Identity: "我是...", "我叫...", "我的职业是..."
+  { pattern: /(?:^|[，、\n])我(?:是|叫|名字|职业|身份|角色)([^\n，。.!！]{2,50})/m, type: 'identity', label: 'identity' },
+  // Preference positive: "我喜欢...", "我爱...", "我偏好..."
+  { pattern: /(?:^|[，、\n])我(?:喜欢|爱|偏好|欣赏|想|想要|愿意)([^\n，。.!！]{2,60})/m, type: 'preference', label: 'identity' },
+  // Preference negative: "我讨厌...", "我不喜欢..."
+  { pattern: /(?:^|[，、\n])我(?:讨厌|厌恶|不喜欢|反感|排斥|烦)([^\n，。.!！]{2,60})/m, type: 'preference', label: 'identity' },
+  // Habit: "我习惯...", "我通常...", "我经常..."
+  { pattern: /(?:^|[，、\n])我(?:习惯|通常|经常|往往|总是|一般)([^\n，。.!！]{2,60})/m, type: 'habit', label: 'identity' },
+  // Requirement: "我需要...", "我必须..."
+  { pattern: /(?:^|[，、\n])我(?:需要|必须|得|想要|希望|要求)([^\n，。.!！]{2,60})/m, type: 'requirement', label: 'identity' },
+];
+
+// 重要信息提取模式（原有）
 const IMPORTANT_PATTERNS = [
   { pattern: /(?:喜欢|偏好|爱|习惯用|用.{0,5}进行)/, category: 'preference' },
   { pattern: /项目.*?(?:名称|类型|进度|状态|负责人)/, category: 'project' },
@@ -39,19 +54,49 @@ export function isSensitive(text) {
 }
 
 /**
+ * v2.7.0: 提取身份类信息（优先级最高）
+ * 匹配 "我..." 句式，标记为 identity/preference/habit/requirement
+ * @param {string} text
+ * @returns {{ text: string, category: string, source: string, isIdentity: boolean }[]}
+ */
+export function extractIdentityInfo(text) {
+  const results = [];
+  for (const { pattern, type } of IDENTITY_PATTERNS) {
+    const matches = text.matchAll(new RegExp(pattern, 'gm'));
+    for (const match of matches) {
+      const content = (match[1] || '').trim();
+      if (content.length >= 2) {
+        results.push({
+          text: content,
+          category: type, // identity, preference, habit, requirement
+          source: 'identity-extract',
+          isIdentity: true,
+        });
+      }
+    }
+  }
+  return results;
+}
+
+/**
  * 提取重要信息（规则方式）
  */
 export function extractImportantInfo(text) {
   const results = [];
+
+  // v2.7.0: 先提取身份类信息（优先级最高）
+  const identityResults = extractIdentityInfo(text);
+  results.push(...identityResults);
+
+  // 原有模式匹配（跳过 identity 相关避免重复）
   const lines = text.split('\n');
-  
   for (const line of lines) {
     const trimmed = line.trim();
     if (trimmed.length < 5) continue;
-    
+
     // 跳过敏感信息
     if (isSensitive(trimmed)) continue;
-    
+
     // 模式匹配
     for (const { pattern, category } of IMPORTANT_PATTERNS) {
       if (pattern.test(trimmed)) {
@@ -66,19 +111,24 @@ export function extractImportantInfo(text) {
             content = trimmed.slice(colonIdx2 + 1).trim();
           }
         }
-        
+
         if (content.length > 3) {
-          results.push({
-            text: content,
-            category,
-            source: 'auto-extract'
-          });
+          // 避免与 identity 结果重复
+          const isDuplicate = results.some(r => r.text.includes(content) || content.includes(r.text));
+          if (!isDuplicate) {
+            results.push({
+              text: content,
+              category,
+              source: 'auto-extract',
+              isIdentity: false,
+            });
+          }
         }
         break;
       }
     }
   }
-  
+
   return results;
 }
 
@@ -177,14 +227,16 @@ export async function autoStore(conversation, { useLLM = true, minLength = 5 } =
     }
     
     try {
+      // v2.7.0: Identity 类信息 importance 默认 0.9，其他 0.6
+      const importance = item.isIdentity ? 0.9 : 0.6;
       addMemory({
         text,
         category: item.category || 'general',
-        importance: 0.6,
-        tags: [item.source || 'auto']
+        importance,
+        tags: [item.source || 'auto', ...(item.isIdentity ? ['identity-auto'] : [])],
       });
       results.stored++;
-      log('INFO', `Auto-stored: ${text.slice(0, 40)}... [${item.category}]`);
+      log('INFO', `Auto-stored: ${text.slice(0, 40)}... [${item.category}] importance=${importance}`);
     } catch (err) {
       log('ERROR', `Auto-store failed: ${err.message}`);
       results.skipped++;
