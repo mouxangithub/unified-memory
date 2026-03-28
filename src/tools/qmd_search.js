@@ -411,47 +411,21 @@ export async function qmdVSearch(query, options = {}) {
       return { error: 'QMD not available' };
     }
     
-    // Step 1: Get more candidates via QMD BM25 (fast, no LLM)
+    // QMD BM25 search — skip slow embedding re-ranking, QMD's own score is good enough
+    // Old: QMD search → fetch 6 docs → Ollama embed all 6 → cosine re-rank (~3.3s)
+    // New: QMD search → return results directly (~300ms)
     const raw = await execQMDTimed(['search', query, '-n', String(topK * 4), '--json'], 10000);
     const parsed = JSON.parse(raw);
     if (!parsed.length) return [];
     
-    // Step 2: Fetch content for candidates (get Ollama embeddings)
-    const docsWithEmbed = [];
-    const maxFetch = Math.min(parsed.length, 20);
-    
-    for (const item of parsed.slice(0, maxFetch)) {
-      const path = item.file || '';
-      const contentRaw = await execQMDTimed(['get', path, '-l', '200', '--json'], 8000).catch(() => '');
-      let content = '';
-      try { content = JSON.parse(contentRaw).content || ''; } catch { content = contentRaw; }
-      
-      // Truncate to first 500 chars for embedding speed
-      const embText = content.replace(/\n+/g, ' ').slice(0, 500);
-      const embedding = await getOllamaEmbedding(embText);
-      
-      docsWithEmbed.push({
-        id: item.docid || path,
-        path,
-        title: item.title || path.split('/').pop() || '',
-        snippet: (item.snippet || content).replace(/^@@.*@@\n/, '').slice(0, 200),
-        embedding,
-        source: 'ollama_vector',
-      });
-    }
-    
-    // Step 3: Re-rank by Ollama vector similarity
-    const queryEmb = await getOllamaEmbedding(query.slice(0, 200));
-    if (!queryEmb) return docsWithEmbed.slice(0, topK);
-    
-    const scored = docsWithEmbed.map(doc => ({
-      ...doc,
-      score: cosineSimilarity(queryEmb, doc.embedding || []),
+    return parsed.slice(0, topK).map(item => ({
+      id: item.docid || item.file || '',
+      path: item.file || '',
+      title: item.title || item.file?.split('/').pop() || '',
+      snippet: item.snippet || '',
+      score: item.score || 0,
+      source: 'qmd_bm25',
     }));
-    
-    scored.sort((a, b) => b.score - a.score);
-    
-    return scored.slice(0, topK).map(({ embedding, ...rest }) => rest);
   } catch (err) {
     return { error: err.message };
   }

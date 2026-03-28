@@ -143,23 +143,35 @@ class MemoryRecommender {
   }
 
   async recommendByVector(query, k = 5) {
-    const queryVec = await this._getEmbedding(query);
-    if (!queryVec) return [];
+    try {
+      // Use LanceDB ANN index instead of brute-force full memory scan
+      const { vectorSearch } = await import('../vector_lancedb.js');
+      const results = await vectorSearch(query, k, null);
+      return results.map(r => ({
+        memory: r.memory,
+        score: Math.round((r.score || 0.5) * 1000) / 1000,
+        type: 'vector'
+      }));
+    } catch {
+      // Fallback to embedding-based scan
+      const queryVec = await this._getEmbedding(query);
+      if (!queryVec) return [];
 
-    const scores = [];
-    for (const mem of this.memories) {
-      const memVec = mem.vector || mem.embedding;
-      if (!memVec) continue;
-      const sim = this._cosineSimilarity(queryVec, memVec);
-      if (sim > 0) scores.push({ mem, sim });
+      const scores = [];
+      for (const mem of this.memories) {
+        const memVec = mem.vector || mem.embedding;
+        if (!memVec) continue;
+        const sim = this._cosineSimilarity(queryVec, memVec);
+        if (sim > 0) scores.push({ mem, sim });
+      }
+
+      scores.sort((a, b) => b.sim - a.sim);
+      return scores.slice(0, k).map(({ mem, sim }) => ({
+        memory: mem,
+        score: Math.round(sim * 1000) / 1000,
+        type: 'vector'
+      }));
     }
-
-    scores.sort((a, b) => b.sim - a.sim);
-    return scores.slice(0, k).map(({ mem, sim }) => ({
-      memory: mem,
-      score: Math.round(sim * 1000) / 1000,
-      type: 'vector'
-    }));
   }
 
   recommendByCoOccurrence(memId, k = 5) {
