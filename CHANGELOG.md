@@ -37,3 +37,25 @@
 
 ### Removed
 - Python version (deprecated)
+
+---
+
+## v2.0 (2026-03-27) — Phase 2 Complete
+
+### 新增 | Added
+- 86个MCP工具（从33个大幅扩展）
+- 完整的BM25 + Vector + RRF混合搜索管道
+- Episode / Procedural / Rule 记忆系统
+- 知识图谱 / 主动召回 / 预测推荐
+- 可观测性（WAL追踪、指标、模板）
+- HTTP REST API（health/search/memory端点）
+- 零门槛安装脚本（install.sh）
+- 双语文档（中英文索引）
+
+### 修复 | Fixed
+- node_modules不再上传Git
+- package.json peerDependencies修正
+
+### 文档 | Documentation
+- README完全重写（零门槛接入方案）
+- SKILL.md/SKILL_EN.md双语索引
