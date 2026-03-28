@@ -241,3 +241,14 @@ export class EmbeddingClient {
     this._lastCheck = 0;
   }
 }
+
+// Convenience function: createEmbedding(text) → returns embedding array
+let _client;
+function getClient() {
+  if (!_client) _client = new EmbeddingClient();
+  return _client;
+}
+export async function createEmbedding(text) {
+  const client = getClient();
+  return await client.embed(text);
+}

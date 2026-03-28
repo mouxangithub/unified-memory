@@ -50,6 +50,13 @@ import { getProactiveManager } from './proactive_manager.js';
 import { getReminderScheduler } from './reminder.js';
 import { enhancedPredictRecall, predictRelatedOnAccess, predictHighValueMemories } from './tools/predict.js';
 import { registerMultimodalTools } from './multimodal.js';
+import { registerEpisodeTools } from './episode/episode_tools.js';
+import { registerRerankTools } from './rerank/rerank_tools.js';
+import { registerRefreshTools } from './consolidate/refresh_tools.js';
+import { registerProceduralTools } from './procedural/procedural_tools.js';
+import { registerRuleTools } from './rule/rule_tools.js';
+import { registerObservabilityTools } from './observability/observability_tools.js';
+import { registerChunkTools } from './chunking/chunk_tools.js';
 
 // Feature #10: Preference Slots
 import { memoryPreferenceGetTool, memoryPreferenceSetTool, memoryPreferenceInferTool, memoryPreferenceExplainTool } from './tools/preference_tools.js';
@@ -739,6 +746,105 @@ server.registerTool('memory_qmd_search', {
   } catch (err) {
     log.error(`QMD search error: ${err.message}`);
     return { content: [{ type: 'text', text: `QMD search error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ QMD File Access (v1.1) ============
+
+server.registerTool('memory_qmd_get', {
+  description: 'Get the content of a local file from QMD index. Use after memory_qmd_search finds relevant files.',
+  inputSchema: z.object({
+    path: z.string().describe('File path (from qmd_search results)'),
+    maxLines: z.number().optional().default(100).describe('Max lines to return'),
+    offset: z.number().optional().default(0).describe('Line offset to start from'),
+  }),
+}, async ({ path, maxLines = 100, offset = 0 }) => {
+  try {
+    const { qmdGet } = await import('./tools/qmd_search.js');
+    const result = await qmdGet(path, { maxLines, offset });
+    if (result.error) {
+      return { content: [{ type: 'text', text: `Error: ${result.error}` }], isError: true };
+    }
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          path: result.path,
+          content: result.content,
+          lines: result.lines,
+          truncated: result.truncated,
+          source: 'qmd',
+        }, null, 2)
+      }]
+    };
+  } catch (err) {
+    log.error(`QMD get error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_qmd_vsearch', {
+  description: 'Vector semantic search of local markdown files via QMD (requires pre-embedded files).',
+  inputSchema: z.object({
+    query: z.string().describe('Semantic search query'),
+    topK: z.number().optional().default(5).describe('Number of results'),
+  }),
+}, async ({ query, topK = 5 }) => {
+  try {
+    const { qmdVSearch } = await import('./tools/qmd_search.js');
+    const results = await qmdVSearch(query, { topK });
+    if (results.error) {
+      return { content: [{ type: 'text', text: `Error: ${results.error}` }], isError: true };
+    }
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          count: results.length,
+          query,
+          mode: 'vector',
+          results: results.map(r => ({
+            id: r.id,
+            path: r.path,
+            title: r.title,
+            score: Math.round(r.score * 1000) / 1000,
+            snippet: r.snippet,
+          }))
+        }, null, 2)
+      }]
+    };
+  } catch (err) {
+    log.error(`QMD vsearch error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_qmd_list', {
+  description: 'List indexed markdown files from QMD collection.',
+  inputSchema: z.object({
+    pattern: z.string().optional().describe('Glob pattern (e.g. **/*.md)'),
+    limit: z.number().optional().default(20).describe('Max files to return'),
+  }),
+}, async ({ pattern = '**/*.md', limit = 20 }) => {
+  try {
+    const { qmdListFiles } = await import('./tools/qmd_search.js');
+    const result = await qmdListFiles(pattern, limit);
+    if (result.error) {
+      return { content: [{ type: 'text', text: `Error: ${result.error}` }], isError: true };
+    }
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          count: Array.isArray(result.files) ? result.files.length : result.length || 0,
+          files: result.files || result || [],
+          source: 'qmd',
+        }, null, 2)
+      }]
+    };
+  } catch (err) {
+    log.error(`QMD list error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
   }
 });
 
@@ -1832,6 +1938,125 @@ server.registerTool('memory_graph_stats', {
 });
 
 
+// ============ Graph Add / Delete (v1.1) ============
+
+server.registerTool('memory_graph_add', {
+  description: 'Add a new entity or relation to the knowledge graph manually.',
+  inputSchema: z.object({
+    entity: z.object({
+      name: z.string().describe('Entity name'),
+      type: z.enum(['person', 'organization', 'project', 'topic', 'tool', 'location', 'date', 'event', 'other']).describe('Entity type'),
+      description: z.string().optional().describe('Optional description'),
+    }).optional().describe('Entity to add'),
+    relation: z.object({
+      from: z.string().describe('Source entity name or ID'),
+      to: z.string().describe('Target entity name or ID'),
+      type: z.enum(['worked_with', 'belongs_to', 'uses_tool', 'participated_in', 'decided', 'created', 'related_to', 'knows', 'owns']).describe('Relation type'),
+      confidence: z.number().min(0).max(1).optional().default(0.8).describe('Confidence score'),
+    }).optional().describe('Relation to add'),
+  }),
+}, async ({ entity, relation }) => {
+  try {
+    const { addEntity, addRelation } = await import('./graph/graph_store.js');
+    const { loadGraph } = await import('./graph/graph_store.js');
+
+    const results = [];
+
+    if (entity) {
+      const existing = loadGraph().entities.find(
+        e => e.name === entity.name && e.type === entity.type
+      );
+      if (existing) {
+        results.push({ action: 'skipped', reason: 'entity_exists', entity: existing.name });
+      } else {
+        const added = addEntity({
+          name: entity.name,
+          type: entity.type,
+          description: entity.description || null,
+        });
+        results.push({ action: 'added', entity: added });
+      }
+    }
+
+    if (relation) {
+      const graph = loadGraph();
+      const fromEntity = graph.entities.find(
+        e => e.name === relation.from || e.id === relation.from
+      );
+      const toEntity = graph.entities.find(
+        e => e.name === relation.to || e.id === relation.to
+      );
+
+      if (!fromEntity || !toEntity) {
+        results.push({ action: 'error', reason: 'entity_not_found', from: relation.from, to: relation.to });
+      } else {
+        const added = addRelation({
+          from: fromEntity.id,
+          to: toEntity.id,
+          relation: relation.type,
+          confidence: relation.confidence ?? 0.8,
+          source: 'manual',
+        });
+        results.push({ action: 'added', relation: { from: fromEntity.name, to: toEntity.name, type: relation.type } });
+      }
+    }
+
+    return { content: [{ type: 'text', text: JSON.stringify({ results }, null, 2) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_graph_delete', {
+  description: 'Delete an entity (and its relations) or a specific relation from the knowledge graph.',
+  inputSchema: z.object({
+    entityName: z.string().optional().describe('Entity name to delete'),
+    entityId: z.string().optional().describe('Entity ID to delete'),
+    relationId: z.string().optional().describe('Relation ID to delete'),
+  }),
+}, async ({ entityName, entityId, relationId }) => {
+  try {
+    const { loadGraph, saveGraph } = await import('./graph/graph_store.js');
+
+    if (relationId) {
+      const graph = loadGraph();
+      const before = graph.relations.length;
+      graph.relations = graph.relations.filter(r => r.id !== relationId);
+      graph.version++;
+      saveGraph(graph);
+      return { content: [{ type: 'text', text: JSON.stringify({ deleted: 'relation', count: before - graph.relations.length }) }] };
+    }
+
+    if (entityName || entityId) {
+      const graph = loadGraph();
+      const entity = graph.entities.find(
+        e => (entityName && e.name === entityName) || (entityId && e.id === entityId)
+      );
+      if (!entity) {
+        return { content: [{ type: 'text', text: JSON.stringify({ error: 'entity_not_found' }) }] };
+      }
+
+      const beforeE = graph.entities.length;
+      const beforeR = graph.relations.length;
+      graph.entities = graph.entities.filter(e => e.id !== entity.id);
+      graph.relations = graph.relations.filter(r => r.from !== entity.id && r.to !== entity.id);
+      graph.version++;
+      saveGraph(graph);
+
+      return { content: [{ type: 'text', text: JSON.stringify({
+        deleted: 'entity',
+        entity: entity.name,
+        entities_removed: beforeE - graph.entities.length,
+        relations_removed: beforeR - graph.relations.length,
+      }) }] };
+    }
+
+    return { content: [{ type: 'text', text: 'Provide entityName/entityId or relationId' }], isError: true };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
 // ============ HTTP Dashboard Server (Optional) ============
 
 function startDashboardServer(port = 3848) {
@@ -1946,6 +2171,27 @@ async function main() {
 
   // Register multimodal tools (image/audio/file analysis)
   registerMultimodalTools(server);
+
+  // Register Episode v2 tools (conversation session management)
+  registerEpisodeTools(server);
+
+  // Register Rerank v2 tools (LLM cross-encoder reranking)
+  registerRerankTools(server);
+
+  // Register Refresh v2 tools (48h reconsolidation)
+  registerRefreshTools(server);
+
+  // Register Procedural Memory v2 tools
+  registerProceduralTools(server);
+
+  // Register Rule Memory v2 tools
+  registerRuleTools(server);
+
+  // Register Observability v2 tools (HTTP API)
+  registerObservabilityTools(server);
+
+  // Register Chunking v2 tools (context chunking)
+  registerChunkTools(server);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

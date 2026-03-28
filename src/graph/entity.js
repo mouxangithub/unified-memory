@@ -49,7 +49,6 @@ export function extractEntitiesRuleBased(text) {
   for (const m of hashtags) {
     const name = m.slice(1);
     if (name.length > 0 && name.length < 50) {
-      // 小写或包含"项目"倾向 project，否则 topic
       const lower = name.toLowerCase();
       const type = lower.includes('project') || lower.includes('项目') || lower.includes('任务')
         ? ENTITY_TYPES.PROJECT
@@ -58,22 +57,8 @@ export function extractEntitiesRuleBased(text) {
     }
   }
 
-  // "项目":xxx → project
-  const projectPatterns = [
-    /(?:项目|project)[:：]\s*([^\s，、。！？!?,.\n]{1,50})/gi,
-    /([^\s，、。！？!?,.\n]{1,30})(?:项目|project)/gi,
-  ];
-  for (const pat of projectPatterns) {
-    let match;
-    // reset lastIndex
-    pat.lastIndex = 0;
-    while ((match = pat.exec(text)) !== null) {
-      const name = (match[1] || match[0]).trim();
-      if (name.length > 0) {
-        entities.push({ name, type: ENTITY_TYPES.PROJECT, method: 'rule' });
-      }
-    }
-  }
+  // 中文关键词识别：飞书、钉钉、OpenClaw、MetaGPT 等（用已有 toolKeywords 更安全）
+  // 中文姓名用 @ 提及更可靠，不再用正则猜测
 
   // 组织/公司名：xxx有限公司、xxx实验室、xxx公司、xxx团队、xxx部门
   const orgPatterns = [

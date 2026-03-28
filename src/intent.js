@@ -101,4 +101,16 @@ export function routeSearch(query) {
   };
 }
 
-export default { routeSearch, INTENT_TYPES };
+export default { routeSearch, getCategoryWeights, INTENT_TYPES };
+
+export function getCategoryWeights(intent) {
+  const defaults = { preference: 0.3, decision: 0.25, entity: 0.2, fact: 0.15, recent: 0.2, project: 0.25 };
+  const map = new Map();
+  if (intent === 'general' || !intent) {
+    Object.entries(defaults).forEach(([k, v]) => map.set(k, v));
+  } else {
+    Object.entries(defaults).forEach(([k, v]) => map.set(k, v * 0.5));
+    map.set(intent, 0.8);
+  }
+  return map;
+}

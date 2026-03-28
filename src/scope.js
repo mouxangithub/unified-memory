@@ -267,3 +267,8 @@ export default {
   tagWithTeam,
   extractTeamFromId,
 };
+
+// Helper: returns scope order for sorting (lower = more specific)
+export function getScopeOrder(scope) {
+  return SCOPE_HIERARCHY[normalizeScope(scope)] ?? 999;
+}
