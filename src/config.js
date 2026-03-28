@@ -74,6 +74,36 @@ const defaultConfig = {
   rrfK: 60,
   embedProviders: EMBED_PROVIDERS,
   llmProviders: LLM_PROVIDERS,
+
+  // ─── Phase 3: Search Backend ───
+  qmd: {
+    enabled: false,  // true = use QMD CLI, false = use built-in BM25+vector
+    collections: ['workspace', 'daily-logs', 'projects', 'intelligence'],
+  },
+
+  // ─── Phase 3: Git Integration ───
+  git: {
+    enabled: false,
+    repo_path: join(MEMORY_DIR, '.git-repo'),
+    remote_url: null,
+    auto_commit: false,  // auto-commit on each memory write
+  },
+
+  // ─── Phase 3: Cloud Backup ───
+  cloud: {
+    enabled: false,
+    provider: 'supermemory',  // 'supermemory' | 'custom'
+    supermemory_api_key: null,
+    supermemory_endpoint: 'https://api.supermemory.ai',
+    rest_endpoint: null,
+    rest_api_key: null,
+  },
+
+  // ─── Phase 3: Weibull Decay ───
+  weibull_decay: {
+    shape: 1.5,   // 形状参数 k (1.0-3.0，越大记忆越持久)
+    scale: 30,    // 尺度参数 λ（天数，越大衰减越慢）
+  },
 };
 
 // Load config from file

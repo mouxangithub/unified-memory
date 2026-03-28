@@ -57,6 +57,10 @@ import { registerProceduralTools } from './procedural/procedural_tools.js';
 import { registerRuleTools } from './rule/rule_tools.js';
 import { registerObservabilityTools } from './observability/observability_tools.js';
 import { registerChunkTools } from './chunking/chunk_tools.js';
+import { registerPluginTools } from './plugin/tools.js';
+import { registerGitTools } from './integrations/git_tools.js';
+import { registerCloudTools } from './integrations/cloud_tools.js';
+import { registerDecayStatsTool } from './decay/weibull_tools.js';
 
 // Feature #10: Preference Slots
 import { memoryPreferenceGetTool, memoryPreferenceSetTool, memoryPreferenceInferTool, memoryPreferenceExplainTool } from './tools/preference_tools.js';
@@ -2192,6 +2196,12 @@ async function main() {
 
   // Register Chunking v2 tools (context chunking)
   registerChunkTools(server);
+
+  // Register Phase 3 tools: OpenClaw Plugin, Git, Cloud, Weibull
+  registerPluginTools(server);
+  registerGitTools(server);
+  registerCloudTools(server);
+  registerDecayStatsTool(server);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
