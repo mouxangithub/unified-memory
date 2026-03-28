@@ -25,6 +25,7 @@ import { getAllMemories, addMemory, deleteMemory } from '../storage.js';
 import { analyzeInsights } from '../tools/insights.js';
 import { exportMemories } from '../tools/export.js';
 import { dedupMemories } from '../tools/dedup.js';
+import { cmdDedup } from './dedup_commands.js';
 import { decayMemories } from '../tools/decay.js';
 import { askQuestion } from '../tools/qa.js';
 import { forget, archive, compressCold, forgetterStats } from '../quality/smart_forgetter.js';
@@ -204,26 +205,6 @@ async function cmdQA(args) {
       console.log(`   - [${s.id.slice(0, 8)}] ${s.text.slice(0, 50)}... (相关度: ${s.relevance})`);
     }
   }
-}
-
-async function cmdDedup(args) {
-  const threshold = parseFloat(args.threshold || 0.85);
-  const dryRun = args.dryRun !== undefined ? args.dryRun : true;
-  
-  const result = await dedupMemories({ threshold, dryRun });
-  const data = JSON.parse(result.content[0].text);
-  
-  console.log(`\n🔍 去重检测 (阈值: ${threshold})\n`);
-  console.log(`   总记忆: ${data.total_memories}`);
-  console.log(`   发现重复: ${data.duplicates_found}`);
-  
-  if (data.duplicates?.length > 0) {
-    console.log(`   模式: ${data.action}`);
-    for (const d of data.duplicates.slice(0, 5)) {
-      console.log(`   - [${d.type}] "${d.original.text?.slice(0, 40)}..."`);
-    }
-  }
-  console.log();
 }
 
 async function cmdDecay(args) {

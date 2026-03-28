@@ -25,7 +25,7 @@
 ```
 unified-memory/
 ├── src/
-│   ├── index.js           # MCP Server 入口（34工具注册）
+│   ├── index.js           # MCP Server 入口（58工具注册）
 │   ├── search.js          # 核心搜索管道（BM25→Vector→Rerank→MMR→RRF）
 │   │
 │   ├── core/               # 核心引擎（25个模块）
@@ -116,9 +116,9 @@ curl http://localhost:38421/memory
 curl http://localhost:38421/health
 ```
 
-## 📦 MCP 工具 (34个)
+## 📦 MCP 工具 (58个)
 
-### 核心工具
+### 核心工具（9个）
 | 工具 | 说明 |
 |------|------|
 | `memory_search` | BM25 + Vector + RRF 混合搜索 |
@@ -127,62 +127,99 @@ curl http://localhost:38421/health
 | `memory_delete` | 删除记忆 |
 | `memory_stats` | 统计信息 |
 | `memory_health` | 健康检查 |
+| `memory_insights` | 用户洞察分析 |
+| `memory_export` | 导出 json/markdown/csv |
+| `memory_metrics` | 系统指标 |
 
-### 检索增强
+### 检索增强（6个）
 | 工具 | 说明 |
 |------|------|
 | `memory_bm25` | 纯 BM25 关键词搜索 |
 | `memory_vector` | 纯向量语义搜索 |
 | `memory_mmr` | 最大边际相关性多样性 |
 | `memory_rerank_llm` | LLM 重排序 |
-| `memory_scope` | 四级隔离过滤（AGENT/USER/TEAM/GLOBAL） |
 | `memory_adaptive` | 自适应检索策略 |
-| `memory_intent` | 查询意图路由 |
-| `memory_noise` | 噪声过滤 |
+| `memory_concurrent_search` | 并发搜索 |
 
-### 写入链路
+### Preference Slots（5个）
 | 工具 | 说明 |
 |------|------|
-| `memory_extract` | LLM 8秒极速抽取 6类记忆 |
-| `memory_autostore` | Hooks 自动存储 |
-| `memory_wal` | Write-Ahead Log 写入日志 |
+| `memory_preference_slots` | 用户偏好槽位 |
+| `memory_preference_get` | 获取偏好值 |
+| `memory_preference_set` | 设置偏好值 |
+| `memory_preference_infer` | 从对话推断偏好 |
+| `memory_preference_explain` | 偏好来源解释 |
 
-### 智能处理
+### Semantic Versioning（3个）
 | 工具 | 说明 |
 |------|------|
-| `memory_dedup` | 批量相似去重（Jaccard 0.75） |
-| `memory_decay` | Weibull 时间衰减 |
-| `memory_tier` | 三层自动分层（HOT/WARM/COLD） |
-| `memory_reflection` | 自我反思学习 |
+| `memory_version_list` | 版本历史列表 |
+| `memory_version_diff` | 版本差异对比 |
+| `memory_version_timeline` | 版本时间线 |
 
-### RAG 与问答
+### 主动与预测（6个）
+| 工具 | 说明 |
+|------|------|
+| `memory_proactive_start` | 启动主动召回 |
+| `memory_proactive_stop` | 停止主动召回 |
+| `memory_proactive_status` | 召回状态 |
+| `memory_proactive_recall` | 主动注入记忆 |
+| `memory_proactive_trigger` | 触发召回 |
+| `memory_proactive_care` | 主动关怀 |
+
+### 知识图谱（4个）
+| 工具 | 说明 |
+|------|------|
+| `memory_graph_entity` | 实体管理 |
+| `memory_graph_relation` | 关系管理 |
+| `memory_graph_query` | 图查询 |
+| `memory_graph_stats` | 图统计 |
+
+### RAG 与问答（3个）
 | 工具 | 说明 |
 |------|------|
 | `memory_qa` | RAG 智能问答 |
-| `memory_inference` | 上下文推理 |
-
-### 主动与预测
-| 工具 | 说明 |
-|------|------|
-| `memory_predict` | 记忆使用预测 |
-| `memory_recommend` | 智能推荐 |
-| `memory_preference_slots` | 用户偏好提取 |
-| `memory_lessons` | 经验教训学习 |
-
-### 增强智能
-| 工具 | 说明 |
-|------|------|
-| `memory_insights` | 用户洞察分析 |
+| `memory_extract` | LLM 极速抽取 |
 | `memory_summary` | 记忆摘要生成 |
-| `memory_feedback` | 反馈学习 |
-| `memory_concurrent_search` | 并发搜索 |
-| `memory_export` | 导出 json/markdown/csv |
 
-### 配置与偏好
+### 质量与学习（5个）
 | 工具 | 说明 |
 |------|------|
+| `memory_feedback` | 反馈学习 |
+| `memory_noise` | 噪声过滤 |
+| `memory_reflection` | 自我反思 |
+| `memory_lessons` | 经验教训 |
+| `memory_intent` | 意图识别 |
+
+### 可观测性（5个）
+| 工具 | 说明 |
+|------|------|
+| `memory_trace` | 检索链路追踪 |
+| `memory_metrics` | 系统指标 |
+| `memory_wal` | 预写日志 |
 | `memory_templates` | 模板管理 |
+| `memory_scope` | 四级隔离（AGENT/USER/TEAM/GLOBAL） |
+
+### 生命周期（7个）
+| 工具 | 说明 |
+|------|------|
+| `memory_autostore` | Hooks 自动存储 |
+| `memory_decay` | Weibull 时间衰减 |
+| `memory_tier` | 三层自动分层（HOT/WARM/COLD） |
+| `memory_dedup` | 语义去重 |
+| `memory_reminder_add` | 添加提醒 |
+| `memory_reminder_cancel` | 取消提醒 |
+| `memory_reminder_list` | 提醒列表 |
 | `memory_qmd_search` | QMD 本地文档搜索 |
+
+### 高级推理（5个）
+| 工具 | 说明 |
+|------|------|
+| `memory_rollback` | 回滚到指定版本 |
+| `memory_inference` | 上下文推理 |
+| `memory_predict` | 记忆使用预测 |
+| `memory_predict_enhanced` | 增强预测 |
+| `memory_recommend` | 智能推荐 |
 
 ## ⚙️ 配置
 

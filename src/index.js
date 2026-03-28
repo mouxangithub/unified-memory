@@ -51,6 +51,12 @@ import { getReminderScheduler } from './reminder.js';
 import { enhancedPredictRecall, predictRelatedOnAccess, predictHighValueMemories } from './tools/predict.js';
 import { registerMultimodalTools } from './multimodal.js';
 
+// Feature #10: Preference Slots
+import { memoryPreferenceGetTool, memoryPreferenceSetTool, memoryPreferenceInferTool, memoryPreferenceExplainTool } from './tools/preference_tools.js';
+
+// Feature #11: Semantic Versioning
+import { memoryVersionListTool, memoryVersionDiffTool, memoryRollbackTool, memoryVersionTimelineTool } from './tools/version_tools.js';
+
 const server = new McpServer(
   { name: 'unified-memory-mcp', version: '1.1.0' },
   { capabilities: { tools: {} } }
@@ -259,6 +265,125 @@ server.registerTool('memory_preference_slots', {
     return memoryPreferenceSlotsTool({ action, key, value, slots });
   } catch (err) {
     log.error(`Preference slots error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ Preference Slots Enhanced (Feature #10) ============
+
+server.registerTool('memory_preference_get', {
+  description: 'Get one or all preference slots with full metadata (value, confidence, source, lastUpdated).',
+  inputSchema: z.object({
+    key: z.string().optional().describe('Slot key to get (optional, returns all if not provided)'),
+  }),
+}, async ({ key }) => {
+  try {
+    return memoryPreferenceGetTool({ key });
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_preference_set', {
+  description: 'Set a preference slot value with explicit source and confidence.',
+  inputSchema: z.object({
+    key: z.string().describe('Slot key to set'),
+    value: z.unknown().describe('Value to set'),
+    confidence: z.number().optional().describe('Confidence 0-1 (default 0.9)'),
+    source: z.enum(['explicit', 'inferred', 'historical']).optional().describe('Source type (default explicit)'),
+  }),
+}, async ({ key, value, confidence, source }) => {
+  try {
+    return memoryPreferenceSetTool({ key, value, confidence, source });
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_preference_infer', {
+  description: 'Infer preferences from recent conversation history using pattern analysis.',
+  inputSchema: z.object({
+    messageCount: z.number().optional().default(20).describe('Number of recent messages to analyze'),
+  }),
+}, async ({ messageCount }) => {
+  try {
+    return memoryPreferenceInferTool({ messageCount });
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_preference_explain', {
+  description: 'Explain a preference slot: its source, confidence level, and how it was derived.',
+  inputSchema: z.object({
+    key: z.string().describe('Slot key to explain'),
+  }),
+}, async ({ key }) => {
+  try {
+    return memoryPreferenceExplainTool({ key });
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ Semantic Versioning (Feature #11) ============
+
+server.registerTool('memory_version_list', {
+  description: 'List version history for a memory or all memories with versions.',
+  inputSchema: z.object({
+    memoryId: z.string().optional().describe('Memory ID to list versions for'),
+    limit: z.number().optional().default(10).describe('Max versions to return'),
+    offset: z.number().optional().default(0).describe('Offset for pagination'),
+    changeType: z.enum(['create', 'update', 'delete', 'rollback']).optional().describe('Filter by change type'),
+  }),
+}, async ({ memoryId, limit, offset, changeType }) => {
+  try {
+    return memoryVersionListTool({ memoryId, limit, offset, changeType });
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_version_diff', {
+  description: 'Show diff between two versions of a memory or between adjacent versions.',
+  inputSchema: z.object({
+    memoryId: z.string().describe('Memory ID'),
+    versionId1: z.string().optional().describe('First version ID (or compare with previous if only one)'),
+    versionId2: z.string().optional().describe('Second version ID'),
+  }),
+}, async ({ memoryId, versionId1, versionId2 }) => {
+  try {
+    return memoryVersionDiffTool({ memoryId, versionId1, versionId2 });
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_rollback', {
+  description: 'Rollback a memory to a specific version, undo last change, or clear version history.',
+  inputSchema: z.object({
+    memoryId: z.string().describe('Memory ID to rollback'),
+    versionId: z.string().optional().describe('Version ID to rollback to'),
+    action: z.enum(['rollback', 'undo', 'clear']).optional().describe('Action: rollback, undo, or clear'),
+    preview: z.boolean().optional().describe('Preview without actually rolling back'),
+  }),
+}, async ({ memoryId, versionId, action, preview }) => {
+  try {
+    return memoryRollbackTool({ memoryId, versionId, action, preview });
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_version_timeline', {
+  description: 'Get version timeline for a memory or list memories with version history.',
+  inputSchema: z.object({
+    memoryId: z.string().optional().describe('Memory ID (optional, lists all if not provided)'),
+  }),
+}, async ({ memoryId }) => {
+  try {
+    return memoryVersionTimelineTool({ memoryId });
+  } catch (err) {
     return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
   }
 });
