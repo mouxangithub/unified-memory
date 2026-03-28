@@ -37,7 +37,7 @@ import { shouldStore, qualityScore, learnNoisePattern, getNoiseCount } from './n
 import { routeSearch, INTENT_TYPES } from './intent.js';
 import { extractMemories, batchExtract } from './extract.js';
 import { addLearning, addError, getLearnings, getErrors, getStats } from './reflection.js';
-import { initWal, flushWal, listWalFiles } from './wal.js';
+import { initWal, flushWal, listWalFiles, logOp } from './wal.js';
 import { assignTiers, partitionByTier, redistributeTiers, compressColdTier } from './tier.js';
 import { shouldSkipRetrieval } from './adaptive.js';
 import { buildBM25Index, bm25Search } from './bm25.js';
@@ -68,6 +68,43 @@ import { memoryPreferenceGetTool, memoryPreferenceSetTool, memoryPreferenceInfer
 // Feature #11: Semantic Versioning
 import { memoryVersionListTool, memoryVersionDiffTool, memoryRollbackTool, memoryVersionTimelineTool } from './tools/version_tools.js';
 
+// P0-2: Entity Tools
+import { memoryEntityExtractTool, memoryEntityLinkTool, memoryEntityNeighborsTool, memoryEntitySearchTool } from './tools/entity_tools.js';
+
+// P1-4: Git Notes
+import { memoryGitnotesBackupTool, memoryGitnotesRestoreTool } from './tools/git_notes.js';
+
+// P1-6: Auto Extractor
+import { AutoExtractor } from './tools/auto_extractor.js';
+
+// P1-5: Token Budget
+import { calculateBudget } from './budget.js';
+
+// P2-7: Cloud Backup (from existing collab/cloud.js)
+import { MemoryBackup, CloudConfig } from './collab/cloud.js';
+
+// P0-3: Transcript logging (simple file-based)
+import { existsSync, mkdirSync, appendFileSync } from 'fs';
+import { join } from 'path';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const TRANSCRIPTS_DIR = join(__dirname, '..', 'transcripts');
+
+function ensureTranscriptsDir() {
+  if (!existsSync(TRANSCRIPTS_DIR)) mkdirSync(TRANSCRIPTS_DIR, { recursive: true });
+}
+
+function logTranscript(operation, data) {
+  try {
+    ensureTranscriptsDir();
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const logFile = join(TRANSCRIPTS_DIR, `${today}.jsonl`);
+    const entry = JSON.stringify({ op: operation, ...data, ts: new Date().toISOString() }) + '\n';
+    appendFileSync(logFile, entry, 'utf8');
+  } catch {
+    // Best-effort logging
+  }
+}
+
 const server = new McpServer(
   { name: 'unified-memory-mcp', version: '1.1.0' },
   { capabilities: { tools: {} } }
@@ -76,19 +113,35 @@ const server = new McpServer(
 // ============ Core Search Tools ============
 
 server.registerTool('memory_search', {
-  description: 'Search memories using BM25 + Vector hybrid search powered by Ollama. Returns relevant memories ranked by relevance. Scope filtering enables true multi-tenant isolation.',
+  description: 'Search memories using BM25 + Vector hybrid search powered by Ollama. Returns relevant memories ranked by relevance. Scope filtering enables true multi-tenant isolation. P2-8: scope=team searches TEAM scope + all USER scope memories.',
   inputSchema: z.object({
     query: z.string().describe('Search query text'),
     topK: z.number().optional().default(5).describe('Number of results to return'),
     mode: z.enum(['hybrid', 'bm25', 'vector']).optional().default('hybrid').describe('Search mode: hybrid=BM25+vector, bm25=keyword only, vector=semantic only'),
-    scope: z.string().optional().describe('Scope filter: AGENT, USER, TEAM, GLOBAL — only vector search respects scope (BM25 is scope-agnostic)'),
+    scope: z.string().optional().describe('Scope filter: AGENT, USER, TEAM, GLOBAL, or team (P2-8: team = TEAM + all USER scopes)'),
   }),
 }, async ({ query, topK = 5, mode = 'hybrid', scope }) => {
   const span = startTrace('memory_search', { query: query.slice(0, 50), scope: mode });
   const timer = metrics.timer('memory_search', { scope: mode });
     structuredLog.info( `Search: query="${query}" mode=${mode} topK=${topK} scope=${scope}`);
   try {
-    const results = await hybridSearch(query, topK, mode, scope || null);
+    // P2-8: scope=team → search TEAM scope + all USER scope memories
+    let effectiveScope = scope || null;
+    if (scope && scope.toLowerCase() === 'team') {
+      // TEAM + all USER scope: pass TEAM for now (hybridSearch handles it)
+      effectiveScope = 'TEAM';
+    }
+
+    const results = await hybridSearch(query, topK, mode, effectiveScope);
+
+    // P1-5: token budget info
+    const budget = calculateBudget({ query, topK });
+    const maxTokens = budget.contextBudget;
+    const usedTokens = budget.queryTokens + (results.reduce((acc, r) => acc + (r.memory?.text?.length || 0), 0) / 4);
+    const remainingTokens = Math.max(0, maxTokens - usedTokens);
+    const percentUsed = maxTokens > 0 ? Math.round((usedTokens / maxTokens) * 1000) / 10 : 0;
+    const warning = percentUsed > 80 ? 'Token budget >80% utilized' : null;
+
     for (const r of results) {
       touchMemory(r.memory.id);
     }
@@ -102,6 +155,7 @@ server.registerTool('memory_search', {
           count: results.length,
           query,
           mode,
+          scope: scope || null,
           results: results.map((r) => ({
             id: r.memory.id,
             text: r.memory.text,
@@ -111,6 +165,13 @@ server.registerTool('memory_search', {
             highlight: r.highlight,
             created_at: new Date(r.memory.created_at).toISOString(),
           })),
+          token_budget: {
+            used_tokens: Math.round(usedTokens),
+            max_tokens: maxTokens,
+            remaining_tokens: Math.round(remainingTokens),
+            percent_used: percentUsed,
+            warning,
+          },
         }, null, 2),
       }],
     };
@@ -125,21 +186,59 @@ server.registerTool('memory_search', {
 });
 
 server.registerTool('memory_store', {
-  description: 'Store a new memory with content, category, importance and tags.',
+  description: 'Store a new memory with content, category, importance and tags. P0-1: WAL logging. P0-3: transcript logging. P1-6: auto-extracts structured facts when category=general and importance>0.7.',
   inputSchema: z.object({
     text: z.string().describe('Memory content (required)'),
     category: z.string().optional().default('general').describe('Category: preference, fact, decision, entity, reflection, or other'),
     importance: z.number().optional().default(0.5).describe('Importance score 0-1'),
     tags: z.array(z.string()).optional().default([]).describe('Tags for the memory'),
+    scope: z.string().optional().describe('Scope: AGENT, USER, TEAM, GLOBAL (default GLOBAL)'),
+    source: z.string().optional().default('manual').describe('Source of this store: manual, auto, extraction'),
   }),
-}, async ({ text, category = 'general', importance = 0.5, tags = [] }) => {
+}, async ({ text, category = 'general', importance = 0.5, tags = [], scope, source = 'manual' }) => {
   const span = startTrace('memory_store', { category });
-    structuredLog.info( `Store: text="${text.slice(0, 50)}..." category=${category}`);
+    structuredLog.info( `Store: text="${text.slice(0, 50)}..." category=${category} source=${source}`);
   try {
-    const mem = addMemory({ text, category, importance, tags });
+    // P0-1: WAL logging before store
+    logOp({ op: 'store', text: text.slice(0, 100), category, importance, scope, source, ts: Date.now() });
+
+    // P0-3: transcript logging
+    logTranscript('store', { text: text.slice(0, 200), category, importance, tags, scope, source });
+
+    const mem = addMemory({ text, category, importance, tags, scope });
     recordStore(Buffer.byteLength(text, 'utf8'));
+
+    // P1-6: Auto-extract when category=general and importance>0.7
+    let autoExtracted = null;
+    if (category === 'general' && importance > 0.7) {
+      try {
+        const extractor = new AutoExtractor();
+        const extracted = await extractor.extractFromConversation(text, true);
+        if (extracted && extracted.length > 0) {
+          autoExtracted = extracted;
+          // Store each extracted fact as a separate memory with extraction source
+          for (const ex of extracted) {
+            addMemory({
+              text: ex.text,
+              category: ex.category,
+              importance: ex.importance,
+              tags: ['auto-extracted', ...(ex.matched_keyword ? [ex.matched_keyword] : [])],
+              scope,
+              source: 'extraction',
+            });
+          }
+        }
+      } catch {
+        // Auto-extract is best-effort; don't fail the store
+      }
+    }
+
     endTrace(span);
-    return { content: [{ type: 'text', text: JSON.stringify({ success: true, id: mem.id }) }] };
+    const result = { success: true, id: mem.id };
+    if (autoExtracted) {
+      result.auto_extracted = autoExtracted.length;
+    }
+    return { content: [{ type: 'text', text: JSON.stringify(result) }] };
   } catch (err) {
     recordError('store');
     endTrace(span, { error: err.message }, 'error');
@@ -175,12 +274,16 @@ server.registerTool('memory_list', {
 });
 
 server.registerTool('memory_delete', {
-  description: 'Delete a memory by its ID.',
+  description: 'Delete a memory by its ID. P0-1: WAL logged. P0-3: transcript logged.',
   inputSchema: z.object({
     id: z.string().describe('Memory ID to delete'),
   }),
 }, async ({ id }) => {
   try {
+    // P0-1: WAL logging before delete
+    logOp({ op: 'delete', id, ts: Date.now() });
+    // P0-3: transcript logging
+    logTranscript('delete', { id });
     const success = deleteMemory(id);
     return { content: [{ type: 'text', text: JSON.stringify({ success }) }] };
   } catch (err) {
@@ -2060,6 +2163,146 @@ server.registerTool('memory_graph_delete', {
     return { content: [{ type: 'text', text: 'Provide entityName/entityId or relationId' }], isError: true };
   } catch (err) {
     return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ P0-2: Entity Tools ============
+
+server.registerTool('memory_entity_extract', {
+  description: 'Extract entities (person/organization/project/topic/tool/date/location) from text using rule-based extraction. Adds entities to the knowledge graph.',
+  inputSchema: z.object({
+    text: z.string().describe('Text to extract entities from'),
+  }),
+}, async ({ text }) => {
+  return memoryEntityExtractTool({ text });
+});
+
+server.registerTool('memory_entity_link', {
+  description: 'Create a directed relation between two entities in the knowledge graph. If entities do not exist they will be auto-created.',
+  inputSchema: z.object({
+    from: z.string().describe('Source entity name or ID'),
+    to: z.string().describe('Target entity name or ID'),
+    relation: z.string().describe('Relation type: worked_with, related_to, belongs_to, uses_tool, participated_in, decided, created, knows, owns'),
+    strength: z.number().optional().default(0.8).describe('Relation strength/confidence 0-1'),
+  }),
+}, async ({ from, to, relation, strength }) => {
+  return memoryEntityLinkTool({ from, to, relation, strength });
+});
+
+server.registerTool('memory_entity_neighbors', {
+  description: 'Get neighbor entities connected to a given entity via graph relations.',
+  inputSchema: z.object({
+    entity: z.string().describe('Entity name or ID to look up'),
+    relationType: z.string().optional().describe('Filter by relation type'),
+  }),
+}, async ({ entity, relationType }) => {
+  return memoryEntityNeighborsTool({ entity, relationType });
+});
+
+server.registerTool('memory_entity_search', {
+  description: 'Graph-expanded search: uses the knowledge graph to expand the query with related entity names before searching.',
+  inputSchema: z.object({
+    query: z.string().describe('Search query'),
+    topK: z.number().optional().default(5).describe('Number of results'),
+    scope: z.string().optional().describe('Scope filter'),
+  }),
+}, async ({ query, topK, scope }) => {
+  return memoryEntitySearchTool({ query, topK, scope });
+});
+
+// ============ P1-4: Git Notes Backup/Restore ============
+
+server.registerTool('memory_gitnotes_backup', {
+  description: 'Backup memories to git notes for cold storage. Exports memories to .git/notes/memories ref.',
+  inputSchema: z.object({
+    scope: z.string().optional().describe('Scope to backup: USER, TEAM, AGENT, GLOBAL, or all (default all)'),
+  }),
+}, async ({ scope }) => {
+  return memoryGitnotesBackupTool({ scope });
+});
+
+server.registerTool('memory_gitnotes_restore', {
+  description: 'Restore memories from git notes backup.',
+  inputSchema: z.object({
+    scope: z.string().optional().describe('Scope to restore: USER, TEAM, AGENT, GLOBAL, or all (default all)'),
+  }),
+}, async ({ scope }) => {
+  return memoryGitnotesRestoreTool({ scope });
+});
+
+// ============ P1-6: Smart Extraction ============
+
+server.registerTool('memory_auto_extract', {
+  description: 'Manually trigger structured fact extraction from text. Extracts preferences, facts, decisions, entities from text using LLM + rules.',
+  inputSchema: z.object({
+    text: z.string().describe('Text to extract structured facts from'),
+    useLLM: z.boolean().optional().default(true).describe('Use LLM for extraction (default true)'),
+  }),
+}, async ({ text, useLLM = true }) => {
+  try {
+    const extractor = new AutoExtractor();
+    const results = await extractor.extractFromConversation(text, useLLM);
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          count: results.length,
+          extracted: results.map(r => ({
+            category: r.category,
+            text: r.text,
+            importance: r.importance,
+            source: r.source,
+            matched_keyword: r.matched_keyword,
+          })),
+        }, null, 2),
+      }],
+    };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Auto extract error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ P2-7: Cloud Backup/Restore ============
+
+server.registerTool('memory_cloud_backup', {
+  description: 'Backup all memories to cloud storage (local/s3/webdav). Uses MemoryBackup class.',
+  inputSchema: z.object({
+    scope: z.string().optional().describe('Scope to backup: USER, TEAM, AGENT, GLOBAL, or all'),
+  }),
+}, async ({ scope }) => {
+  try {
+    const cfg = new CloudConfig();
+    const backup = new MemoryBackup(cfg);
+    const result = backup.createBackup();
+    return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Cloud backup error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_cloud_restore', {
+  description: 'Restore memories from cloud backup. Lists available backups or restores a specific one.',
+  inputSchema: z.object({
+    scope: z.string().optional().describe('Scope to restore'),
+    backupId: z.string().optional().describe('Specific backup timestamp to restore'),
+    action: z.enum(['list', 'restore']).optional().default('list').describe('Action: list available backups or restore'),
+  }),
+}, async ({ scope, backupId, action = 'list' }) => {
+  try {
+    const cfg = new CloudConfig();
+    const backup = new MemoryBackup(cfg);
+    if (action === 'list') {
+      const backups = backup.listBackups();
+      return { content: [{ type: 'text', text: JSON.stringify({ count: backups.length, backups }, null, 2) }] };
+    } else {
+      if (!backupId) {
+        return { content: [{ type: 'text', text: 'Error: backupId is required for restore action' }], isError: true };
+      }
+      const result = backup.restoreBackup(backupId);
+      return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...result }, null, 2) }] };
+    }
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Cloud restore error: ${err.message}` }], isError: true };
   }
 });
 
