@@ -1,14 +1,14 @@
+# 🧠 Unified Memory v2.0
+
+> AI Agent Memory System — Multi-layered, Persistent, Proactive
+
 ---
 
 <div align="center">
 
-# 🧠 Unified Memory v2.0
-
-*AI Agent 专用记忆系统 - 多层级、持久化、主动式记忆*
-
-> **🤖 本项目由小智 AI（OpenClaw）创建生成**  
-> 作者：程序员小刘（@mouxangithub）  
-> 基于 OpenClaw Agent 框架驱动，集成 BM25 + 向量混合搜索、RAG、主动召回等 86 个工具
+**🤖 This project was created by 小智 AI (OpenClaw)**  
+Author: 程序员小刘 (@mouxangithub)  
+Powered by OpenClaw Agent framework, 86 MCP tools
 
 [![GitHub stars](https://img.shields.io/github/stars/mouxangithub/unified-memory)](https://github.com/mouxangithub/unified-memory)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -20,50 +20,43 @@
 
 | Language | README | Skill |
 |----------|--------|-------|
-| 🇨🇳 中文 | [README.md](README.md) ✅ | [SKILL.md](SKILL.md) |
-| 🇺🇸 English | [README_EN.md](README_EN.md) | [SKILL_EN.md](SKILL_EN.md) |
-
-> **SKILL.md 默认语言为中文**，如需英文版见 [SKILL_EN.md](SKILL_EN.md)
+| 🇨🇳 中文 | [README_CN.md](README_CN.md) | [SKILL_CN.md](SKILL_CN.md) |
+| 🇺🇸 English ✅ | [README.md](README.md) | [SKILL.md](SKILL.md) |
 
 ---
 
-## 🌟 Core Features | 核心特性
+## 🌟 Core Features
 
-| Feature | 说明 |
-|---------|------|
-| 🔄 **持久化上下文** | 不再每次重新理解，持久化上下文窗口 |
-| 🔍 **混合搜索** | BM25 + 向量 + RRF 融合 (完全本地) |
-| 💬 **自动存储** | Hooks 模式，无需手动调用 |
-| 📊 **用户洞察** | 类别分布、工具使用分析 |
-| 🧹 **智能遗忘** | 低价值记忆自动淘汰 |
-| 🔗 **知识图谱** | 实体提取和关系可视化 |
-| 🤝 **多Agent协作** | 多 Agent 记忆同步 |
-| 🏥 **健康检查** | 完整的系统健康监控 |
+| Feature | Description |
+|---------|-------------|
+| 🔄 **Persistent Context** | No more re-explaining every session |
+| 🔍 **Hybrid Search** | BM25 + Vector + RRF (100% local) |
+| 💬 **Auto-Store** | Hooks mode, no manual calls needed |
+| 📊 **User Insights** | Category distribution, tool usage analysis |
+| 🧹 **Smart Forget** | Low-value memories auto-pruned |
+| 🔗 **Knowledge Graph** | Entity extraction & relationship mapping |
+| 🤝 **Multi-Agent** | Share memories across agents |
+| 🏥 **Health Check** | Complete system health monitoring |
 
 ---
 
-## 🚀 Quick Start | 快速开始
+## 🚀 Quick Start
 
-### 方式一：OpenClaw 技能市场（一键安装）
+### Option 1: OpenClaw Skill Market (One-Click)
 
 ```bash
-# 查看技能信息
 clawhub info unified-memory
-
-# 一键安装
 clawhub install unified-memory
-
-# 重启 OpenClaw
 openclaw gateway restart
 ```
 
-### 方式二：curl 安装脚本（任意 AI Agent）
+### Option 2: Curl Installer (Any AI Agent)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mouxangithub/unified-memory/main/install.sh | bash
 ```
 
-### 方式三：手动安装
+### Option 3: Manual Install
 
 ```bash
 git clone https://github.com/mouxangithub/unified-memory.git
@@ -74,127 +67,32 @@ node src/index.js
 
 ---
 
-## 📋 前置要求 | Prerequisites
+## 📋 Prerequisites
 
-| Dependency | 版本 | 说明 |
-|------------|------|------|
-| Node.js | ≥ 22 | 推荐使用最新 LTS |
-| Ollama | ≥ 0.1.40 | 本地向量搜索（可选，无则降级到 BM25） |
-| OpenClaw | ≥ 2026.3 | Skill 系统接入（可选） |
+| Dependency | Version | Notes |
+|------------|---------|-------|
+| Node.js | ≥ 22 | Latest LTS recommended |
+| Ollama | ≥ 0.1.40 | Optional — auto-falls back to BM25-only if missing |
+| OpenClaw | ≥ 2026.3 | For skill system integration (optional) |
 
 ```bash
-# 安装 Ollama（可选）
+# Install Ollama (optional)
 curl -fsSL https://ollama.com/install.sh | sh
-ollama pull nomic-embed-text   # 嵌入模型
+ollama pull nomic-embed-text   # Embedding model for vector search
 ```
 
 ---
 
-## 🔌 接入任意 AI Agent | Integrate with Any AI Agent
+## 🔌 Integrate with Any AI Agent
 
-> AI Agent 专用记忆系统 - 多层级、持久化、主动式记忆
-
-[![GitHub stars](https://img.shields.io/github/stars/mouxangithub/unified-memory)](https://github.com/mouxangithub/unified-memory)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js-22+-green.svg)](https://nodejs.org/)
-
----
-
-## 🚀 零门槛接入（推荐）
-
-### 方式一：OpenClaw 技能市场（一键安装）
+### OpenClaw (Auto-Integrated)
 
 ```bash
-# 查看技能信息
-clawhub info unified-memory
-
-# 一键安装
-clawhub install unified-memory
-
-# 重启 OpenClaw
-openclaw gateway restart
+openclaw gateway restart  # unified-memory auto-loads via mcporter
 ```
 
-> OpenClaw 会自动：
-> 1. 克隆/拉取最新代码到 `~/.openclaw/workspace/skills/unified-memory/`
-> 2. 通过 mcporter 自动注册 86 个工具
-> 3. 服务保持后台运行（keep-alive）
+### Claude Desktop
 
----
-
-### 方式二：手动安装（任意 AI Agent）
-
-```bash
-# 1. 克隆技能
-git clone https://github.com/mouxangithub/unified-memory.git
-cd unified-memory
-
-# 2. 一键安装依赖（自动解析 peerDependencies）
-npm install --ignore-scripts
-
-# 3. 验证运行
-node src/index.js
-# 输出: MCP Server connected via stdio (86 tools)
-
-# 4. 注册到你的 Agent（见下方「接入任意 AI Agent」）
-```
-
----
-
-## 📋 前置要求
-
-| 依赖 | 版本 | 说明 |
-|------|------|------|
-| Node.js | ≥ 22 | 推荐使用最新 LTS |
-| Ollama | ≥ 0.1.40 | 本地向量数据库（可选，无 Ollama 时自动降级） |
-| OpenClaw | ≥ 2026.3 | 用于 skill 系统接入（可选） |
-
-**Ollama 安装（推荐）：**
-```bash
-# 安装 Ollama
-curl -fsSL https://ollama.com/install.sh | sh
-
-# 安装嵌入模型（仅用于向量搜索，BM25 搜索不需要）
-ollama pull nomic-embed-text
-
-# 可选：LLM 模型（用于重排序和摘要）
-ollama pull deepseek-v3.2
-```
-
-> ⚠️ 如果没有 Ollama，技能会降级到纯 BM25 搜索模式（仍然可用，只是没有语义搜索能力）
-
----
-
-## 🔌 接入任意 AI Agent（通用方案）
-
-### 步骤 1：启动 MCP Server
-
-```bash
-# 常驻运行（推荐 systemd）
-node /path/to/unified-memory/src/index.js
-
-# 或使用 mcporter 托管（自动保持连接）
-mcporter run /path/to/unified-memory/src/index.js
-```
-
-### 步骤 2：连接到你的 Agent
-
-**OpenClaw（已集成）：**
-```json
-// ~/.mcporter/mcporter.json（自动生成，无需手动配置）
-{
-  "mcpServers": {
-    "unified-memory": {
-      "command": "node",
-      "args": ["/root/.openclaw/workspace/skills/unified-memory/src/index.js"],
-      "env": {},
-      "lifecycle": "keep-alive"
-    }
-  }
-}
-```
-
-**Claude Desktop（原生 MCP）：**
 ```json
 // ~/Library/Application Support/Claude/claude_desktop_config.json
 {
@@ -207,9 +105,10 @@ mcporter run /path/to/unified-memory/src/index.js
 }
 ```
 
-**Cursor / Windsurf / Coinexx：**
+### Cursor / Windsurf / Coinexx
+
 ```json
-// .cursor/mcp.json 或对应配置
+// .cursor/mcp.json
 {
   "mcpServers": {
     "unified-memory": {
@@ -220,144 +119,130 @@ mcporter run /path/to/unified-memory/src/index.js
 }
 ```
 
-**直接 HTTP API（无 MCP）：**
+### HTTP REST API (No MCP)
+
 ```bash
-# 启动 REST API
+# Start REST server
 node src/cli/index.js server --port 38421
 
-# 调用
+# Search
 curl -X POST http://localhost:38421/search \
   -H "Content-Type: application/json" \
-  -d '{"query":"刘总偏好","topK":5}'
+  -d '{"query":"user preferences","topK":5}'
+
+# List memories
+curl http://localhost:38421/memory
 ```
 
 ---
 
-## 🛠️ 配置
-
-### 环境变量
+## 🛠️ Configuration
 
 ```bash
-# 可选，自定义路径（默认 ~/.openclaw/workspace/memory/）
-export UNIFIED_MEMORY_DIR=~/.unified-memory
-
-# Ollama 地址（默认 http://localhost:11434）
-export OLLAMA_HOST=http://192.168.2.155:11434
-
-# 向量模型（默认 nomic-embed-text）
+# Environment variables (optional)
+export OLLAMA_HOST=http://localhost:11434
 export OLLAMA_EMBED_MODEL=nomic-embed-text:latest
 ```
 
-### 配置文件（推荐）
+Or create `~/.openclaw/workspace/memory/config.json`:
 
 ```json
-// ~/.openclaw/workspace/memory/config.json
 {
   "ollamaUrl": "http://192.168.2.155:11434",
   "embedModel": "nomic-embed-text:latest",
   "llmModel": "deepseek-v3.2",
-  "storageDir": "~/.openclaw/workspace/memory",
-  "logLevel": "info"
+  "storageDir": "~/.openclaw/workspace/memory"
 }
 ```
 
 ---
 
-## 🧪 快速测试
+## 🧪 Quick Test
 
 ```bash
-# 测试记忆存储
-node src/cli/index.js store "测试记忆" --category fact --importance 0.8
+# Store a memory
+node src/cli/index.js store "Test memory" --category fact --importance 0.8
 
-# 测试搜索
-node src/cli/index.js search "测试"
+# Search
+node src/cli/index.js search "test"
 
-# 测试 API
-curl http://localhost:38421/search?q=测试
+# Health check
+curl http://localhost:38421/health
 
-# 运行测试套件
+# Run tests
 node run-tests.cjs
 ```
 
 ---
 
-## 📦 86 个 MCP 工具总览
+## 📦 86 MCP Tools Overview
 
-### 核心存储（9个）
+### Core Storage (9)
 `memory_store` · `memory_list` · `memory_search` · `memory_delete` · `memory_update` · `memory_get` · `memory_stats` · `memory_health` · `memory_export`
 
-### 搜索增强（6个）
+### Search (6)
 `memory_bm25` · `memory_vector` · `memory_mmr` · `memory_rerank_llm` · `memory_adaptive` · `memory_concurrent_search`
 
-### Episode 会话记忆（6个）
+### Episode Memory (6)
 `memory_episode_start` · `memory_episode_end` · `memory_episode_list` · `memory_episode_recall` · `memory_episode_merge` · `memory_episode_delete`
 
-### Procedural / Rule 记忆（4个）
-`memory_procedure_list` · `memory_procedure_add` · `memory_procedure_find` · `memory_procedure_delete` · `memory_rule_list` · `memory_rule_add` · `memory_rule_check` · `memory_rule_delete`
+### Procedural / Rule (8)
+`memory_procedure_list/add/find/delete` · `memory_rule_list/add/check/delete`
 
-### 生命周期管理（8个）
-`memory_autostore` · `memory_decay` · `memory_tier` · `memory_dedup` · `memory_refresh` · `memory_refresh_stats` · `memory_reminder_*` · `memory_qmd_search`
+### Lifecycle (8)
+`memory_autostore` · `memory_decay` · `memory_tier` · `memory_dedup` · `memory_refresh` · `memory_reminder_*` · `memory_qmd_search`
 
-### 可观测性（5个）
+### Observability (5)
 `memory_trace` · `memory_metrics` · `memory_wal` · `memory_templates` · `memory_scope`
 
-### HTTP API（4个）
-`memory_http_start` · `memory_http_stop` · `memory_http_status` · `memory_http_health`
+### HTTP API (4)
+`memory_http_start/stop/status/health`
 
-### Rerank 重排（2个）
-`memory_search_reranked` · `memory_rerank`
-
-### Chunking（1个）
-`memory_chunk_list`
-
-### 知识图谱（4个）
+### Knowledge Graph (4)
 `memory_graph_entity_*` · `memory_graph_relation_*` · `memory_graph_query` · `memory_graph_stats`
 
-### 主动与预测（7个）
+### Proactive & Prediction (7)
 `memory_proactive_*` · `memory_predict_*` · `memory_recommend`
 
-### 偏好槽位（5个）
-`memory_preference_slots` · `memory_preference_get/set/infer/explain`
+### Preference Slots (5)
+`memory_preference_slots/get/set/infer/explain`
 
-### 版本控制（3个）
-`memory_version_list` · `memory_version_diff` · `memory_version_timeline`
-
-### RAG / 问答（3个）
+### RAG / QA (3)
 `memory_qa` · `memory_extract` · `memory_summary`
 
-### 质量与学习（5个）
+### Quality & Learning (5)
 `memory_feedback` · `memory_noise` · `memory_reflection` · `memory_lessons` · `memory_intent`
 
 ---
 
-## 📁 数据文件
+## 📁 Data Files
 
-| 文件 | 说明 | 默认路径 |
-|------|------|---------|
-| 记忆存储 | JSON 格式持久化 | `~/.openclaw/workspace/memory/memories.json` |
-| 知识图谱 | 实体-关系数据 | `~/.openclaw/workspace/memory/knowledge_graph.json` |
-| Episodes | 会话片段 | `~/.openclaw/workspace/memory/episodes.json` |
-| WAL 日志 | 预写日志 | `~/.openclaw/workspace/memory/wal.jsonl` |
-| 配置 | Ollama/路径配置 | `~/.openclaw/workspace/memory/config.json` |
+| File | Description | Default Path |
+|------|-------------|--------------|
+| Memories | JSON persistence | `~/.openclaw/workspace/memory/memories.json` |
+| Knowledge Graph | Entity-relation data | `~/.openclaw/workspace/memory/knowledge_graph.json` |
+| Episodes | Session fragments | `~/.openclaw/workspace/memory/episodes.json` |
+| WAL Log | Write-ahead log | `~/.openclaw/workspace/memory/wal.jsonl` |
+| Config | Ollama/path config | `~/.openclaw/workspace/memory/config.json` |
 
 ---
 
-## 🔧 开发
+## 🔧 Development
 
 ```bash
-# 安装依赖
-npm install
+# Install deps (only npm packages, peer deps provided by host)
+npm install --ignore-scripts
 
-# 启动 MCP Server（stdio 模式）
+# Start MCP Server (stdio)
 node src/index.js
 
-# 启动 REST API
+# Start REST API
 node src/cli/index.js server --port 38421
 
-# CLI 工具
+# CLI help
 node src/cli/index.js --help
 
-# 运行测试
+# Run tests
 node run-tests.cjs
 ```
 
@@ -369,4 +254,4 @@ MIT
 
 ---
 
-*更新: 2026-03-28 | v2.4.0*
+*Last updated: 2026-03-28 | v2.4.0*
