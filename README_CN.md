@@ -1,4 +1,4 @@
-# 🧠 Unified Memory v2.5
+# 🧠 Unified Memory v2.6
 
 > AI Agent 专用记忆系统 — 多层级、持久化、主动式
 
@@ -182,4 +182,4 @@ node run-tests.cjs
 
 MIT
 
-*最后更新：2026-03-28 | v2.5.0*
+*最后更新：2026-03-28 | v2.6.0*
