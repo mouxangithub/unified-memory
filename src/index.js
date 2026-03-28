@@ -76,18 +76,19 @@ const server = new McpServer(
 // ============ Core Search Tools ============
 
 server.registerTool('memory_search', {
-  description: 'Search memories using BM25 + Vector hybrid search powered by Ollama. Returns relevant memories ranked by relevance.',
+  description: 'Search memories using BM25 + Vector hybrid search powered by Ollama. Returns relevant memories ranked by relevance. Scope filtering enables true multi-tenant isolation.',
   inputSchema: z.object({
     query: z.string().describe('Search query text'),
     topK: z.number().optional().default(5).describe('Number of results to return'),
     mode: z.enum(['hybrid', 'bm25', 'vector']).optional().default('hybrid').describe('Search mode: hybrid=BM25+vector, bm25=keyword only, vector=semantic only'),
+    scope: z.string().optional().describe('Scope filter: AGENT, USER, TEAM, GLOBAL — only vector search respects scope (BM25 is scope-agnostic)'),
   }),
-}, async ({ query, topK = 5, mode = 'hybrid' }) => {
+}, async ({ query, topK = 5, mode = 'hybrid', scope }) => {
   const span = startTrace('memory_search', { query: query.slice(0, 50), scope: mode });
   const timer = metrics.timer('memory_search', { scope: mode });
-    structuredLog.info( `Search: query="${query}" mode=${mode} topK=${topK}`);
+    structuredLog.info( `Search: query="${query}" mode=${mode} topK=${topK} scope=${scope}`);
   try {
-    const results = await hybridSearch(query, topK, mode);
+    const results = await hybridSearch(query, topK, mode, scope || null);
     for (const r of results) {
       touchMemory(r.memory.id);
     }
@@ -1319,21 +1320,22 @@ server.registerTool('memory_bm25', {
 });
 
 server.registerTool('memory_vector', {
-  description: 'Dense vector semantic search using Ollama embeddings. Get embedding for text or search by semantic similarity.',
+  description: 'Dense vector semantic search using Ollama embeddings. Get embedding for text or search by semantic similarity. Supports scope filtering for multi-tenant isolation.',
   inputSchema: z.object({
     action: z.enum(['embed', 'search']).describe('Action: embed=get vector for text, search=semantic similarity search'),
     text: z.string().optional().describe('Text to embed (for embed action)'),
     query: z.string().optional().describe('Query for search (for search action)'),
     topK: z.number().default(10).describe('Number of results for search'),
+    scope: z.string().optional().describe('Scope filter: AGENT, USER, TEAM, GLOBAL (only for search action)'),
   }),
-}, async ({ action, text, query, topK }) => {
+}, async ({ action, text, query, topK, scope }) => {
   try {
     if (action === 'embed') {
       const embedding = await getEmbedding(text || '');
       return { content: [{ type: 'text', text: JSON.stringify({ embedding, dimensions: embedding.length }) }] };
     }
     if (action === 'search') {
-      const results = await vectorSearch(query || '', topK || 10);
+      const results = await vectorSearch(query || '', topK || 10, scope || null);
       return { content: [{ type: 'text', text: JSON.stringify(results) }] };
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
