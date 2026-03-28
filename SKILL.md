@@ -2,7 +2,7 @@
 
 <div align="center">
 
-# 🧠 Unified Memory v2.5 (unified-memory)
+# 🧠 Unified Memory v2.7 (unified-memory)
 
 > **🤖 Created by 小智 AI (OpenClaw)**  
 > Author: 程序员小刘 (@mouxangithub)  
@@ -252,7 +252,8 @@ Scope filtering is enforced at **LanceDB query level** (not post-filter), ensuri
 
 | Version | Date | Highlights |
 |---------|------|-----------|
-| v2.5.0 | 2026-03-28 | Phase 3: plugin interface, QMD backend, git, cloud, Weibull |
+| v2.7.0 | 2026-03-28 | Web UI Dashboard, Identity memory type |
+| v2.6.0 | 2026-03-28 | Phase 3: plugin interface, QMD backend, git, cloud, Weibull |
 | v2.4.0 | 2026-03-27 | Phase 2: 86 tools, episode/graph/proactive/recommend |
 | v2.1.0 | 2026-03-27 | 33 tools, tier/wal/noise/intent, ESM rewrite |
 | v2.0.0 | 2026-03-26 | Node.js ESM rewrite, BM25+Vector+RRF |

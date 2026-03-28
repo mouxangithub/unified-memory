@@ -38,7 +38,8 @@ import { routeSearch, INTENT_TYPES } from './intent.js';
 import { extractMemories, batchExtract } from './extract.js';
 import { addLearning, addError, getLearnings, getErrors, getStats } from './reflection.js';
 import { initWal, flushWal, listWalFiles, logOp } from './wal.js';
-import { assignTiers, partitionByTier, redistributeTiers, compressColdTier } from './tier.js';
+import { assignTiers, partitionByTier, redistributeTiers, compressColdTier, autoMigrateTiers } from './tier.js';
+import { memoryTierStatusTool, memoryTierMigrateTool, memoryTierCompressTool } from './tier_tools.js';
 import { shouldSkipRetrieval } from './adaptive.js';
 import { buildBM25Index, bm25Search } from './bm25.js';
 import { getEmbedding, vectorSearch } from './vector_lancedb.js';
@@ -65,11 +66,14 @@ import { registerDecayStatsTool } from './decay/weibull_tools.js';
 // Feature #10: Preference Slots
 import { memoryPreferenceGetTool, memoryPreferenceSetTool, memoryPreferenceInferTool, memoryPreferenceExplainTool } from './tools/preference_tools.js';
 
-// Feature #11: Semantic Versioning
-import { memoryVersionListTool, memoryVersionDiffTool, memoryRollbackTool, memoryVersionTimelineTool } from './tools/version_tools.js';
+// Feature #11 + v2.7.0: Semantic Versioning + 完整修订历史
+import { memoryVersionListTool, memoryVersionDiffTool, memoryVersionRestoreTool } from './tools/version_tools.js';
 
 // P0-2: Entity Tools
 import { memoryEntityExtractTool, memoryEntityLinkTool, memoryEntityNeighborsTool, memoryEntitySearchTool } from './tools/entity_tools.js';
+
+// v2.7.0: Identity Memory Tools
+import { memoryIdentityExtractTool, memoryIdentityUpdateTool, memoryIdentityGetTool } from './tools/identity_tools.js';
 
 // P1-4: Git Notes
 import { memoryGitnotesBackupTool, memoryGitnotesRestoreTool } from './tools/git_notes.js';
@@ -474,30 +478,16 @@ server.registerTool('memory_version_diff', {
   }
 });
 
-server.registerTool('memory_rollback', {
-  description: 'Rollback a memory to a specific version, undo last change, or clear version history.',
+server.registerTool('memory_version_restore', {
+  description: 'Restore a memory to a specific version (v2.7.0). Set preview:true to preview without actually restoring. Use memory_version_list first to find versionId.',
   inputSchema: z.object({
-    memoryId: z.string().describe('Memory ID to rollback'),
-    versionId: z.string().optional().describe('Version ID to rollback to'),
-    action: z.enum(['rollback', 'undo', 'clear']).optional().describe('Action: rollback, undo, or clear'),
-    preview: z.boolean().optional().describe('Preview without actually rolling back'),
+    memoryId: z.string().describe('Memory ID to restore'),
+    versionId: z.string().optional().describe('Version ID to restore to (latest if omitted)'),
+    preview: z.boolean().optional().default(false).describe('Preview the restore without actually performing it'),
   }),
-}, async ({ memoryId, versionId, action, preview }) => {
+}, async ({ memoryId, versionId, preview }) => {
   try {
-    return memoryRollbackTool({ memoryId, versionId, action, preview });
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_version_timeline', {
-  description: 'Get version timeline for a memory or list memories with version history.',
-  inputSchema: z.object({
-    memoryId: z.string().optional().describe('Memory ID (optional, lists all if not provided)'),
-  }),
-}, async ({ memoryId }) => {
-  try {
-    return memoryVersionTimelineTool({ memoryId });
+    return memoryVersionRestoreTool({ memoryId, versionId, preview });
   } catch (err) {
     return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
   }
@@ -1391,6 +1381,48 @@ server.registerTool('memory_tier', {
   }
 });
 
+// ============ Tier Management Tools (v2.7.0) ============
+
+server.registerTool('memory_tier_status', {
+  description: 'View tier statistics: memory count, size, and recent access stats per tier (HOT/WARM/COLD). Shows distribution, tier config, and per-tier details.',
+  inputSchema: z.object({}),
+}, async () => {
+  try {
+    return memoryTierStatusTool();
+  } catch (err) {
+    structuredLog.error(`memory_tier_status error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_tier_migrate', {
+  description: 'Manually trigger automatic tier migration. Uses access frequency and importance heuristics to promote or demote memories between HOT/WARM/COLD tiers. Supports dry-run mode.',
+  inputSchema: z.object({
+    apply: z.boolean().optional().default(false).describe('If true, apply changes to storage; if false (default), only preview'),
+  }),
+}, async ({ apply }) => {
+  try {
+    return memoryTierMigrateTool({ apply });
+  } catch (err) {
+    structuredLog.error(`memory_tier_migrate error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_tier_compress', {
+  description: 'Compress COLD tier memories to reduce storage. Truncates text to 200 chars, drops embeddings and access metadata. Supports dry-run mode.',
+  inputSchema: z.object({
+    apply: z.boolean().optional().default(false).describe('If true, apply compression to storage; if false (default), only preview'),
+  }),
+}, async ({ apply }) => {
+  try {
+    return memoryTierCompressTool({ apply });
+  } catch (err) {
+    structuredLog.error(`memory_tier_compress error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
 server.registerTool('memory_adaptive', {
   description: 'Adaptive retrieval control. Check if a query should skip vector search (non-informational queries like greetings).',
   inputSchema: z.object({
@@ -2208,6 +2240,41 @@ server.registerTool('memory_entity_search', {
   }),
 }, async ({ query, topK, scope }) => {
   return memoryEntitySearchTool({ query, topK, scope });
+});
+
+// ============ v2.7.0: Identity Memory Tools ============
+
+server.registerTool('memory_identity_extract', {
+  description: 'Extract identity/preference/habit/requirement statements from text. Rules: "我喜欢..."→preference, "我讨厌..."→preference/dislike, "我是..."→identity, "我习惯..."→habit, "我需要..."→requirement, "我会..."→skill. Returns extracted statements with suggested importance scores.',
+  inputSchema: z.object({
+    text: z.string().describe('Text to extract identity statements from'),
+  }),
+}, async ({ text }) => {
+  return memoryIdentityExtractTool({ text });
+});
+
+server.registerTool('memory_identity_update', {
+  description: 'Store extracted identity statements as high-priority memories. Identity memories always use importance >= 0.9.',
+  inputSchema: z.object({
+    extractions: z.array(z.object({
+      content: z.string().describe('Extracted text content'),
+      type: z.string().optional().describe('Category: identity, preference, habit, requirement, skill, goal'),
+      importance: z.number().optional().describe('Importance (default 0.9 for identity types)'),
+      subType: z.string().optional().describe('Sub-type label'),
+      label: z.string().optional().describe('Human-readable label'),
+    })).describe('Array of extracted identity statements from memory_identity_extract'),
+  }),
+}, async ({ extractions }) => {
+  return memoryIdentityUpdateTool({ extractions });
+});
+
+server.registerTool('memory_identity_get', {
+  description: 'Get a summary of the user\'s identity profile from stored identity memories. Returns all memories categorized as identity, preference, habit, requirement, skill, or goal, grouped by category with importance scores.',
+  inputSchema: z.object({
+    type: z.string().optional().describe('Filter by specific identity type (identity/preference/habit/requirement/skill/goal)'),
+  }),
+}, async ({ type }) => {
+  return memoryIdentityGetTool({ type });
 });
 
 // ============ P1-4: Git Notes Backup/Restore ============

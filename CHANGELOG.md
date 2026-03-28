@@ -1,5 +1,62 @@
 # Changelog
 
+## v2.7.0 (2026-03-28)
+
+### Web UI Dashboard ⭐ NEW
+- `npm run dashboard` — Launch monitoring dashboard on port 3849
+- Real-time stats: total memories, 7d growth, access counts
+- Memory distribution: by category, scope, tier, importance, tags
+- System health: Ollama, LanceDB, memory file, storage usage
+- 14-day growth trend chart (Chart.js bar chart)
+- Scope donut chart
+- Management actions: cleanup old memories, export JSON
+- Auto-refresh every 5 seconds via AJAX
+- Lightweight HTTP server (no Express dependency required)
+
+### REST API Endpoints (Dashboard)
+- `GET /` — Dashboard UI
+- `GET /api/stats` — Memory statistics
+- `GET /api/health` — System health check
+- `GET /api/memories` — All memories
+- `GET /api/export` — Download memories JSON
+- `POST /api/manage` — Management actions (cleanup)
+
+---
+
+### Identity Memory Type ⭐ NEW
+
+#### Extended Category System
+- New `identity` category family: `identity`, `preference`, `habit`, `requirement`, `skill`, `goal`
+- Identity memories always use `importance >= 0.9` (highest priority)
+- Identity category documented in `src/storage.js`
+
+#### Identity Extraction Tools (`src/tools/identity_tools.js`)
+- `memory_identity_extract` — Rule-based extraction from text
+  - "我喜欢/爱/偏好..." → preference (like)
+  - "我讨厌/厌恶/不喜欢..." → preference (dislike)
+  - "我是/叫/职业..." → identity
+  - "我习惯/通常/经常..." → habit
+  - "我需要/必须/希望..." → requirement
+  - "我会/能/擅长..." → skill
+  - "我的目标..." → goal
+- `memory_identity_update` — Store extracted identities with importance 0.9+
+- `memory_identity_get` — Get user's identity profile summary
+
+#### Auto-Store Integration (`src/tools/autostore.js`)
+- Identity patterns run first (priority over general patterns)
+- Identity items auto-tagged `identity-auto`
+- Identity importance defaults to 0.9 (vs 0.6 for general)
+
+#### Tool Registration
+- All 3 identity tools registered in `src/index.js` as MCP tools
+
+### Files Changed
+- `src/storage.js` — identity category documentation
+- `src/tools/autostore.js` — IDENTITY_PATTERNS + extractIdentityInfo()
+- `src/tools/identity_tools.js` — NEW (3 tools + extraction engine)
+- `src/index.js` — 3 new tool registrations + import
+- `package.json` — version 2.7.0
+
 ## v2.6.0 (2026-03-28)
 
 ### Phase 3 — Complete
