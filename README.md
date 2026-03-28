@@ -7,7 +7,7 @@
 *AI Agent 专用记忆系统 - 多层级、持久化、主动式记忆*
 
 > **🤖 本项目由小智 AI（OpenClaw）创建生成**  
-> 作者：刘选权（ou_7b3a4352f86486ebdaf0de572093afb1）  
+> 作者：程序员小刘（@mouxangithub）  
 > 基于 OpenClaw Agent 框架驱动，集成 BM25 + 向量混合搜索、RAG、主动召回等 86 个工具
 
 [![GitHub stars](https://img.shields.io/github/stars/mouxangithub/unified-memory)](https://github.com/mouxangithub/unified-memory)
