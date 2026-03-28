@@ -9,6 +9,23 @@
 
 ---
 
+## 📖 Table of Contents
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+  - [Option 1 — Clawhub (Recommended)](#option-1--clawhub-recommended)
+  - [Option 2 — Curl Installer](#option-2--curl-installer)
+  - [Option 3 — Manual](#option-3--manual)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Architecture](#architecture)
+- [Phase 3 New Tools](#phase-3-new-tools)
+- [Development](#development)
+- [License](#license)
+
+---
+
 ## Features
 
 | Feature | Description |
