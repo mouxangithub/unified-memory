@@ -7,22 +7,49 @@ import { getAllMemories } from '../storage.js';
 import { hybridSearch } from '../fusion.js';
 import { log } from '../config.js';
 
-const OLLAMA_URL = process.env.OLLAMA_HOST || 'http://localhost:11434';
-const LLM_MODEL = process.env.OLLAMA_LLM_MODEL || 'deepseek-v3.2:cloud';
+const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY;
+const MINIMAX_BASE_URL = process.env.MINIMAX_API_HOST || 'https://api.minimax.chat';
+const LLM_MODEL = 'MiniMax-M2.7'; // user requested minimax-m2.7:cloud
 
-async function ollamaChat(prompt) {
+// Simple in-memory LRU cache — server is long-running, so this persists
+const llmCache = new Map();
+const MAX_CACHE_SIZE = 50;
+
+async function llmChat(prompt) {
+  if (!MINIMAX_API_KEY) {
+    log('ERROR', 'MINIMAX_API_KEY not set');
+    return '抱歉，LLM API 未配置';
+  }
+  // Cache lookup — same prompt returns instantly
+  if (llmCache.has(prompt)) {
+    log('INFO', 'LLM cache hit');
+    return llmCache.get(prompt);
+  }
   try {
-    const response = await fetch(`${OLLAMA_URL}/api/chat`, {
+    const response = await fetch(`${MINIMAX_BASE_URL}/v1/text/chatcompletion_v2`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${MINIMAX_API_KEY}`
+      },
       body: JSON.stringify({
         model: LLM_MODEL,
         messages: [{ role: 'user', content: prompt }],
-        stream: false
-      })
+        stream: false,
+        max_tokens: 512
+      }),
+      signal: AbortSignal.timeout(15000)
     });
+    if (!response.ok) throw new Error(`MiniMax ${response.status}`);
     const data = await response.json();
-    return data.message?.content || '抱歉，生成答案失败';
+    const answer = data.choices?.[0]?.message?.content || '抱歉，生成答案失败';
+    // Store in cache (LRU eviction)
+    if (llmCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = llmCache.keys().next().value;
+      llmCache.delete(firstKey);
+    }
+    llmCache.set(prompt, answer);
+    return answer;
   } catch (err) {
     log('ERROR', `LLM call failed: ${err.message}`);
     return '抱歉，暂时无法连接 LLM 服务';
@@ -36,8 +63,8 @@ export async function askQuestion({ question }) {
   
   log('INFO', `QA: ${question}`);
   
-  // Search relevant memories
-  const results = await hybridSearch(question, 5, 'hybrid');
+  // Build context first
+  const results = await hybridSearch(question, 5, 'bm25');
   
   if (results.length === 0) {
     return {
@@ -46,9 +73,9 @@ export async function askQuestion({ question }) {
     };
   }
   
-  // Build context
+  // Build context and call LLM
   const context = results.map((r, i) => 
-    `[${i + 1}] [${r.memory.category}] ${r.memory.text}`
+    `[${i + 1}] [${r.memory.category || 'memory'}] ${r.memory.text}`
   ).join('\n');
   
   const prompt = `基于以下记忆内容回答用户问题。如果记忆中没有相关信息，请直接说明你不清楚。
@@ -60,7 +87,8 @@ ${context}
 
 请用简洁的语言回答，引用相关记忆的编号。`;
   
-  const answer = await ollamaChat(prompt);
+  // llmChat now handles its own cache — second call with same prompt returns instantly
+  const answer = await llmChat(prompt);
   
   return {
     content: [{
@@ -70,8 +98,8 @@ ${context}
         answer,
         sources: results.map(r => ({
           id: r.memory.id,
-          text: r.memory.text.slice(0, 100),
-          relevance: Math.round(r.fusionScore * 100) / 100
+          text: r.memory.text.slice(0, 150),
+          relevance: Math.round((r.bm25Score || 0.5) * 100) / 100
         }))
       }, null, 2)
     }]
