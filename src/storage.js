@@ -219,6 +219,15 @@ export function getMemory(id) {
  * Update access stats
  * @param {string} id
  */
+export function updateMemory(updatedMem) {
+  const memories = getAllMemories();
+  const idx = memories.findIndex((m) => m.id === updatedMem.id);
+  if (idx === -1) return false;
+  memories[idx] = { ...memories[idx], ...updatedMem };
+  saveMemories(memories);
+  return true;
+}
+
 export function touchMemory(id) {
   const memories = getAllMemories();
   const mem = memories.find((m) => m.id === id);
