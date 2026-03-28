@@ -1,239 +1,153 @@
-# 🧠 Unified Memory v2.0
+# 🧠 Unified Memory v2.5
 
 > AI Agent Memory System — Multi-layered, Persistent, Proactive
 
----
-
-<div align="center">
-
-**🤖 This project was created by 小智 AI (OpenClaw)**  
-Author: 程序员小刘 (@mouxangithub)  
-Powered by OpenClaw Agent framework, 86 MCP tools
-
-[![GitHub stars](https://img.shields.io/github/stars/mouxangithub/unified-memory)](https://github.com/mouxangithub/unified-memory)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js-22+-green.svg)](https://nodejs.org/)
+**Author**: 程序员小刘 (@mouxangithub)  
+**GitHub**: https://github.com/mouxangithub/unified-memory  
+**Registry**: `clawhub install unified-memory`  
+**Framework**: OpenClaw Agent | Node.js ESM | 76 MCP Tools
 
 ---
 
-## 🌍 Documentation Index | 文档索引
-
-| Language | README | Skill |
-|----------|--------|-------|
-| 🇨🇳 中文 | [README_CN.md](README_CN.md) | [SKILL_CN.md](SKILL_CN.md) |
-| 🇺🇸 English ✅ | [README.md](README.md) | [SKILL.md](SKILL.md) |
-
----
-
-## 🌟 Core Features
+## Features
 
 | Feature | Description |
 |---------|-------------|
 | 🔄 **Persistent Context** | No more re-explaining every session |
-| 🔍 **Hybrid Search** | BM25 + Vector + RRF (100% local) |
+| 🔍 **Hybrid Search** | BM25 + Vector + RRF (100% local, Ollama-powered) |
 | 💬 **Auto-Store** | Hooks mode, no manual calls needed |
-| 📊 **User Insights** | Category distribution, tool usage analysis |
-| 🧹 **Smart Forget** | Low-value memories auto-pruned |
-| 🔗 **Knowledge Graph** | Entity extraction & relationship mapping |
-| 🤝 **Multi-Agent** | Share memories across agents |
+| 🏷️ **Scope Isolation** | AGENT / USER / TEAM / GLOBAL — enforced at LanceDB query level |
+| 📈 **Weibull Decay** | Human-like forgetting curve (shape=1.5, scale=30 days) |
+| 🔗 **Git Versioning** | Git-backed memory snapshots and notes |
+| ☁️ **Cloud Backup** | SuperMemory API + Custom REST dual sync |
+| 📊 **Knowledge Graph** | Entity extraction and relationship mapping |
 | 🏥 **Health Check** | Complete system health monitoring |
 
 ---
 
-## 🚀 Quick Start
+## Requirements
 
-### Option 1: OpenClaw Skill Market (One-Click)
+| Dependency | Version | Notes |
+|------------|---------|-------|
+| Node.js | ≥ 22 | ESM required |
+| Ollama | ≥ 0.1.40 | Optional — falls back to BM25-only if missing |
+| OpenClaw | ≥ 2026.3 | For skill system / Clawhub integration |
 
+---
+
+## Installation
+
+### Option 1 — Clawhub (Recommended)
 ```bash
-clawhub info unified-memory
 clawhub install unified-memory
 openclaw gateway restart
 ```
 
-### Option 2: Curl Installer (Any AI Agent)
-
+### Option 2 — Curl Installer
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mouxangithub/unified-memory/main/install.sh | bash
 ```
 
-### Option 3: Manual Install
-
+### Option 3 — Manual
 ```bash
 git clone https://github.com/mouxangithub/unified-memory.git
-cd unified-memory
-npm install --ignore-scripts
-node src/index.js
+cd unified-memory && npm install --ignore-scripts
 ```
 
 ---
 
-## 📋 Prerequisites
-
-| Dependency | Version | Notes |
-|------------|---------|-------|
-| Node.js | ≥ 22 | Latest LTS recommended |
-| Ollama | ≥ 0.1.40 | Optional — auto-falls back to BM25-only if missing |
-| OpenClaw | ≥ 2026.3 | For skill system integration (optional) |
+## Quick Start
 
 ```bash
-# Install Ollama (optional)
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull nomic-embed-text   # Embedding model for vector search
-```
+# Verify installation
+mcporter call unified-memory memory_health '{}'
 
----
-
-## 🔌 Integrate with Any AI Agent
-
-### OpenClaw (Auto-Integrated)
-
-```bash
-openclaw gateway restart  # unified-memory auto-loads via mcporter
-```
-
-### Claude Desktop
-
-```json
-// ~/Library/Application Support/Claude/claude_desktop_config.json
-{
-  "mcpServers": {
-    "unified-memory": {
-      "command": "node",
-      "args": ["/absolute/path/to/unified-memory/src/index.js"]
-    }
-  }
-}
-```
-
-### Cursor / Windsurf / Coinexx
-
-```json
-// .cursor/mcp.json
-{
-  "mcpServers": {
-    "unified-memory": {
-      "command": "node",
-      "args": ["/path/to/unified-memory/src/index.js"]
-    }
-  }
-}
-```
-
-### HTTP REST API (No MCP)
-
-```bash
-# Start REST server
-node src/cli/index.js server --port 38421
-
-# Search
-curl -X POST http://localhost:38421/search \
-  -H "Content-Type: application/json" \
-  -d '{"query":"user preferences","topK":5}'
-
-# List memories
-curl http://localhost:38421/memory
-```
-
----
-
-## 🛠️ Configuration
-
-```bash
-# Environment variables (optional)
-export OLLAMA_HOST=http://localhost:11434
-export OLLAMA_EMBED_MODEL=nomic-embed-text:latest
-```
-
-Or create `~/.openclaw/workspace/memory/config.json`:
-
-```json
-{
-  "ollamaUrl": "http://192.168.2.155:11434",
-  "embedModel": "nomic-embed-text:latest",
-  "llmModel": "deepseek-v3.2",
-  "storageDir": "~/.openclaw/workspace/memory"
-}
-```
-
----
-
-## 🧪 Quick Test
-
-```bash
 # Store a memory
-node src/cli/index.js store "Test memory" --category fact --importance 0.8
+mcporter call unified-memory memory_store '{"text": "刘总喜欢简洁直接的沟通风格", "category": "preference", "scope": "USER"}'
 
-# Search
-node src/cli/index.js search "test"
+# Search memories
+mcporter call unified-memory memory_search '{"query": "刘总沟通风格", "scope": "USER"}'
 
-# Health check
-curl http://localhost:38421/health
-
-# Run tests
-node run-tests.cjs
+# Check stats
+mcporter call unified-memory memory_stats '{}'
 ```
 
 ---
 
-## 📦 86 MCP Tools Overview
+## Configuration
 
-### Core Storage (9)
-`memory_store` · `memory_list` · `memory_search` · `memory_delete` · `memory_update` · `memory_get` · `memory_stats` · `memory_health` · `memory_export`
-
-### Search (6)
-`memory_bm25` · `memory_vector` · `memory_mmr` · `memory_rerank_llm` · `memory_adaptive` · `memory_concurrent_search`
-
-### Episode Memory (6)
-`memory_episode_start` · `memory_episode_end` · `memory_episode_list` · `memory_episode_recall` · `memory_episode_merge` · `memory_episode_delete`
-
-### Procedural / Rule (8)
-`memory_procedure_list/add/find/delete` · `memory_rule_list/add/check/delete`
-
-### Lifecycle (8)
-`memory_autostore` · `memory_decay` · `memory_tier` · `memory_dedup` · `memory_refresh` · `memory_reminder_*` · `memory_qmd_search`
-
-### Observability (5)
-`memory_trace` · `memory_metrics` · `memory_wal` · `memory_templates` · `memory_scope`
-
-### HTTP API (4)
-`memory_http_start/stop/status/health`
-
-### Knowledge Graph (4)
-`memory_graph_entity_*` · `memory_graph_relation_*` · `memory_graph_query` · `memory_graph_stats`
-
-### Proactive & Prediction (7)
-`memory_proactive_*` · `memory_predict_*` · `memory_recommend`
-
-### Preference Slots (5)
-`memory_preference_slots/get/set/infer/explain`
-
-### RAG / QA (3)
-`memory_qa` · `memory_extract` · `memory_summary`
-
-### Quality & Learning (5)
-`memory_feedback` · `memory_noise` · `memory_reflection` · `memory_lessons` · `memory_intent`
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `OLLAMA_HOST` | `http://localhost:11434` | Ollama server |
+| `OLLAMA_EMBED_MODEL` | `nomic-embed-text-v1.5` | Embedding model |
+| `MEMORY_FILE` | `~/.openclaw/workspace/memory/memories.json` | Memory storage path |
+| `VECTOR_DB_DIR` | `~/.unified-memory/vector.lance` | LanceDB path |
 
 ---
 
-## 📁 Data Files
+## Architecture
 
-| File | Description | Default Path |
-|------|-------------|--------------|
-| Memories | JSON persistence | `~/.openclaw/workspace/memory/memories.json` |
-| Knowledge Graph | Entity-relation data | `~/.openclaw/workspace/memory/knowledge_graph.json` |
-| Episodes | Session fragments | `~/.openclaw/workspace/memory/episodes.json` |
-| WAL Log | Write-ahead log | `~/.openclaw/workspace/memory/wal.jsonl` |
-| Config | Ollama/path config | `~/.openclaw/workspace/memory/config.json` |
+```
+OpenClaw Agent
+└── unified-memory (Node.js ESM MCP Server)
+    ├── 63 core tools (index.js)
+    ├── Phase 3 additions:
+    │   ├── plugin/         — OpenClaw Memory Plugin interface
+    │   ├── search/         — QMD backend integration
+    │   ├── integrations/   — Git + Cloud backup
+    │   └── decay/          — Weibull decay model
+    ├── BM25 + Vector + RRF hybrid search
+    ├── LanceDB (embedded, zero-config)
+    ├── WAL + tier management
+    └── Knowledge graph + preference slots
+```
 
 ---
 
-## 🔧 Development
+## Phase 3 New Tools
+
+### Plugin Interface (3)
+`phase3_memory_search` · `phase3_memory_get` · `phase3_memory_write`
+
+### Git Integration (7)
+`memory_git_init` · `memory_git_sync` · `memory_git_history` · `memory_git_note` · `memory_git_pull` · `memory_git_push` · `memory_git_status`
+
+### Cloud Backup (3)
+`memory_cloud_sync` · `memory_cloud_push` · `memory_cloud_pull`
+
+### Weibull Decay (2)
+`memory_decay_stats` · `memory_decay_strength`
+
+### QMD Backend (3)
+`memory_qmd_query` · `memory_qmd_status` · `memory_qmd_search2`
+
+---
+
+## Scope Isolation
+
+Scope filtering is enforced at **LanceDB query level** (not post-filter), so each scope sees only its own vectors:
+
+| Scope | Access |
+|-------|--------|
+| `AGENT` | Single agent private |
+| `USER` | Per-user, excludes AGENT |
+| `TEAM` | Team-shared, excludes USER/AGENT |
+| `GLOBAL` | Public to all |
 
 ```bash
-# Install deps (only npm packages, peer deps provided by host)
+# Search within USER scope only
+mcporter call unified-memory memory_search '{"query": "project plans", "scope": "USER"}'
+```
+
+---
+
+## Development
+
+```bash
+# Install deps (peer deps provided by host)
 npm install --ignore-scripts
 
-# Start MCP Server (stdio)
+# Start MCP server (stdio)
 node src/index.js
 
 # Start REST API
@@ -248,10 +162,24 @@ node run-tests.cjs
 
 ---
 
-## 📄 License
+## File Structure
 
-MIT
+| File | Description |
+|------|-------------|
+| `src/index.js` | MCP server (63 core tools) |
+| `src/plugin/` | OpenClaw Memory Plugin interface |
+| `src/search/` | QMD search backend |
+| `src/integrations/` | Git + Cloud backup |
+| `src/decay/` | Weibull decay model |
+| `src/core/` | BM25, vector, fusion, tier, dedup, etc. |
+| `src/cli/` | CLI tools |
+| `wal/` | Write-ahead log |
+| `memories.json` | Memory persistence |
 
 ---
 
-*Last updated: 2026-03-28 | v2.4.0*
+## License
+
+MIT
+
+*Last updated: 2026-03-28 | v2.5.0*

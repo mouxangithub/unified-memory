@@ -2,325 +2,292 @@
 
 <div align="center">
 
-# 🧠 Unified Memory v2.4 (unified-memory)
+# 🧠 Unified Memory v2.5 (unified-memory)
 
 > **🤖 本项目由小智 AI（OpenClaw）创建生成**  
 > 作者：程序员小刘（@mouxangithub）  
-> 框架：OpenClaw Agent | 完全使用 Node.js ESM 重构 | 86 个 MCP 工具
+> 框架：OpenClaw Agent | Node.js ESM | 76 个 MCP 工具
 
-**项目路径**: `/root/.openclaw/workspace/skills/unified-memory/`
+**项目路径**: `/root/.openclaw/workspace/skills/unified-memory/`  
+**GitHub**: https://github.com/mouxangithub/unified-memory  
+**安装**: `clawhub install unified-memory`
 
 ---
 
-## 🌍 Documentation Index | 文档索引
+## 🌍 Documentation | 文档索引
 
 | Language | README | Skill |
 |----------|--------|-------|
-| 🇨🇳 中文 ✅ | [README.md](README.md) | [SKILL.md](SKILL.md) |
-| 🇺🇸 English | [README_EN.md](README_EN.md) | [SKILL_EN.md](SKILL_EN.md) |
+| 🇨🇳 中文 ✅ | [README_CN.md](README_CN.md) | [SKILL_CN.md](SKILL_CN.md) |
+| 🇺🇸 English | [README.md](README.md) | [SKILL.md](SKILL.md) |
 
 ---
 
-</div>
+## v2.5 新增功能
+
+| 功能 | 说明 |
+|------|------|
+| 🔄 **Scope 隔离** | LanceDB 查询层 scope 过滤（AGENT/USER/TEAM/GLOBAL） |
+| 🔍 **QMD 后端** | OpenClaw 原生文档搜索后端接入 |
+| ☁️ **云备份** | SuperMemory API + Custom REST 双模式同步 |
+| 📈 **Weibull 衰减** | Weibull 分布遗忘曲线（shape=1.5, scale=30天） |
+| 🔗 **Git 集成** | Git 版本化记忆快照 + git notes |
+| 🏥 **Plugin 接口** | OpenClaw Memory Plugin 规范（memory_search/get/write） |
+| ⚡ **Phase 3 完成** | 全部 76 个工具注册，零外部数据库依赖 |
 
 ---
 
-## 概述
+## 架构
 
-Unified Memory 是一个为 AI Agent 设计的记忆系统，具备持久化、混合检索、智能遗忘和主动注入能力。通过 MCP 协议提供 86 个工具，支持 BM25 + 向量 + RRF 融合搜索、LLM 增强提取、Weibull 时间衰减、多级Scope隔离、Preference Slots、Semantic Versioning 等特性。
-
-**存储后端**: JSON 文件（`~/.openclaw/workspace/memory/memories.json`）+ Ollama 向量引擎（完全本地）
-
-**无外部存储依赖**: 不依赖 memory-lancedb-pro 或任何外部服务
+```
+OpenClaw Agent
+└── unified-memory (Node.js ESM)
+    ├── MCP Server（63 个核心工具，index.js）
+    ├── Plugin 接口（3 个工具：memory_search/get/write）
+    ├── QMD 搜索后端（3 个工具）
+    ├── Git 集成（7 个工具）
+    ├── 云备份（3 个工具：SuperMemory + REST）
+    ├── Weibull 衰减（2 个工具）
+    ├── BM25 + Vector + RRF 混合搜索
+    ├── Weibull 时间衰减（shape=1.5，scale=30天）
+    ├── 多级 Scope 隔离（LanceDB 查询层）
+    ├── 写前日志 WAL（崩溃恢复）
+    ├── 知识图谱（实体提取）
+    ├── 意图路由 + 噪音过滤
+    ├── Preference Slots（结构化用户画像）
+    └── 自我改进（反思、去重、Lesson 系统）
+```
 
 ---
 
-## 86 个 MCP 工具完整清单
+## 快速开始
+
+```bash
+# 1. 通过 Clawhub 安装（推荐）
+clawhub install unified-memory
+
+# 2. 验证安装
+mcporter call unified-memory memory_health '{}'
+
+# 3. 存储第一条记忆
+mcporter call unified-memory memory_store '{"text": "你好世界", "category": "general"}'
+
+# 4. 搜索记忆
+mcporter call unified-memory memory_search '{"query": "你好"}'
+
+# 5. 查看统计
+mcporter call unified-memory memory_stats '{}'
+```
+
+---
+
+## 76 个 MCP 工具完整清单
 
 ### 核心工具（9个）
 | 工具 | 说明 |
 |------|------|
-| `memory_search` | 混合搜索：BM25 → Vector → Rerank → MMR → Decay → Scope → RRF 融合 |
-| `memory_store` | 存储新记忆，支持 category/importance/tags/scope |
-| `memory_list` | 列出记忆，支持分页和过滤器 |
+| `memory_search` | 混合搜索：BM25 → Vector → Rerank → MMR → Decay → Scope → RRF |
+| `memory_store` | 存储记忆（category/importance/tags/scope） |
+| `memory_list` | 分页列出记忆，支持过滤器 |
 | `memory_delete` | 删除记忆 |
-| `memory_stats` | 统计：记忆总数、分类分布、重要性分布 |
-| `memory_health` | 健康检查：存储、向量引擎、缓存状态 |
-| `memory_insights` | 用户洞察：类别分布、工具使用分析、存储建议 |
+| `memory_stats` | 统计：总数、分类分布、重要性分布 |
+| `memory_health` | 健康检查：存储、向量引擎、缓存 |
+| `memory_insights` | 用户洞察：分类分布、工具使用分析 |
 | `memory_export` | 导出：JSON / Markdown / CSV |
 | `memory_metrics` | 系统指标监控 |
 
-### 检索增强（6个）
+### 搜索与检索（6个）
 | 工具 | 说明 |
 |------|------|
 | `memory_bm25` | 纯 BM25 关键词搜索 |
-| `memory_vector` | Ollama 向量语义搜索 |
-| `memory_mmr` | MMR（最大边际相关性）多样性选择 |
+| `memory_vector` | Ollama 向量语义搜索（支持 scope 过滤） |
+| `memory_mmr` | MMR 多样性选择 |
 | `memory_rerank_llm` | LLM Cross-Encoder 重排序 |
-| `memory_adaptive` | 自适应跳过非检索类查询（闲聊等） |
+| `memory_adaptive` | 自适应跳过非检索类查询 |
 | `memory_concurrent_search` | 并发多路搜索 |
 
-### Preference Slots（5个）⭐ 新增
+### Plugin 接口 — OpenClaw 规范（3个）⭐ 新增
 | 工具 | 说明 |
 |------|------|
-| `memory_preference_slots` | 用户偏好槽位（结构化 key-value） |
-| `memory_preference_get` | 获取偏好值，含完整元数据 |
-| `memory_preference_set` | 设置偏好值，指定来源和置信度 |
-| `memory_preference_infer` | 从对话历史自动推断偏好 |
-| `memory_preference_explain` | 偏好来源解释 |
+| `phase3_memory_search` | 规范搜索，支持 scope 隔离 |
+| `phase3_memory_get` | 规范记忆读取 |
+| `phase3_memory_write` | 规范记忆写入 |
 
-### Semantic Versioning（3个）⭐ 新增
+### QMD 搜索后端（3个）⭐ 新增
 | 工具 | 说明 |
 |------|------|
-| `memory_version_list` | 记忆版本历史列表 |
-| `memory_version_diff` | 两个版本间的差异对比 |
-| `memory_version_timeline` | 版本时间线可视化 |
+| `memory_qmd_query` | 查询 QMD 集合（workspace/daily-logs/projects） |
+| `memory_qmd_status` | QMD 索引状态和集合信息 |
+| `memory_qmd_search2` | QMD 混合搜索，支持 scope 过滤 |
+
+### Git 集成（7个）⭐ 新增
+| 工具 | 说明 |
+|------|------|
+| `memory_git_init` | 初始化 Git 仓库用于版本化记忆 |
+| `memory_git_sync` | 将所有记忆同步到 Git 提交 |
+| `memory_git_history` | 查看记忆提交历史 |
+| `memory_git_note` | 为记忆添加 Git note |
+| `memory_git_pull` | 从远程拉取 |
+| `memory_git_push` | 推送到远程 |
+| `memory_git_status` | Git 工作区状态 |
+
+### 云备份（3个）⭐ 新增
+| 工具 | 说明 |
+|------|------|
+| `memory_cloud_sync` | 同步记忆到云端（SuperMemory 或 Custom REST） |
+| `memory_cloud_push` | 推送记忆到云端 |
+| `memory_cloud_pull` | 从云端拉取记忆 |
+
+### Weibull 衰减（2个）⭐ 新增
+| 工具 | 说明 |
+|------|------|
+| `memory_decay_stats` | 每条记忆的衰减统计 |
+| `memory_decay_strength` | 调整衰减强度乘数 |
 
 ### 主动与预测（6个）
 | 工具 | 说明 |
 |------|------|
 | `memory_proactive_start` | 启动主动召回定时器 |
 | `memory_proactive_stop` | 停止主动召回 |
-| `memory_proactive_status` | 召回状态查询 |
+| `memory_proactive_status` | 主动召回状态 |
 | `memory_proactive_recall` | 主动注入记忆到上下文 |
 | `memory_proactive_trigger` | 手动触发召回 |
 | `memory_proactive_care` | 主动关怀触发 |
 
-### 知识图谱（4个）⭐ 新增
+### 知识图谱（5个）
 | 工具 | 说明 |
 |------|------|
 | `memory_graph_entity` | 实体提取与管理 |
 | `memory_graph_relation` | 实体关系管理 |
 | `memory_graph_query` | 图查询（实体关联路径） |
 | `memory_graph_stats` | 图统计信息 |
+| `memory_graph_add` | 添加实体到图 |
 
 ### RAG 与问答（3个）
 | 工具 | 说明 |
 |------|------|
-| `memory_qa` | RAG 智能问答，检索+生成 |
-| `memory_extract` | LLM 8秒超时从文本提取记忆 |
-| `memory_summary` | 记忆摘要生成 |
+| `memory_qa` | RAG 智能问答 |
+| `memory_qmd_get` | 通过 QMD 获取本地文件内容 |
+| `memory_qmd_list` | 列出 QMD 索引的文件 |
 
-### 质量与学习（5个）
+### 自我改进（8个）
 | 工具 | 说明 |
 |------|------|
-| `memory_noise` | 噪音过滤：shouldStore/qualityScore |
-| `memory_reflection` | 自我改进：extractLesson / recallLessons |
-| `memory_lessons` | 经验沉淀：extract/recall/list/stats/delete |
-| `memory_feedback` | 反馈学习（helpful/irrelevant/wrong/outdated） |
-| `memory_intent` | 查询意图分类（FACT/PREFERENCE/RECENT/PROJECT 等） |
+| `memory_reflection` | 会话反思与洞察提取 |
+| `memory_noise` | 噪音模式学习 |
+| `memory_intent` | 意图分类 |
+| `memory_extract` | 结构化实体提取 |
+| `memory_dedup` | 去重合并 |
+| `memory_lessons` | Lesson 系统（从错误中学习） |
+| `memory_feedback` | 用户反馈集成 |
+| `memory_rollback` | WAL 回滚 |
 
-### 可观测性（5个）
+### Preference 与推理（6个）
 | 工具 | 说明 |
 |------|------|
-| `memory_trace` | 检索链路追踪 |
-| `memory_metrics` | 系统指标监控 |
-| `memory_wal` | Write-Ahead Log：故障恢复、批量写入 |
-| `memory_templates` | 记忆模板管理 |
-| `memory_scope` | 作用域隔离：AGENT / USER / TEAM / GLOBAL 四级 |
+| `memory_preference_slots` | 用户偏好槽位（结构化 KV） |
+| `memory_preference_get` | 获取偏好值，含完整元数据 |
+| `memory_preference_set` | 设置偏好值，含来源和置信度 |
+| `memory_preference_infer` | 从对话历史推断偏好 |
+| `memory_preference_explain` | 偏好来源解释 |
+| `memory_inference` | 推理引擎 |
 
-### 生命周期（7个）
+### 版本与模板（4个）
 | 工具 | 说明 |
 |------|------|
-| `memory_autostore` | 自动存储：注册 Hook，文本变化时自动写入 |
-| `memory_decay` | Weibull 时间衰减（7天保留89%，30天37%） |
-| `memory_tier` | 三层分级：HOT（7天）→ WARM（30天）→ COLD（90天） |
-| `memory_dedup` | 语义去重（Embedding Jaccard） |
-| `memory_reminder_add` | 添加定时提醒 |
-| `memory_reminder_cancel` | 取消提醒 |
-| `memory_reminder_list` | 提醒列表 |
+| `memory_version_list` | 记忆版本历史列表 |
+| `memory_version_diff` | 两个版本间的差异对比 |
+| `memory_version_timeline` | 版本时间线可视化 |
+| `memory_templates` | 记忆模板 |
 
-### 高级推理（5个）
+### 监控与运维（5个）
 | 工具 | 说明 |
 |------|------|
-| `memory_rollback` | 回滚记忆到指定版本 |
-| `memory_inference` | 上下文推理增强 |
-| `memory_predict` | 记忆使用预测 |
-| `memory_predict_enhanced` | 增强预测（多策略融合） |
-| `memory_recommend` | 关联推荐 |
+| `memory_wal` | 写前日志操作 |
+| `memory_tier` | HOT/WARM/COLD 分层管理 |
+| `memory_decay` | 衰减管理 |
+| `memory_trace` | 搜索追踪 |
+| `memory_reminder_*` | 提醒 CRUD |
 
-### 配置与偏好
+### QMD 文件访问（2个）
 | 工具 | 说明 |
 |------|------|
-| `memory_preference_slots` | 用户偏好槽位（沟通风格/时区/语言/响应长度等） |
+| `memory_qmd_vsearch` | QMD 向量搜索 |
+| `memory_scope` | Scope 规范化与过滤 |
+
+### 推荐与摘要（4个）
+| 工具 | 说明 |
+|------|------|
+| `memory_recommend` | 基于上下文推荐记忆 |
+| `memory_summary` | 生成记忆摘要 |
+| `memory_autostore` | 自动存储模式开关 |
+| `memory_id` | 获取记忆 ID |
 
 ---
 
-## 搜索算法流程
+## Scope 级别
 
-```
-用户查询
-    │
-    ▼
-┌─────────────────────────┐
-│  Adaptive Skip Check    │ ← 短消息/闲聊直接跳过
-└────────────┬────────────┘
-             │ 需要检索
-             ▼
-┌─────────────────────────┐
-│    Intent Router        │ ← 判断查询类型
-│  FACT/PREF/RECENT/PROJ  │
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│    BM25 Search          │ ← 关键词精确匹配
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│   Vector Search         │ ← Ollama nomic-embed-text
-│   (via embed_cache)     │
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│   LLM Rerank            │ ← Cross-Encoder 重排
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│   MMR Diversity         │ ← 最大边际相关性
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│   Weibull Decay         │ ← 时间衰减
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│   Scope Filter          │ ← AGENT/USER/TEAM/GLOBAL
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐
-│   RRF Fusion            │ ← rank-based 分值融合
-│   score = Σ 1/(k+rank) │
-└────────────┬────────────┘
-             │
-             ▼
-        返回 Top-K 结果
-```
+| 级别 | 说明 | 访问权限 |
+|------|------|---------|
+| `AGENT` | 单 Agent 私有记忆 | 仅该 Agent |
+| `USER` | 单用户记忆 | 用户 scope 及以上 |
+| `TEAM` | 团队共享记忆 | 团队 scope 及以上 |
+| `GLOBAL` | 全局公开记忆 | 所有人 |
+
+Scope 过滤在 **LanceDB 查询层**执行（非结果后过滤），确保真正的多租户隔离。
 
 ---
 
-## 目录结构（147 个 JS 文件）
+## 存储后端
 
-```
-src/
-├── index.js              # MCP Server 入口（33工具注册）
-├── manager.js            # 记忆管理器
-├── memory.js             # 核心 Memory 类
-├── unified_memory.js     # 统一记忆接口
-├── search.js            # 主搜索流程编排
-├── storage.js           # JSON 存储层
-├── config.js            # 配置管理
-├── types.js             # 类型定义
-├── utils.js             # 工具函数
-│
-├── tools/               # 17个 MCP 工具实现
-│   ├── autostore.js
-│   ├── concurrent_search.js
-│   ├── decay.js
-│   ├── dedup.js
-│   ├── export.js
-│   ├── feedback_learner.js
-│   ├── health.js
-│   ├── inference.js
-│   ├── insights.js
-│   ├── predict.js
-│   ├── qa.js
-│   ├── qmd_search.js
-│   ├── recommend.js
-│   ├── rerank.js
-│   ├── summary.js
-│   ├── templates.js
-│   └── auto_extractor.js
-│
-├── core/                # 25个核心引擎模块
-│   ├── adaptive.js
-│   ├── association.js
-│   ├── cache.js
-│   ├── context.js
-│   ├── faiss_index.js
-│   ├── hierarchy.js
-│   ├── hyde.js
-│   ├── incremental_learning.js
-│   ├── io.js
-│   ├── llm_extract.js
-│   ├── persistent_context.js
-│   ├── proactive_care.js
-│   ├── proactive_recall.js
-│   ├── reflection.js
-│   ├── reminder.js
-│   ├── search.js
-│   ├── sensitive.js
-│   ├── source.js
-│   ├── standard_format.js
-│   ├── streaming.js
-│   ├── tokenizer.js
-│   ├── trace.js
-│   ├── usage.js
-│   ├── v2_patch.js
-│   └── vector_backends.js
-│
-├── quality/              # 10个质量体系模块
-├── graph/                # 3个知识图谱模块
-├── collab/               # 13个协作系统模块
-├── backup/               # 2个备份同步模块
-├── benchmark/             # 4个基准测试模块
-├── multimodal/           # 2个多模态模块
-├── api/                  # 6个 API 层模块
-├── agents/               # 13个 Agent 模块
-├── system/               # 15个系统模块
-├── visualize/            # 3个可视化模块
-└── webui/                # 2个 WebUI 模块
-```
+- **主存储**：JSON 文件（`~/.openclaw/workspace/memory/memories.json`）
+- **向量存储**：嵌入式 LanceDB（`~/.unified-memory/vector.lance`）
+- **Embedding**：Ollama（`nomic-embed-text-v1.5`，768维）
+- **零外部依赖**：不需要任何外部数据库
 
 ---
 
-## 使用方式
+## 版本历史
 
-### MCP（推荐）
+| 版本 | 日期 | 更新内容 |
+|------|------|---------|
+| v2.5.0 | 2026-03-28 | Phase 3：plugin 接口、QMD 后端、Git、云备份、Weibull |
+| v2.4.0 | 2026-03-27 | Phase 2：86工具、知识图谱、主动召回、推荐系统 |
+| v2.1.0 | 2026-03-27 | 33工具、分层/WAL/噪音过滤、ESM 重构 |
+| v2.0.0 | 2026-03-26 | Node.js ESM 重构，BM25+Vector+RRF |
+| v1.x | 2026-03-25 | Python 原型 |
+
+---
+
+## 安装方式
 
 ```bash
-# 通过 mcporter 调用
-mcporter call unified-memory memory_search '{"query": "刘总偏好", "topK": 5}'
-mcporter call unified-memory memory_store '{"content": "用户喜欢简洁回复", "category": "preference", "importance": 0.9}'
-mcporter call unified-memory memory_stats '{}'
-```
+# Clawhub（推荐）
+clawhub install unified-memory
 
-### 直接运行
+# Curl 安装脚本
+curl -fsSL https://raw.githubusercontent.com/mouxangithub/unified-memory/main/install.sh | bash
 
-```bash
-cd /root/.openclaw/workspace/skills/unified-memory
-node src/index.js
-```
-
----
-
-## 配置
-
-环境变量或 `~/.openclaw/workspace/memory/config.json`:
-
-```json
-{
-  "ollamaUrl": "http://localhost:11434",
-  "embedModel": "nomic-embed-text:latest",
-  "llmModel": "minimax-m2.7:cloud",
-  "dataPath": "~/.openclaw/workspace/memory/memories.json"
-}
+# 手动安装
+git clone https://github.com/mouxangithub/unified-memory.git
+cd unified-memory && npm install --ignore-scripts
 ```
 
 ---
 
-## 版本
+## 配置项
 
-当前版本: **v2.1.0** (2026-03-27)
+| 环境变量 | 默认值 | 说明 |
+|---------|--------|------|
+| `OLLAMA_HOST` | `http://localhost:11434` | Ollama 服务器地址 |
+| `OLLAMA_EMBED_MODEL` | `nomic-embed-text-v1.5` | Embedding 模型 |
+| `MEMORY_FILE` | `~/.openclaw/workspace/memory/memories.json` | 记忆存储路径 |
+| `VECTOR_DB_DIR` | `~/.unified-memory/vector.lance` | LanceDB 路径 |
 
 ---
 
-## License
+## 环境要求
 
-MIT
+- **Node.js**：≥ 22
+- **Ollama**：≥ 0.1.40（可选；缺失时降级到纯 BM25）
+- **OpenClaw**：≥ 2026.3（用于技能系统集成）
