@@ -1,0 +1,10 @@
+node_modules/
+*.log
+*.tmp
+*.swp
+.wal/
+*.wal.jsonl
+.git/
+tests/
+transcripts/
+webui/node_modules/
