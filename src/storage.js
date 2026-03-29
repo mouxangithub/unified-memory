@@ -290,6 +290,59 @@ export function touchMemory(id) {
 }
 
 // ============================================================
+// v3.4: PIN 记忆系统 — 重要记忆永不丢失
+// ============================================================
+
+const PIN_REASON_MAX = 200; // reason 最大长度
+
+/**
+ * 锁定一条记忆（不被压缩/删除）
+ * @param {string} id
+ * @param {string} reason 锁定原因
+ * @returns {boolean}
+ */
+export function pinMemory(id, reason = '') {
+  const memories = getAllMemories();
+  const mem = memories.find(m => m.id === id);
+  if (!mem) return false;
+  mem.pinned = true;
+  mem.pinnedAt = Date.now();
+  mem.pinnedReason = String(reason).slice(0, PIN_REASON_MAX);
+  if (global._walInit) {
+    logWriteOp({ type: 'pin', memory_id: id, reason: mem.pinnedReason });
+  }
+  saveMemories(memories);
+  return true;
+}
+
+/**
+ * 解锁一条记忆
+ * @param {string} id
+ * @returns {boolean}
+ */
+export function unpinMemory(id) {
+  const memories = getAllMemories();
+  const mem = memories.find(m => m.id === id);
+  if (!mem) return false;
+  mem.pinned = false;
+  mem.pinnedAt = null;
+  mem.pinnedReason = null;
+  if (global._walInit) {
+    logWriteOp({ type: 'unpin', memory_id: id });
+  }
+  saveMemories(memories);
+  return true;
+}
+
+/**
+ * 获取所有 PIN 记忆
+ * @returns {Array}
+ */
+export function getPinnedMemories() {
+  return getAllMemories().filter(m => m.pinned);
+}
+
+// ============================================================
 // v2.7.0: 完整修订历史 (Version History) — 增量 diff 存储
 // ============================================================
 // 注意：readFileSync/writeFileSync/existsSync/mkdirSync 已在上方导入

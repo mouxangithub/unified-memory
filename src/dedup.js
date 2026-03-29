@@ -47,6 +47,8 @@ export function similarity(a, b) {
 export function deduplicate(memories, threshold = DEFAULT_JACCARD_THRESHOLD) {
   const kept = [];
   for (const m of memories) {
+    // Pinned memories are always kept, never deduped
+    if (m.pinned) { kept.push({ ...m }); continue; }
     let isDup = false;
     for (const existing of kept) {
       if (similarity(m.text, existing.text) >= threshold) {
@@ -89,8 +91,9 @@ export function computeImportance(memory, now = Date.now()) {
 export function scoreAndPrune(memories, threshold = DEFAULT_PRUNE_THRESHOLD) {
   const now = Date.now();
   const scored = memories.map(m => ({ ...m, importanceScore: computeImportance(m, now) }));
-  const kept = scored.filter(m => m.importanceScore >= threshold);
-  const pruned = scored.filter(m => m.importanceScore < threshold);
+  // Pinned memories are always kept
+  const kept = scored.filter(m => m.pinned || m.importanceScore >= threshold);
+  const pruned = scored.filter(m => !m.pinned && m.importanceScore < threshold);
   return { kept, pruned, stats: { total: memories.length, kept: kept.length, pruned: pruned.length } };
 }
 

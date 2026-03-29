@@ -70,6 +70,8 @@ export function redistributeTiers(memories) {
  */
 export function compressColdTier(coldMemories) {
   return coldMemories.map(m => {
+    // Pinned memories — skip compression entirely
+    if (m.pinned) return m;
     // Already compressed — skip
     if (m.compressed) return m;
 
@@ -128,6 +130,9 @@ export function autoMigrateTiers(memories, { dryRun = false } = {}) {
     const daysSinceAccess = (now - lastAccTs) / DAY_MS;
     const importance = mem.importance || 0.5;
     let newTier = currentTier;
+
+    // Pinned memories: always stay in HOT, never demote
+    if (mem.pinned) newTier = 'HOT';
 
     if (currentTier === 'HOT') {
       // Demote HOT → WARM or HOT → COLD

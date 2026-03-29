@@ -295,6 +295,58 @@ server.registerTool('memory_delete', {
   }
 });
 
+// ============ PIN Tools (v3.4) ============
+
+server.registerTool('memory_pin', {
+  description: 'Pin (lock) a memory so it is never compressed, deduplicated, or demoted. Use to protect important user facts, identity, or preferences.',
+  inputSchema: z.object({
+    id: z.string().describe('Memory ID to pin'),
+    reason: z.string().optional().describe('Why this memory is pinned (shown in memory_pins)'),
+  }),
+}, async ({ id, reason }) => {
+  try {
+    const { pinMemory, getMemory } = await import('./storage.js');
+    const mem = getMemory(id);
+    if (!mem) return { content: [{ type: 'text', text: `Memory ${id} not found` }], isError: true };
+    if (mem.pinned) return { content: [{ type: 'text', text: `Memory ${id} is already pinned` }] };
+    pinMemory(id, reason || '');
+    return { content: [{ type: 'text', text: JSON.stringify({ success: true, id, reason: reason || '' }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Pin error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_unpin', {
+  description: 'Unpin (unlock) a pinned memory. It will become subject to normal tier compression and deduplication again.',
+  inputSchema: z.object({
+    id: z.string().describe('Memory ID to unpin'),
+  }),
+}, async ({ id }) => {
+  try {
+    const { unpinMemory, getMemory } = await import('./storage.js');
+    const mem = getMemory(id);
+    if (!mem) return { content: [{ type: 'text', text: `Memory ${id} not found` }], isError: true };
+    if (!mem.pinned) return { content: [{ type: 'text', text: `Memory ${id} is not pinned` }] };
+    unpinMemory(id);
+    return { content: [{ type: 'text', text: JSON.stringify({ success: true, id }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Unpin error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_pins', {
+  description: 'List all pinned (locked) memories. Pinned memories are never compressed, deduplicated, or demoted to COLD tier.',
+  inputSchema: z.object({}),
+}, async () => {
+  try {
+    const { getPinnedMemories } = await import('./storage.js');
+    const pins = getPinnedMemories();
+    return { content: [{ type: 'text', text: JSON.stringify({ count: pins.length, pins }, null, 2) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
 // ============ Advanced Tools (NEW in v1.1) ============
 
 
@@ -841,6 +893,7 @@ server.registerTool('memory_stats', {
           tier_distribution: tierMap,
           size_by_tier: sizeByTier,
           scope_distribution: scopeMap,
+          pin_count: memories.filter(m => m.pinned).length,
           memory_count: memories.length,
           storage_version: storageVersion,
         }, null, 2),
