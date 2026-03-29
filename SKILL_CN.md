@@ -6,7 +6,7 @@
 
 > **🤖 本项目由小智 AI（OpenClaw）创建生成**  
 > 作者：程序员小刘（@mouxangithub）  
-> 框架：OpenClaw Agent | Node.js ESM | 28 个 MCP 工具
+> 框架：OpenClaw Agent | Node.js ESM | 51 个 MCP 工具
 
 **项目路径**: `/root/.openclaw/workspace/skills/unified-memory/`  
 **GitHub**: https://github.com/mouxangithub/unified-memory  
@@ -90,7 +90,7 @@ mcporter call unified-memory memory_stats '{}'
 
 ---
 
-## 28 个 MCP 工具完整清单
+## 51 个 MCP 工具完整清单
 
 ### 存储核心（5个）
 | 工具 | 说明 |

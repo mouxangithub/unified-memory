@@ -5,7 +5,7 @@
 **Author**: 程序员小刘 (@mouxangithub)  
 **GitHub**: https://github.com/mouxangithub/unified-memory  
 **Registry**: `clawhub install unified-memory`  
-**Framework**: OpenClaw Agent | Node.js ESM | 28 MCP Tools | Web Dashboard v3.x
+**Framework**: OpenClaw Agent | Node.js ESM | 51 MCP Tools | Web Dashboard v3.x
 
 ---
 
@@ -15,7 +15,7 @@
 - [Architecture](#architecture)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [28 MCP Tools](#28-mcp-tools)
+- [51 MCP Tools](#28-mcp-tools)
 - [Quick Start](#quick-start)
 - [Scope Isolation](#scope-isolation)
 - [Development](#development)
@@ -105,39 +105,42 @@ See [docs/CONFIG.md](docs/CONFIG.md) for full details. Core settings:
 
 ---
 
-## 28 MCP Tools
+## 51 MCP Tools
 
-### Storage Core (5)
+### Storage Core (6)
 | Tool | Description |
 |------|-------------|
-| `store` | Store memory (category/importance/tags/scope) |
-| `get` | Get single memory |
-| `list` | Paginated memory list |
-| `delete` | Delete memory |
-| `search` | Hybrid search: BM25 → Vector → Rerank → MMR |
+| `memory_store` | Store memory (category/importance/tags/scope) |
+| `memory_get` | Get single memory |
+| `memory_list` | Paginated memory list |
+| `memory_delete` | Delete memory |
+| `memory_search` | Hybrid search: BM25 → Vector → Rerank → MMR |
+| `memory_import` | Import memories from JSON |
 
-### Unified Entry Points (8, action parameter)
+### Unified Entry Points (10, action parameter)
 | Tool | Actions |
 |------|---------|
 | `memory_reminder` | add / list / cancel |
 | `memory_preference` | get / set / infer / explain / stats / slots |
 | `memory_version` | list / diff / restore |
-| `memory_tier` | status / migrate / compress |
+| `memory_tier` | status / migrate / compress / assign / partition / redistribute |
 | `memory_proactive` | status / trigger / start / stop |
-| `memory_proactive_care` | - |
-| `memory_proactive_recall` | - |
+| `memory_proactive_care` | status / care / insights |
+| `memory_proactive_recall` | status / recall / analyze |
 | `memory_qmd` | search / get / vsearch / list / status |
 | `memory_engine` | bm25 / embed / search / mmr / rerank |
 | `memory_graph` | entity / relation / query / stats / add / delete |
 
-### Search & Retrieval (4)
-`memory_bm25` · `memory_vector` · `memory_scope` · `memory_concurrent_search`
+### Search & Retrieval (7)
+`memory_bm25` · `memory_vector` · `memory_scope` · `memory_concurrent_search` · `memory_dedup` · `memory_noise` · `memory_mmr`
 
-### Analysis & Management (9)
-`memory_trace` · `memory_metrics` · `memory_noise` · `memory_decay` · `memory_dedup` · `memory_extract` · `memory_reflection` · `memory_intent` · `memory_wal`
+### Analysis & Management (16)
+`memory_trace` · `memory_metrics` · `memory_decay` · `memory_extract` · `memory_reflection` · `memory_intent` · `memory_wal` · `memory_adaptive` · `memory_autostore` · `memory_auto_extract` · `memory_health` · `memory_insights` · `memory_predict` · `memory_feedback` · `memory_stats` · `memory_lesson`
 
-### Cloud & System (6)
-`memory_cloud_backup` · `memory_cloud_restore` · `memory_export` · `memory_adaptive` · `memory_autostore` · `memory_auto_extract` · `memory_health` · `memory_insights` · `memory_predict` · `memory_feedback`
+### Cloud & System (12)
+`memory_cloud_backup` · `memory_cloud_restore` · `memory_export` · `memory_import` · `memory_clone` · `memory_share` · `memory_scope` · `memory_intent` · `memory_insights` · `memory_health` · `memory_predict` · `memory_feedback`
+
+*(Exact tool list may vary slightly by version — run `mcporter call unified-memory memory_health` to see tools for your install)*
 
 ---
 

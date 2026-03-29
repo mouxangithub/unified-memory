@@ -10,6 +10,29 @@ import {
   getCurrentAgentId,
 } from './scope.js';
 
+// ===== Storage Mode Selection =====
+const STORAGE_MODE = process.env.STORAGE_MODE || 'json';
+
+// Lazy-load SQLite backend (only when STORAGE_MODE=sqlite)
+let _sqliteBackend = null;
+async function getSqliteBackend() {
+  if (_sqliteBackend) return _sqliteBackend;
+  try {
+    _sqliteBackend = await import('./storage_sqlite.js');
+    return _sqliteBackend;
+  } catch (e) {
+    console.warn('[storage] SQLite backend unavailable:', e.message);
+    return null;
+  }
+}
+
+/**
+ * Check if SQLite backend is active
+ */
+function isSqliteMode() {
+  return STORAGE_MODE === 'sqlite';
+}
+
 // Lazy import to avoid circular deps and to handle missing Ollama gracefully
 let _vectorMem = null;
 async function getVectorMem() {
@@ -38,6 +61,21 @@ let cacheDirty = false;
  * @returns {Memory[]}
  */
 export function loadMemories() {
+  // SQLite backend path
+  if (isSqliteMode()) {
+    const backend = _sqliteBackend || null;
+    if (backend) {
+      return backend.readMemories();
+    }
+    // Fallback: try loading JSON
+    if (!existsSync(config.memoryFile)) return [];
+    try {
+      const data = JSON.parse(readFileSync(config.memoryFile, 'utf8'));
+      return Array.isArray(data) ? data : (data.memories || []);
+    } catch { return []; }
+  }
+
+  // JSON backend (default)
   if (!existsSync(config.memoryFile)) {
     return [];
   }
@@ -54,6 +92,20 @@ export function loadMemories() {
  * @param {Memory[]} memories
  */
 export function saveMemories(memories) {
+  // SQLite backend
+  if (isSqliteMode()) {
+    const backend = _sqliteBackend || null;
+    if (backend) {
+      backend.writeMemories(memories);
+      memoryCache.set('all', memories);
+      cacheDirty = false;
+      return;
+    }
+    // Fallback to JSON if SQLite unavailable
+    console.warn('[storage] SQLite mode requested but backend unavailable, falling back to JSON');
+  }
+
+  // JSON backend (default)
   // 初始化 WAL（首次调用时）
   if (!global._walInit) {
     try {
@@ -124,13 +176,12 @@ export function invalidateCache() {
  * @returns {Memory}
  */
 export function addMemory(mem) {
-  const memories = getAllMemories();
   const now = Date.now();
-  
+
   // v3.2: Auto-tag with agent_id if in AGENT scope
   const scope = mem.scope || 'USER';
   const agentId = scope === 'AGENT' ? mem.agent_id || getCurrentAgentId() : null;
-  
+
   /** @type {Memory} */
   const newMem = {
     id: `mem_${now}_${Math.random().toString(36).slice(2, 8)}`,
@@ -145,6 +196,22 @@ export function addMemory(mem) {
     access_count: 0,
     last_access: now,
   };
+
+  // SQLite backend
+  if (isSqliteMode()) {
+    const backend = _sqliteBackend || null;
+    if (backend) {
+      backend.appendMemory(newMem);
+      memoryCache.set('all', getAllMemories()); // refresh cache
+      getVectorMem().then(vm => {
+        if (vm) vm.upsert({ id: newMem.id, text: newMem.text, category: newMem.category, scope: newMem.scope, importance: newMem.importance, created_at: newMem.created_at, ...(agentId ? { agent_id: agentId } : {}) }).catch(() => {});
+      }).catch(() => {});
+      return newMem;
+    }
+  }
+
+  // JSON backend
+  const memories = getAllMemories();
   memories.push(newMem);
 
   // WAL: log individual add op before save (crash recovery = replay add)
@@ -176,6 +243,18 @@ export function addMemory(mem) {
  * @returns {boolean}
  */
 export function deleteMemory(id) {
+  // SQLite backend
+  if (isSqliteMode()) {
+    const backend = _sqliteBackend || null;
+    if (backend) {
+      const deleted = backend.deleteMemoryById(id);
+      if (deleted) memoryCache.set('all', getAllMemories());
+      getVectorMem().then(vm => { if (vm) vm.delete(id).catch(() => {}); }).catch(() => {});
+      return deleted;
+    }
+  }
+
+  // JSON backend
   const memories = getAllMemories();
   const idx = memories.findIndex((m) => m.id === id);
   if (idx === -1) return false;
@@ -255,6 +334,10 @@ function hashTextForCache(text) {
  * @returns {Memory|undefined}
  */
 export function getMemory(id) {
+  if (isSqliteMode()) {
+    const backend = _sqliteBackend || null;
+    if (backend) return backend.getMemoryById(id) || undefined;
+  }
   const memories = getAllMemories();
   return memories.find((m) => m.id === id);
 }
@@ -264,6 +347,15 @@ export function getMemory(id) {
  * @param {string} id
  */
 export function updateMemory(updatedMem) {
+  if (isSqliteMode()) {
+    const backend = _sqliteBackend || null;
+    if (backend) {
+      const oldMem = backend.getMemoryById(updatedMem.id);
+      const updated = backend.updateMemoryById(updatedMem.id, updatedMem);
+      if (updated) createMemoryVersion(updatedMem.id, { ...oldMem, ...updatedMem }, oldMem, 'update');
+      return updated;
+    }
+  }
   const memories = getAllMemories();
   const idx = memories.findIndex((m) => m.id === updatedMem.id);
   if (idx === -1) return false;
@@ -276,6 +368,13 @@ export function updateMemory(updatedMem) {
 }
 
 export function touchMemory(id) {
+  if (isSqliteMode()) {
+    const backend = _sqliteBackend || null;
+    if (backend) {
+      backend.touchMemoryById(id);
+      return;
+    }
+  }
   const memories = getAllMemories();
   const mem = memories.find((m) => m.id === id);
   if (mem) {
@@ -302,6 +401,14 @@ const PIN_REASON_MAX = 200; // reason 最大长度
  * @returns {boolean}
  */
 export function pinMemory(id, reason = '') {
+  if (isSqliteMode()) {
+    const backend = _sqliteBackend || null;
+    if (backend) {
+      const pinned = backend.pinMemoryById(id, reason);
+      if (pinned) memoryCache.set('all', getAllMemories());
+      return pinned;
+    }
+  }
   const memories = getAllMemories();
   const mem = memories.find(m => m.id === id);
   if (!mem) return false;
@@ -321,6 +428,14 @@ export function pinMemory(id, reason = '') {
  * @returns {boolean}
  */
 export function unpinMemory(id) {
+  if (isSqliteMode()) {
+    const backend = _sqliteBackend || null;
+    if (backend) {
+      const unpinned = backend.unpinMemoryById(id);
+      if (unpinned) memoryCache.set('all', getAllMemories());
+      return unpinned;
+    }
+  }
   const memories = getAllMemories();
   const mem = memories.find(m => m.id === id);
   if (!mem) return false;
@@ -339,6 +454,10 @@ export function unpinMemory(id) {
  * @returns {Array}
  */
 export function getPinnedMemories() {
+  if (isSqliteMode()) {
+    const backend = _sqliteBackend || null;
+    if (backend) return backend.getPinnedMemories();
+  }
   return getAllMemories().filter(m => m.pinned);
 }
 

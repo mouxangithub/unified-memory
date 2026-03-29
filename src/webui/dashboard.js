@@ -688,22 +688,23 @@ async function handleRequest(req, res) {
 }
 
 // ── Express path (if available) ──────────────────────────
-if (express) {
-  const app = express();
-  app.use((req, res) => handleRequest(req, res));
-  app.listen(PORT, () => {
-    console.log(`\n✅ Dashboard ready: http://localhost:${PORT}`);
-    console.log(`   Stats:    http://localhost:${PORT}/api/stats`);
-    console.log(`   Health:   http://localhost:${PORT}/api/health`);
-    console.log(`   Memories: http://localhost:${PORT}/api/memories\n`);
+// Auto-start on CLI invocation (node src/webui/dashboard.js --port=XXXX)
+// But NOT when imported as a module (used by memory_dashboard MCP tool)
+
+const isMain = process.argv[1] && process.argv[1].endsWith('dashboard.js');
+const AUTO_PORT = parseInt(process.argv.find(a => a.startsWith('--port='))?.split('=')[1]) || 3849;
+
+export function startDashboard(port = 3849) {
+  const server = http.createServer((req, res) => handleRequest(req, res));
+  server.listen(port, () => {
+    console.log(`\n✅ Dashboard ready: http://localhost:${port}`);
+    console.log(`   Stats:    http://localhost:${port}/api/stats`);
+    console.log(`   Health:   http://localhost:${port}/api/health`);
+    console.log(`   Memories: http://localhost:${port}/api/memories\n`);
   });
-} else {
-  // Fallback: pure HTTP server
-  http.createServer((req, res) => handleRequest(req, res)).listen(PORT, () => {
-    console.log(`\n✅ Dashboard ready: http://localhost:${PORT}`);
-    console.log(`   (using built-in HTTP server)`);
-    console.log(`   Stats:    http://localhost:${PORT}/api/stats`);
-    console.log(`   Health:   http://localhost:${PORT}/api/health`);
-    console.log(`   Memories: http://localhost:${PORT}/api/memories\n`);
-  });
+  return server;
+}
+
+if (isMain) {
+  startDashboard(AUTO_PORT);
 }

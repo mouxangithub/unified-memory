@@ -5,7 +5,7 @@
 **作者**：程序员小刘（@mouxangithub）  
 **GitHub**：https://github.com/mouxangithub/unified-memory  
 **安装**：`clawhub install unified-memory`  
-**框架**：OpenClaw Agent | Node.js ESM | 28 个 MCP 工具 | Web 仪表板 v3.x
+**框架**：OpenClaw Agent | Node.js ESM | 51 个 MCP 工具 | Web 仪表板 v3.x
 
 ---
 
@@ -15,7 +15,7 @@
 - [架构](#架构)
 - [安装](#安装)
 - [配置](#配置)
-- [28 个 MCP 工具](#28-个-mcp-工具)
+- [51 个 MCP 工具](#28-个-mcp-工具)
 - [快速开始](#快速开始)
 - [Scope 隔离](#scope-隔离)
 - [开发](#开发)
@@ -105,7 +105,7 @@ cd unified-memory && npm install --ignore-scripts
 
 ---
 
-## 28 个 MCP 工具
+## 51 个 MCP 工具
 
 ### 存储核心（5）
 | 工具 | 说明 |

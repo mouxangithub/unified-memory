@@ -16,6 +16,7 @@ import { log as structuredLog, getLogger } from './logger.js';
 import { metrics, recordSearchLatency, recordStore, recordError } from './metrics.js';
 import { startTrace, endTrace, getTraceExport, clearTrace } from './tracer.js';
 import { getAllMemories, getMemory, addMemory, deleteMemory, touchMemory, saveMemories } from './storage.js';
+import { memoryCompose } from './tools/memory_compose.js';
 import { hybridSearch } from './fusion.js';
 import { analyzeInsights } from './tools/insights.js';
 import { exportMemories } from './tools/export.js';
@@ -86,6 +87,15 @@ import { calculateBudget } from './budget.js';
 
 // P2-7: Cloud Backup (from existing collab/cloud.js)
 import { MemoryBackup, CloudConfig } from './collab/cloud.js';
+
+// P1-1: QMD Deep Integration
+import { isQMDEngine, getQMDEngineStatus, qmdEngineSearch, vectorSearch as qmdVectorSearch } from './qmd_integration.js';
+
+// P2-1: Semantic Cache
+import { memoryCacheTool } from './cache_semantic.js';
+
+// P2-2: Incremental Sync
+import { memorySyncTool } from './sync_incremental.js';
 
 // P0-3: Transcript logging (simple file-based)
 import { existsSync, mkdirSync, appendFileSync } from 'fs';
@@ -274,6 +284,37 @@ server.registerTool('memory_list', {
     };
   } catch (err) {
     return { content: [{ type: 'text', text: `List error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ Prompt Composition API (Task #1) ============
+
+server.registerTool('memory_compose', {
+  description: 'Compose a memory context block for prompt injection. Selects memories by priority (PIN > HOT > WARM > COLD) to fill a target token budget. Supports category filtering and query-biased selection. Input: last N messages (conversation context) + target token count + optional category filter.',
+  inputSchema: z.object({
+    messages: z.array(z.object({
+      role: z.string().optional(),
+      content: z.union([z.string(), z.record(z.string(), z.unknown())]),
+    })).optional().default([]).describe('Conversation messages (last N) to use as context'),
+    targetTokens: z.number().optional().default(2000).describe('Target token budget for composed memory block'),
+    categories: z.array(z.string()).optional().default([]).describe('Filter memories by category (e.g. preference, decision). Empty = all categories.'),
+    query: z.string().optional().describe('Search query to bias memory selection (uses hybrid search to boost relevance)'),
+    messageWindow: z.number().optional().default(10).describe('How many recent messages to include from the conversation'),
+  }),
+}, async ({ messages = [], targetTokens = 2000, categories = [], query, messageWindow = 10 }) => {
+  try {
+    const result = await memoryCompose({
+      messages,
+      targetTokens,
+      categories,
+      query,
+      messageWindow,
+    });
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `memory_compose error: ${err.message}` }], isError: true };
   }
 });
 
@@ -940,7 +981,8 @@ server.registerTool('memory_health', {
     // Vector cache completeness (memories with embeddings)
     let vectorCount = 0;
     for (const m of memories) {
-      if (m.embedding && Array.isArray(m.embedding) && m.embedding.length > 0) {
+      // Accept both base64 string (from JSON sync) and number array (direct format)
+      if (m.embedding && ((Array.isArray(m.embedding) && m.embedding.length > 0) || (typeof m.embedding === 'string' && m.embedding.length > 20))) {
         vectorCount++;
       }
     }
@@ -1229,11 +1271,11 @@ server.registerTool('memory_adaptive', {
 });
 
 // ============ Search Engine (4→1: BM25+Vector+MMR+Rerank) ============
-// memory_engine: unified search engine (action=bm25|embed|search|mmr|rerank)
+// memory_engine: unified search engine (action=bm25|embed|search|mmr|rerank|qmd)
 server.registerTool('memory_engine', {
-  description: 'Unified search engine. Actions: bm25, embed, search, mmr, rerank.',
+  description: 'Unified search engine. Actions: bm25, embed, search, mmr, rerank, qmd.',
   inputSchema: z.object({
-    action: z.enum(['bm25', 'embed', 'search', 'mmr', 'rerank']).describe('Action'),
+    action: z.enum(['bm25', 'embed', 'search', 'mmr', 'rerank', 'qmd']).describe('Action'),
     query: z.string().optional().describe('Query string (for bm25/search/rerank)'),
     text: z.string().optional().describe('Text to embed (for embed)'),
     documents: z.array(z.object({ id: z.string(), content: z.string(), score: z.number().optional() })).optional().describe('Documents (for mmr/rerank)'),
@@ -1277,6 +1319,15 @@ server.registerTool('memory_engine', {
         const results = await rerankResults(query || '', documents || [], topK, reranker);
         return { content: [{ type: 'text', text: JSON.stringify(results) }] };
       }
+    } else if (action === 'qmd') {
+      if (!isQMDEngine()) {
+        const status = await getQMDEngineStatus();
+        if (!status.available) {
+          return { content: [{ type: 'text', text: JSON.stringify({ error: 'QMD CLI not available', status }, null, 2) }], isError: true };
+        }
+      }
+      const results = await qmdEngineSearch(query || '', { topK, mode: 'hybrid', scope: scope || undefined });
+      return { content: [{ type: 'text', text: JSON.stringify({ engine: 'qmd', query, count: results.length, results }, null, 2) }] };
     }
   } catch (err) {
     return { content: [{ type: 'text', text: `Engine [${action}]: ${err.message}` }], isError: true };
@@ -1709,6 +1760,87 @@ server.registerTool('memory_cloud_restore', {
     }
   } catch (err) {
     return { content: [{ type: 'text', text: `Cloud restore error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ P1-1: QMD Deep Integration — QMD actions merged into existing memory_engine above [gap-fill]
+// (removed duplicate registration)
+
+// ============ P1-2: Web Dashboard HTTP Exposure [gap-fill]
+server.registerTool('memory_dashboard', {
+  description: 'Start/stop/query the unified-memory web dashboard HTTP server. Provides real-time stats via /api/stats JSON endpoint.',
+  inputSchema: z.object({
+    action: z.enum(['start', 'stop', 'status']).describe('Action: start dashboard, stop it, or check status'),
+    port: z.number().optional().default(3849).describe('Port to listen on (for start action)'),
+  }),
+}, async ({ action, port = 3849 }) => {
+  try {
+    if (action === 'status') {
+      return { content: [{ type: 'text', text: JSON.stringify({
+        running: !!global._memoryDashboardServer,
+        port: global._memoryDashboardServer ? port : null,
+        url: global._memoryDashboardServer ? `http://localhost:${port}` : null,
+      }, null, 2) }] };
+    }
+    if (action === 'stop') {
+      if (global._memoryDashboardServer) {
+        global._memoryDashboardServer.close();
+        global._memoryDashboardServer = null;
+        return { content: [{ type: 'text', text: JSON.stringify({ stopped: true, port }) }] };
+      }
+      return { content: [{ type: 'text', text: JSON.stringify({ stopped: false, message: 'Dashboard not running' }) }] };
+    }
+    if (action === 'start') {
+      if (global._memoryDashboardServer) {
+        return { content: [{ type: 'text', text: JSON.stringify({ running: true, port, url: `http://localhost:${port}`, message: 'Already running' }) }] };
+      }
+      const dashboardModule = await import('./webui/dashboard.js');
+      const server = dashboardModule.startDashboard(port);
+      global._memoryDashboardServer = server;
+      return { content: [{ type: 'text', text: JSON.stringify({ started: true, port, url: `http://localhost:${port}`, statsEndpoint: `http://localhost:${port}/api/stats` }) }] };
+    }
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Dashboard error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ P2-1: Semantic Cache [gap-fill]
+server.registerTool('memory_cache', {
+  description: 'Semantic query cache. Caches semantically similar query responses (embedding similarity >0.95). TTL-based expiry.',
+  inputSchema: z.object({
+    action: z.enum(['get', 'set', 'delete', 'clear', 'stats']).describe('Action'),
+    query: z.string().optional().describe('Query string (for get/set/delete)'),
+    response: z.unknown().optional().describe('Response to cache (for set action)'),
+    ttlSeconds: z.number().optional().default(3600).describe('TTL in seconds (for set/get, default 3600)'),
+    similarityThreshold: z.number().optional().describe('Min similarity for semantic hit (default 0.95)'),
+  }),
+}, async ({ action, query, response, ttlSeconds = 3600, similarityThreshold = 0.95 }) => {
+  try {
+    const result = await Promise.resolve(memoryCacheTool({ action, query, response, ttlSeconds, similarityThreshold }));
+    return result;
+  } catch (err) {
+    return { content: [{ type: 'text', text: `memory_cache error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ P2-2: Incremental Sync [gap-fill]
+server.registerTool('memory_sync', {
+  description: 'Cross-device incremental sync. Push delta to remote (WebDAV/S3/local) or pull and merge remote changes.',
+  inputSchema: z.object({
+    action: z.enum(['status', 'push', 'pull']).describe('Action: check status, push delta, or pull+merge'),
+    providerType: z.enum(['local', 'webdav']).optional().default('local').describe('Sync provider type'),
+    providerConfig: z.record(z.string(), z.unknown()).optional().describe('Provider config: webdav needs {url, username, password}'),
+    remotePath: z.string().optional().describe('Specific delta file to pull (optional)'),
+    scope: z.string().optional().default('default').describe('Sync scope/namespace'),
+    conflictStrategy: z.enum(['timestamp', 'source_priority']).optional().default('timestamp').describe('Conflict resolution strategy'),
+  }),
+}, async ({ action, providerType = 'local', providerConfig, remotePath, scope = 'default', conflictStrategy = 'timestamp' }) => {
+  try {
+    const result = memorySyncTool({ action, providerType, providerConfig, remotePath, scope, conflictStrategy });
+    // memorySyncTool is sync, not async
+    return result;
+  } catch (err) {
+    return { content: [{ type: 'text', text: `memory_sync error: ${err.message}` }], isError: true };
   }
 });
 

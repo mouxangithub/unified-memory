@@ -6,7 +6,7 @@
 
 > **🤖 Created by 小智 AI (OpenClaw)**  
 > Author: 程序员小刘 (@mouxangithub)  
-> Framework: OpenClaw Agent | Node.js ESM | 28 MCP Tools
+> Framework: OpenClaw Agent | Node.js ESM | 51 MCP Tools
 
 **Project Path**: `/root/.openclaw/workspace/skills/unified-memory/`  
 **GitHub**: https://github.com/mouxangithub/unified-memory  
@@ -89,7 +89,7 @@ mcporter call unified-memory memory_stats '{}'
 
 ---
 
-## 28 MCP Tools
+## 51 MCP Tools
 
 ### Storage Core (5)
 | Tool | Description |

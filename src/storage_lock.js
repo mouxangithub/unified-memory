@@ -241,6 +241,15 @@ export function initWalStorage(runId) {
   walRunId = runId || `store-${Date.now()}`;
   walPath = join(WAL_DIR, `${walRunId}.wal.jsonl`);
   walFd = openSync(walPath, 'a');
+  // Cleanup: delete all other WAL files older than current runId (crash recovery only needs the latest)
+  try {
+    const currentBase = walRunId;
+    for (const f of readdirSync(WAL_DIR)) {
+      if (f.endsWith('.wal.jsonl') && !f.startsWith(currentBase)) {
+        unlinkSync(join(WAL_DIR, f));
+      }
+    }
+  } catch { /* cleanup errors non-fatal */ }
 }
 
 /**
