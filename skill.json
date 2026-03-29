@@ -1,68 +1,111 @@
 {
-    "name": "unified-memory",
-    "version": "2.5.0",
-    "description": "AI Agent Memory System - Node.js ESM with 33 MCP tools, BM25+Vector hybrid search, Weibull decay, Scope isolation, self-improving. Zero external dependencies.",
-    "author": "mouxangithub",
-    "license": "MIT",
-    "homepage": "https://github.com/mouxangithub/unified-memory",
-    "keywords": [
-        "ai-agent",
-        "memory",
-        "vector-search",
-        "bm25",
-        "hybrid-search",
-        "mcp",
-        "openclaw",
-        "memory-management"
-    ],
-    "engines": {
-        "node": ">=18.0.0",
-        "openclaw": ">=2026.3.0"
+  "name": "unified-memory",
+  "version": "3.6.0",
+  "description": "AI Agent Memory System - Node.js ESM with 51 MCP tools, BM25+Vector hybrid search, Weibull decay, Scope isolation, auto-extract, proactive recall. Powered by LanceDB + Ollama.",
+  "author": "mouxangithub",
+  "license": "MIT",
+  "homepage": "https://github.com/mouxangithub/unified-memory",
+  "keywords": [
+    "ai-agent",
+    "memory",
+    "vector-search",
+    "bm25",
+    "hybrid-search",
+    "mcp",
+    "openclaw",
+    "memory-management"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "openclaw": ">=2026.3.0"
+  },
+  "installation": {
+    "auto": true,
+    "description": "Self-contained skill. No external memory plugin required.",
+    "verify": "mcporter call unified-memory memory_health '{}'"
+  },
+  "dependencies": {
+    "required": {
+      "node": ">=18.0.0"
     },
-    "installation": {
-        "auto": true,
-        "description": "Self-contained skill. No external memory plugin required.",
-        "verify": "mcporter call unified-memory memory_health '{}'"
-    },
-    "dependencies": {
-        "required": {
-            "node": ">=18.0.0"
-        },
-        "optional": {
-            "ollama": ">=0.1.0"
-        }
-    },
-    "permissions": {
-        "filesystem": {
-            "read": ["~/.openclaw/workspace/memory/"],
-            "write": ["~/.openclaw/workspace/memory/"]
-        },
-        "env": ["OLLAMA_HOST", "OLLAMA_EMBED_MODEL"]
-    },
-    "scripts": {
-        "start": "node src/cli/index.js",
-        "test": "mcporter call unified-memory memory_health '{}'",
-        "search": "mcporter call unified-memory memory_search '{\"query\": \"test\"}'"
-    },
-    "mcp": {
-        "transport": "stdio",
-        "command": "node",
-        "args": ["src/index.js"]
-    },
-    "quick_start": {
-        "test": "mcporter call unified-memory memory_health '{}'",
-        "store": "mcporter call unified-memory memory_store '{\"content\": \"Hello\", \"category\": \"general\"}'",
-        "search": "mcporter call unified-memory memory_search '{\"query\": \"hello\"}'"
-    },
-    "triggers": {
-        "keywords": ["记忆", "记住", "memory", "recall", "forget", "知识库"],
-        "commands": ["/memory"]
-    },
-    "features": {
-        "search": ["bm25", "vector", "hybrid", "qmd", "mmr", "rerank"],
-        "storage": ["json_file", "auto_store", "wal", "tier", "dedup"],
-        "api": ["mcp"],
-        "intelligence": ["noise_filter", "intent_routing", "adaptive_skip", "reflection", "lesson", "preference_slots"],
-        "decay": ["weibull", "scope_isolation"]
+    "optional": {
+      "ollama": ">=0.1.0"
     }
+  },
+  "permissions": {
+    "filesystem": {
+      "read": [
+        "~/.openclaw/workspace/memory/"
+      ],
+      "write": [
+        "~/.openclaw/workspace/memory/"
+      ]
+    },
+    "env": [
+      "OLLAMA_HOST",
+      "OLLAMA_EMBED_MODEL"
+    ]
+  },
+  "scripts": {
+    "start": "node src/cli/index.js",
+    "test": "mcporter call unified-memory memory_health '{}'",
+    "search": "mcporter call unified-memory memory_search '{\"query\": \"test\"}'"
+  },
+  "mcp": {
+    "transport": "stdio",
+    "command": "node",
+    "args": [
+      "src/index.js"
+    ]
+  },
+  "quick_start": {
+    "test": "mcporter call unified-memory memory_health '{}'",
+    "store": "mcporter call unified-memory memory_store '{\"content\": \"Hello\", \"category\": \"general\"}'",
+    "search": "mcporter call unified-memory memory_search '{\"query\": \"hello\"}'"
+  },
+  "triggers": {
+    "keywords": [
+      "\u8bb0\u5fc6",
+      "\u8bb0\u4f4f",
+      "memory",
+      "recall",
+      "forget",
+      "\u77e5\u8bc6\u5e93"
+    ],
+    "commands": [
+      "/memory"
+    ]
+  },
+  "features": {
+    "search": [
+      "bm25",
+      "vector",
+      "hybrid",
+      "qmd",
+      "mmr",
+      "rerank"
+    ],
+    "storage": [
+      "json_file",
+      "auto_store",
+      "wal",
+      "tier",
+      "dedup"
+    ],
+    "api": [
+      "mcp"
+    ],
+    "intelligence": [
+      "noise_filter",
+      "intent_routing",
+      "adaptive_skip",
+      "reflection",
+      "lesson",
+      "preference_slots"
+    ],
+    "decay": [
+      "weibull",
+      "scope_isolation"
+    ]
+  }
 }
