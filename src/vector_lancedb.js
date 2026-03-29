@@ -1,19 +1,21 @@
 /**
- * LanceDB Vector Store - True persistent vector database for unified-memory
- * Uses embedded LanceDB with nomic-embed-text (768-dim) embeddings
+ * LanceDB Vector Store - v4.0 (LanceDB 0.27 compatible)
  *
- * Features:
- * - Embedded LanceDB at ~/.unified-memory/vector.lance
- * - IVF_PQ ANN index on vector column
- * - Batch upsert by id (mergeInsert)
- * - nomic-embed-text via TransformersEmbeddingFunction
+ * Key fixes for LanceDB 0.27:
+ * - query().execute() returns AsyncGenerator yielding Arrow IPC Tables
+ * - Need to parse Arrow batches to get row data
+ * - WHERE clause is broken (use in-memory filtering)
+ * - LanceDB v0.27 schema inference issue: store vectors as base64 strings
+ *
+ * Architecture:
+ * - LanceDB for persistent columnar storage
+ * - Vectors cached in memory as Float32Array for fast JS-based ANN
+ * - Ollama HTTP API for embeddings
  */
 
 import { connect } from '@lancedb/lancedb';
-import { TransformersEmbeddingFunction } from '@lancedb/lancedb/embedding/transformers';
-import { Schema, Float32, Int64, Utf8 } from 'apache-arrow';
 import { dirname, join } from 'path';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -21,317 +23,221 @@ const VECTOR_DB_DIR = join(process.env.HOME || '/root', '.unified-memory', 'vect
 const TABLE_NAME = 'memories';
 const DIMENSIONS = 768;
 
-// Singleton embedding function (nomic-embed-text)
-let _embeddingFunction = null;
+// ── Embedding via config-active provider ──────────────────────
+async function getEmbeddingFromProvider(text) {
+  const { config } = await import('./config.js');
+  const p = config.activeEmbedProvider;
+  if (!p) return null; // VECTOR_ENGINE=none
 
-async function getEmbeddingFunction() {
-  if (_embeddingFunction === null) {
-    _embeddingFunction = new TransformersEmbeddingFunction({
-      model: 'nomic-ai/nomic-embed-text-v1.5',
+  try {
+    const res = await fetch(`${p.baseURL}/api/embed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: p.model, input: text }),
+      signal: AbortSignal.timeout(15000),
     });
-    await _embeddingFunction.init();
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.embeddings?.[0] || data.embedding || null;
+  } catch (e) {
+    console.warn(`[vector_lancedb] Embed error (${p.name}):`, e.message);
+    return null;
   }
-  return _embeddingFunction;
 }
 
+// Backward compat alias (used by fusion.js)
+const ollamaEmbed = getEmbeddingFromProvider;
+export { ollamaEmbed as getEmbedding };
+
+// ── Vector <-> Base64 encoding (for LanceDB storage without Float32 type issues) ──
+function vecToBase64(vec) {
+  const buf = Buffer.alloc(vec.length * 4);
+  for (let i = 0; i < vec.length; i++) buf.writeFloatLE(vec[i], i * 4);
+  return buf.toString('base64');
+}
+
+function base64ToVec(b64) {
+  if (!b64) return null;
+  try {
+    const buf = Buffer.from(b64, 'base64');
+    const vec = new Float32Array(buf.length / 4);
+    for (let i = 0; i < vec.length; i++) vec[i] = buf.readFloatLE(i * 4);
+    return vec;
+  } catch { return null; }
+}
+
+function cosineSim(a, b) {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
+  return dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
+}
+
+// ── LanceDB 0.27: parse Arrow batches into row objects ──────────────
 /**
- * LanceDB Vector Store class
- * Provides ANN vector search backed by LanceDB with IVF_PQ indexing
+ * Execute a query and return all rows as plain objects.
+ * Handles LanceDB 0.27's AsyncGenerator yielding Arrow IPC Tables.
  */
+async function queryRows(table, limit = 10000) {
+  const results = [];
+  try {
+    for await (const batch of table.query().limit(limit).execute()) {
+      // batch is an Arrow IPC Table
+      const schema = batch.schema;
+      const colNames = schema?.fields?.map(f => f.name) || [];
+      const rows = batch.numRows;
+      for (let i = 0; i < rows; i++) {
+        const row = {};
+        for (let c = 0; c < batch.numCols; c++) {
+          const col = batch.getChildAt(c);
+          const name = colNames[c] || `col_${c}`;
+          row[name] = col?.get?.(i) ?? null;
+        }
+        results.push(row);
+      }
+    }
+  } catch (e) {
+    console.warn('[vector_lancedb] queryRows error:', e.message);
+  }
+  return results;
+}
+
+// ── VectorMemory ─────────────────────────────────────────────────
 export class VectorMemory {
   constructor(uri = VECTOR_DB_DIR) {
     this.uri = uri;
     this._db = null;
     this._table = null;
     this._initialized = false;
+    // In-memory cache: id → Float32Array vector
+    this._cache = {};
   }
 
-  /** Initialize LanceDB connection, create table + ANN index if needed */
   async initialize() {
     if (this._initialized) return;
+    if (!existsSync(this.uri)) mkdirSync(this.uri, { recursive: true });
 
-    // Ensure directory exists
-    if (!existsSync(this.uri)) {
-      mkdirSync(this.uri, { recursive: true });
-    }
-
-    // Connect to embedded LanceDB
     this._db = await connect(this.uri);
-
-    // Check if table exists, create if not
     const tableNames = await this._db.tableNames();
+
     if (!tableNames.includes(TABLE_NAME)) {
-      const embeddingFunc = await getEmbeddingFunction();
-
-      // Define explicit Arrow schema for the table
-      const schema = new Schema([
-        { name: 'id', type: new Utf8(), nullable: false },
-        { name: 'text', type: new Utf8(), nullable: false },
-        { name: 'category', type: new Utf8(), nullable: false },
-        { name: 'scope', type: new Utf8(), nullable: false },
-        { name: 'importance', type: new Float32(), nullable: false },
-        { name: 'created_at', type: new Int64(), nullable: false },
+      // Create table with base64-encoded vector strings
+      this._table = await this._db.createTable(TABLE_NAME, [
+        { id: '__init__', text: '__init__', category: 'general', scope: 'USER', importance: 0.0, created_at: Date.now(), vec_json: '' },
       ]);
-
-      // Create empty table with schema and embedding function
-      // LanceDB will auto-create the vector column from the embedding function
-      this._table = await this._db.createEmptyTable(TABLE_NAME, schema, {
-        embeddingFunction: embeddingFunc,
-      });
-
-      // Create ANN index (IVF_PQ) on the vector column for fast ANN search
-      try {
-        await this._table.createIndex('vector', {
-          type: 'ivf',
-          numPartitions: 128,
-          numSubVectors: 96,
-        });
-      } catch (e) {
-        // Index creation may fail on empty table; that's ok
-        console.warn('[vector_lancedb] Index creation warning:', e.message);
-      }
-
-      // Create scalar B-tree index on scope column for fast scope filtering
-      try {
-        await this._table.createIndex('scope', { type: 'btree' });
-      } catch (e) {
-        console.warn('[vector_lancedb] Scope index warning:', e.message);
-      }
+      await this._table.delete('id = "__init__"');
     } else {
       this._table = await this._db.openTable(TABLE_NAME);
     }
 
+    // Pre-load all vectors into memory cache
+    await this._refreshCache();
     this._initialized = true;
-    console.log(`[vector_lancedb] Initialized at ${this.uri}, table: ${TABLE_NAME}`);
+    console.log(`[vector_lancedb] Ready at ${this.uri} (${Object.keys(this._cache).length} records cached)`);
   }
 
-  /**
-   * Add or update a vector entry (upsert by id)
-   * @param {string} id - Unique memory id
-   * @param {string} text - Memory text content
-   * @param {number[]} embedding - 768-dim float32 vector
-   * @param {object} metadata - { category, scope, importance, created_at }
-   */
-  async addVector(id, text, embedding, metadata = {}) {
-    await this.initialize();
-    if (!embedding || embedding.length !== DIMENSIONS) {
-      throw new Error(`Embedding must be ${DIMENSIONS}-dimensional float array`);
-    }
-
-    const record = {
-      id,
-      text,
-      vector: embedding,
-      category: metadata.category || 'general',
-      scope: metadata.scope || 'agent',
-      importance: metadata.importance ?? 0.5,
-      created_at: BigInt(metadata.created_at ?? Date.now()),
-    };
-
-    // Use mergeInsert (upsert) - if id exists, update; otherwise insert
-    try {
-      await this._table
-        .mergeInsert(['id'])
-        .values([record])
-        .map(({ inserted }) => inserted)
-        .execute();
-    } catch (e) {
-      // Fallback: delete then insert on mergeInsert failure
-      try {
-        await this._table.delete(`id = "${id}"`);
-      } catch {
-        // ignore
+  async _refreshCache() {
+    this._cache = {};
+    const rows = await queryRows(this._table);
+    for (const row of rows) {
+      if (row.vec_json) {
+        const vec = base64ToVec(row.vec_json);
+        if (vec) this._cache[row.id] = vec;
       }
-      await this._table.add([record]);
     }
   }
 
-  /**
-   * Batch upsert vectors
-   * @param {Array<{id, text, embedding, metadata}>} records
-   */
-  async addVectors(records) {
+  /** Add or update a memory record */
+  async upsert({ id, text, category = 'general', scope = 'USER', importance = 0.5, created_at: ca }) {
     await this.initialize();
-    for (const r of records) {
-      await this.addVector(r.id, r.text, r.embedding, r.metadata);
+    const embedding = await ollamaEmbed(text);
+    if (!embedding) throw new Error('Ollama embedding failed for: ' + text.slice(0, 30));
+    const vecB64 = vecToBase64(embedding);
+    const createdMs = ca ? (typeof ca === 'number' ? ca : new Date(ca).getTime()) : Date.now();
+
+    try { await this._table.delete(`id = "${id}"`); } catch { /* ignore */ }
+    await this._table.add([{ id, text, category, scope, importance, created_at: createdMs, vec_json: vecB64 }]);
+    this._cache[id] = embedding;
+    return id;
+  }
+
+  /** Delete by id */
+  async delete(id) {
+    await this.initialize();
+    try { await this._table.delete(`id = "${id}"`); } catch { /* ignore */ }
+    delete this._cache[id];
+  }
+
+  /** ANN search using in-memory cosine similarity */
+  async search(query, topK = 10, scope = null) {
+    await this.initialize();
+    const qEmb = await ollamaEmbed(query);
+    if (!qEmb) return [];
+
+    // Compute cosine similarity against all cached vectors
+    const scored = [];
+    for (const [id, vec] of Object.entries(this._cache)) {
+      // Scope filter (in-memory, since WHERE is broken)
+      if (scope) {
+        // We need scope metadata - fetch from table
+      }
+      const score = cosineSim(qEmb, vec);
+      scored.push({ id, score });
     }
-  }
 
-  /**
-   * Search ANN vectors by embedding with optional scope filtering
-   * @param {number[]} queryEmbedding - 768-dim query vector
-   * @param {number} topK - Number of results to return
-   * @param {string|null} scope - Scope to filter by (AGENT, USER, TEAM, GLOBAL, or null for all)
-   * @returns {Array<{id, text, score, metadata}>}
-   */
-  async searchVectors(queryEmbedding, topK = 10, scope = null) {
-    await this.initialize();
-    if (!queryEmbedding || queryEmbedding.length !== DIMENSIONS) {
-      throw new Error(`Query embedding must be ${DIMENSIONS}-dimensional float array`);
+    scored.sort((a, b) => b.score - a.score);
+    const topIds = scored.slice(0, topK).map(s => s.id);
+
+    if (topIds.length === 0) return [];
+
+    // Fetch full records for top ids
+    const allRows = await queryRows(this._table);
+    const rowMap = {};
+    for (const r of allRows) {
+      if (!scope || r.scope === scope) rowMap[r.id] = r;
     }
 
-    let query = this._table.query().nearestTo(queryEmbedding);
-    if (scope) {
-      // Scope filtering at DB level — avoid scanning all vectors
-      query = query.where(`scope = "${scope}"`);
-    }
-    const results = await query.limit(topK).execute();
-
-    return results.map((row) => ({
-      id: row.id,
-      text: row.text,
-      score: row._score ?? row.score ?? 0,
-      metadata: {
-        category: row.category,
-        scope: row.scope,
-        importance: row.importance,
-        created_at: Number(row.created_at),
-      },
-    }));
+    return topIds
+      .filter(id => rowMap[id])
+      .map(id => {
+        const r = rowMap[id];
+        const scoreEntry = scored.find(s => s.id === id);
+        return {
+          id: r.id,
+          text: r.text,
+          score: scoreEntry?.score ?? 0,
+          metadata: {
+            category: r.category,
+            scope: r.scope,
+            importance: r.importance,
+            created_at: r.created_at,
+          },
+        };
+      });
   }
 
-  /**
-   * Delete a vector by id
-   * @param {string} id
-   */
-  async deleteVector(id) {
-    await this.initialize();
-    await this._table.delete(`id = "${id}"`);
-  }
-
-  /**
-   * Get a vector by id
-   * @param {string} id
-   * @returns {{id, text, embedding, metadata}|null}
-   */
-  async getVector(id) {
-    await this.initialize();
-    const results = await this._table
-      .query()
-      .where(`id = "${id}"`)
-      .limit(1)
-      .execute();
-
-    if (results.length === 0) return null;
-    const row = results[0];
-    return {
-      id: row.id,
-      text: row.text,
-      embedding: row.vector,
-      metadata: {
-        category: row.category,
-        scope: row.scope,
-        importance: row.importance,
-        created_at: Number(row.created_at),
-      },
-    };
-  }
-
-  /** Get total count of vectors in the store */
-  async count() {
-    await this.initialize();
-    return await this._table.countRows();
-  }
+  async count() { return Object.keys(this._cache).length; }
 }
 
-// Singleton instance
+// ── Singleton ──────────────────────────────────────────────────
 let _instance = null;
-
 export function getVectorStore() {
-  if (_instance === null) {
-    _instance = new VectorMemory();
-  }
+  if (!_instance) _instance = new VectorMemory();
   return _instance;
 }
 
-// ============ Compatibility layer for vector.js API ============
+// ── Compatibility layer ─────────────────────────────────────────
+// getEmbedding is exported via the export {} statement above
 
-const vectorStore = new VectorMemory();
-
-/**
- * Get embedding for text using nomic-embed-text via TransformersEmbeddingFunction
- * @param {string} text
- * @returns {Promise<number[]|null>}
- */
-export async function getEmbedding(text) {
-  try {
-    const func = await getEmbeddingFunction();
-    const embeddings = await func.computeQueryEmbeddings([text]);
-    return embeddings[0] ?? null;
-  } catch (e) {
-    console.error('[vector_lancedb] getEmbedding error:', e.message);
-    return null;
-  }
-}
-
-function hashText(text) {
-  let hash = 0;
-  for (let i = 0; i < text.length; i++) {
-    const char = text.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return Math.abs(hash).toString(36);
-}
-
-/**
- * Get embedding with file caching (backward compatible)
- * @param {string} text
- * @returns {Promise<number[]|null>}
- */
-export async function getEmbeddingCached(text) {
-  const cacheDir = join(VECTOR_DB_DIR, '..', 'embeddings');
-  const hash = hashText(text);
-  const cacheFile = join(cacheDir, `${hash}.json`);
-
-  if (existsSync(cacheFile)) {
-    try {
-      const cached = JSON.parse(readFileSync(cacheFile, 'utf8'));
-      return cached.embedding;
-    } catch {
-      // ignore
-    }
-  }
-
-  const embedding = await getEmbedding(text);
-  if (embedding) {
-    try {
-      if (!existsSync(cacheDir)) mkdirSync(cacheDir, { recursive: true });
-      writeFileSync(cacheFile, JSON.stringify({ embedding, text: text.slice(0, 100) }), 'utf8');
-    } catch {
-      // ignore
-    }
-  }
-  return embedding;
-}
-
-/**
- * Vector search using LanceDB ANN (backward compatible with vector.js API)
- * @param {string} query
- * @param {number} topK
- * @param {string|null} scope - Scope to filter by (AGENT, USER, TEAM, GLOBAL, or null for all)
- * @returns {Promise<Array<{memory: object, score: number, highlight: string}>>}
- */
 export async function vectorSearch(query, topK = 10, scope = null) {
-  const queryEmbedding = await getEmbeddingCached(query);
-  if (!queryEmbedding) return [];
-
-  const results = await vectorStore.searchVectors(queryEmbedding, topK, scope);
-
-  return results.map((r) => {
-    let highlight = r.text.slice(0, 150);
-    if (r.text.length > 150) highlight += '...';
-    return {
-      memory: {
-        id: r.id,
-        text: r.text,
-        category: r.metadata.category,
-        scope: r.metadata.scope,
-        importance: r.metadata.importance,
-        created_at: r.metadata.created_at,
-      },
-      score: r.score,
-      highlight,
-    };
-  });
+  const store = getVectorStore();
+  const results = await store.search(query, topK, scope);
+  return results.map(r => ({
+    memory: {
+      id: r.id, text: r.text,
+      category: r.metadata.category, scope: r.metadata.scope,
+      importance: r.metadata.importance, created_at: r.metadata.created_at,
+    },
+    score: r.score,
+    highlight: (r.text || '').slice(0, 150),
+  }));
 }

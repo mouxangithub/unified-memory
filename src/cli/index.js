@@ -381,7 +381,7 @@ const { values, positionals } = parseArgs({
 
 
 values._ = positionals;
-handler.handler(values).catch(err => {
+Promise.resolve(handler.handler(values)).catch(err => {
   console.error(`❌ Error: ${err.message}`);
   process.exit(1);
 });

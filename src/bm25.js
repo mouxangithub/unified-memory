@@ -1,9 +1,20 @@
 /**
  * BM25搜索引擎 - 完全本地，不调用LLM
  * 参考: memory_bm25.py (274行)
+ * 
+ * v3.2: 支持 scope 过滤 + index 缓存
  */
 
 import { getAllMemories } from './storage.js';
+
+// BM25 parameters
+const B = 0.75;  // field length normalization
+const K1 = 1.5;  // term frequency saturation
+
+// Index cache (invalidated when memories change)
+let _cachedIndex = null;
+let _cachedMemCount = -1;
+let _cachedScope = null;
 
 /**
  * Simple tokenizer - 中英文分词
@@ -72,11 +83,18 @@ function bm25Score(query, text, index, options = {}) {
 }
 
 /**
- * Build BM25 index from all memories
+ * Build BM25 index from all memories (with scope filtering and caching)
+ * @param {string} [scope] - Scope to filter by (USER/TEAM/AGENT/GLOBAL/null for all)
  * @returns {object}
  */
-export function buildBM25Index() {
-  const memories = getAllMemories();
+export function buildBM25Index(scope = null) {
+  // Check cache (valid for same scope + same memory count)
+  const memCount = getAllMemories().length;
+  if (_cachedIndex && _cachedScope === scope && _cachedMemCount === memCount) {
+    return _cachedIndex;
+  }
+
+  const memories = getAllMemories().filter(m => !scope || m.scope === scope || !m.scope);
   const invertedIndex = new Map();
   const docLengths = new Map();
   const idfCache = new Map();
@@ -100,27 +118,34 @@ export function buildBM25Index() {
   const docCount = memories.length;
   const avgDocLength = docCount > 0 ? totalLength / docCount : 1;
 
-  return { invertedIndex, docLengths, avgDocLength, docCount, idfCache };
+  _cachedIndex = { invertedIndex, docLengths, avgDocLength, docCount, idfCache };
+  _cachedScope = scope;
+  _cachedMemCount = memCount;
+
+  return _cachedIndex;
 }
 
 /**
- * Search using BM25
+ * Search using BM25 (with optional scope filtering)
  * @param {string} query
  * @param {number} [topK=10]
+ * @param {string} [scope] - Optional scope filter
  * @returns {Array<{memory: object, score: number, highlight: string}>}
  */
-export function bm25Search(query, topK = 10) {
-  const memories = getAllMemories();
-  if (!query || memories.length === 0) return [];
+export function bm25Search(query, topK = 10, scope = null) {
+  if (!query) return [];
+  
+  // Get memories filtered by scope
+  const allMemories = getAllMemories();
+  const memories = scope ? allMemories.filter(m => m.scope === scope || (!m.scope && scope === 'USER')) : allMemories;
+  if (memories.length === 0) return [];
 
-  const index = buildBM25Index();
+  const index = buildBM25Index(scope);
   const results = [];
 
   for (const mem of memories) {
     const score = bm25Score(query, mem.text, index);
     if (score > 0) {
-      // Simple highlight - mark first occurrence
-      const qTokens = tokenize(query);
       let highlight = mem.text.slice(0, 150);
       if (mem.text.length > 150) highlight += '...';
 
@@ -131,4 +156,11 @@ export function bm25Search(query, topK = 10) {
   // Sort by score descending
   results.sort((a, b) => b.score - a.score);
   return results.slice(0, topK);
+}
+
+/** Invalidate BM25 cache (call after adding/deleting memories) */
+export function invalidateBM25Cache() {
+  _cachedIndex = null;
+  _cachedMemCount = -1;
+  _cachedScope = null;
 }

@@ -1,11 +1,15 @@
 /**
  * RRF (Reciprocal Rank Fusion) - 混合 BM25 和向量搜索结果
- * 参考: memory_qmd_search.py 的 RRF 融合部分
+ *
+ * v3.0: 使用 vector_lancedb.js (LanceDB 持久化存储 + Ollama HTTP embedding)
+ *       替代旧的 vector.js (Transformers.js 本地模型，每次都重新 embed 全量数据)
+ * v3.1: 加入 rerank() 多信号重排 (keyword/entity/importance/recency/scope)
  */
 
 import { config } from './config.js';
 import { bm25Search } from './bm25.js';
-import { vectorSearch } from './vector.js';
+import { vectorSearch } from './vector_lancedb.js';
+import { rerank } from './rerank.js';
 
 /**
  * Reciprocal Rank Fusion
@@ -40,44 +44,67 @@ function reciprocalRankFusion(resultLists, k = 60) {
 
 /**
  * Hybrid search: BM25 + Vector with RRF fusion
+ *
  * @param {string} query
  * @param {number} [topK=10]
- * @param {string} [mode='hybrid']
- * @returns {Promise<Array<{memory: object, fusionScore: number, highlight: string, bm25Score?: number, vectorScore?: number}>>}
+ * @param {string} [mode='hybrid'] - 'hybrid', 'bm25', 'vector'
+ * @param {string} [scope=null] - AGENT, USER, TEAM, GLOBAL
+ * @returns {Promise<Array>}
  */
 export async function hybridSearch(query, topK = 10, mode = 'hybrid', scope = null) {
   const k = config.rrfK || 60;
+  const vectorEnabled = config.vectorEngine !== 'none';
 
   if (mode === 'bm25') {
-    // BM25 has no scope filtering — return all (BM25 is scope-agnostic in this implementation)
-    const results = bm25Search(query, topK * 2);
-    return results.map((r, i) => ({
+    const results = bm25Search(query, topK * 2, scope);
+    const mapped = results.map((r, i) => ({
       memory: r.memory,
       fusionScore: 1 / (k + i + 1),
       highlight: r.highlight,
       bm25Score: r.score,
     }));
+    return rerank(query, mapped, { topK });
   }
 
   if (mode === 'vector') {
+    if (!vectorEnabled) {
+      // Fall back to BM25 when vector is disabled
+      return hybridSearch(query, topK, 'bm25', scope);
+    }
     const results = await vectorSearch(query, topK * 2, scope);
-    return results.map((r, i) => ({
+    const mapped = results.map((r, i) => ({
       memory: r.memory,
       fusionScore: 1 / (k + i + 1),
       highlight: r.highlight,
       vectorScore: r.score,
     }));
+    return rerank(query, mapped, { topK });
   }
 
-  // Hybrid: BM25 + Vector RRF — vector search gets scope filter, BM25 is scope-agnostic
-  const [bm25Results, vectorResults] = await Promise.all([
-    Promise.resolve(bm25Search(query, topK * 2)),
-    vectorSearch(query, topK * 2, scope),
-  ]);
+  // Hybrid: BM25 + Vector RRF (or BM25-only when vector disabled)
+  let bm25Results, vectorResults;
+  if (vectorEnabled) {
+    [bm25Results, vectorResults] = await Promise.all([
+      bm25Search(query, topK * 2, scope),
+      vectorSearch(query, topK * 2, scope),
+    ]);
+  } else {
+    bm25Results = bm25Search(query, topK * 2, scope);
+    vectorResults = [];
+  }
 
   const fused = reciprocalRankFusion([bm25Results, vectorResults], k);
-  return fused.slice(0, topK).map((r) => ({
+  const preRerank = fused.slice(0, topK).map((r) => ({
     ...r,
     highlight: r.highlight || r.memory.text?.slice(0, 150),
+  }));
+
+  // v3.1: Re-rank using keyword overlap, entity match, recency, importance, scope
+  const reranked = rerank(query, preRerank, { topK });
+  // Normalize: use score (alias of rerankScore) for consistent API
+  return reranked.map(r => ({
+    ...r,
+    score: r.rerankScore ?? r.score ?? r.fusionScore,
+    fusionScore: r.fusionScore ?? r.score,
   }));
 }

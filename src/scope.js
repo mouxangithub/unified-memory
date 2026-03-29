@@ -22,6 +22,41 @@ const TEAM_CONTEXT = {
   current: null, // team_id or null for no-team
 };
 
+// ============ Agent Context (for AGENT-scope isolation) ============
+
+/** Current active agent context */
+const AGENT_CONTEXT = {
+  current: null, // agent_id string or null
+};
+
+/**
+ * Set current agent context for memory operations
+ * Call this at the start of each agent session
+ * @param {string|null} agentId
+ */
+export function setCurrentAgentId(agentId) {
+  AGENT_CONTEXT.current = agentId || null;
+}
+
+/**
+ * Get current agent context
+ * @returns {string|null}
+ */
+export function getCurrentAgentId() {
+  return AGENT_CONTEXT.current;
+}
+
+/**
+ * Switch agent context (returns previous)
+ * @param {string|null} agentId
+ * @returns {string|null} previous agent_id
+ */
+export function switchAgentId(agentId) {
+  const prev = AGENT_CONTEXT.current;
+  AGENT_CONTEXT.current = agentId || null;
+  return prev;
+}
+
 /**
  * Normalize a scope string to SCOPE_LEVELS
  * @param {string} scope
@@ -43,7 +78,15 @@ export function getEffectiveScope(scope) {
 }
 
 /**
- * Filter memories by scope level
+ * Filter memories by scope level (with agent_id isolation for AGENT scope)
+ * 
+ * Scope hierarchy: AGENT(0) < USER(1) < TEAM(2) < GLOBAL(3)
+ * Standard rule: memory.scope >= target.scope (more specific can see broader)
+ * 
+ * AGENT scope EXCEPTION: agent_id isolation - AGENT scope returns ONLY
+ * memories belonging to the current agent, regardless of hierarchy.
+ * This ensures agent memories are completely private.
+ * 
  * @param {Array} memories
  * @param {string} scope
  * @returns {Array}
@@ -51,10 +94,26 @@ export function getEffectiveScope(scope) {
 export function filterByScope(memories, scope) {
   const target = normalizeScope(scope);
   const targetLevel = SCOPE_HIERARCHY[target];
+  const currentAgentId = AGENT_CONTEXT.current;
+  
+  // AGENT scope: strict agent_id isolation - only return current agent's memories
+  // This is the key difference from other scopes - AGENT memories are completely private
+  if (target === 'AGENT') {
+    return memories.filter(m => {
+      const mScope = normalizeScope(m.scope || 'GLOBAL');
+      if (mScope !== 'AGENT') return false;
+      // Same agent check
+      if (currentAgentId && m.agent_id && m.agent_id !== currentAgentId) {
+        return false;
+      }
+      return true;
+    });
+  }
+  
+  // Non-AGENT scopes: standard hierarchy (memory >= target means memory is same-or-broader)
   return memories.filter(m => {
     const mScope = normalizeScope(m.scope || 'GLOBAL');
     const mLevel = SCOPE_HIERARCHY[mScope];
-    // Allow if memory scope >= target scope (GLOBAL >= TEAM >= USER >= AGENT)
     return mLevel >= targetLevel;
   });
 }
@@ -68,6 +127,15 @@ export function filterByScope(memories, scope) {
 export function matchesScope(memory, scope) {
   const target = normalizeScope(scope);
   const mScope = normalizeScope(memory.scope || 'GLOBAL');
+  
+  // AGENT scope: also check agent_id isolation
+  if (mScope === 'AGENT' && target === 'AGENT') {
+    const currentAgentId = getCurrentAgentId();
+    if (currentAgentId && memory.agent_id && memory.agent_id !== currentAgentId) {
+      return false; // different agent, can't see each other's AGENT memories
+    }
+  }
+  
   return SCOPE_HIERARCHY[mScope] >= SCOPE_HIERARCHY[target];
 }
 
@@ -164,9 +232,10 @@ export function memoryBelongsToTeam(memory, teamId) {
 }
 
 /**
- * Filter memories for the current team context
+ * Filter memories for the current team context + agent context
  * TEAM-scope: only memories belonging to current team
- * USER/AGENT-scope: memories without a team_id
+ * USER-scope: personal memories (no team filter)
+ * AGENT-scope: only memories belonging to current agent_id
  * GLOBAL-scope: all memories
  * @param {Array} memories
  * @param {string} scope
@@ -174,9 +243,10 @@ export function memoryBelongsToTeam(memory, teamId) {
  */
 export function filterByTeamAndScope(memories, scope = 'TEAM') {
   const teamId = TEAM_CONTEXT.current;
+  const agentId = AGENT_CONTEXT.current;
 
-  // GLOBAL: no team filtering needed
-  if (scope === 'GLOBAL' || scope === 'GLOBAL') {
+  // GLOBAL: no team/agent filtering needed
+  if (scope === 'GLOBAL') {
     return memories;
   }
 
@@ -189,12 +259,22 @@ export function filterByTeamAndScope(memories, scope = 'TEAM') {
       return memoryBelongsToTeam(m, teamId);
     }
 
-    // USER/AGENT scope: never filter by team (personal memories)
-    if (mScope === 'USER' || mScope === 'AGENT') {
+    // AGENT scope: strict agent_id isolation - never visible to non-AGENT scopes
+    if (mScope === 'AGENT') {
+      if (scope === 'AGENT') {
+        if (!agentId) return false;
+        if (m.agent_id && m.agent_id !== agentId) return false;
+        return true;
+      }
+      return false; // AGENT memories are NEVER visible to USER/TEAM/GLOBAL
+    }
+
+    // USER scope: no agent filtering (personal, not tied to specific agent)
+    if (mScope === 'USER') {
       return true;
     }
 
-    // Fallback: no team filtering
+    // Fallback: no filtering
     return true;
   });
 }
@@ -266,6 +346,9 @@ export default {
   getMemoryNamespace,
   tagWithTeam,
   extractTeamFromId,
+  setCurrentAgentId,
+  getCurrentAgentId,
+  switchAgentId,
 };
 
 // Helper: returns scope order for sorting (lower = more specific)

@@ -139,3 +139,42 @@
 ## v1.x (2026-03-25)
 
 - Python prototype
+
+## v2.8.0 (2026-03-28)
+### 🚀 Features
+- **Unified Web UI + API Server** - 整合所有 Web UI 和 API 到单一服务端口 (3850)
+  - Dashboard v2.8 (嵌入式)
+  - Memory API (/api/memories, /api/search, /api/stats)
+  - Health check (/health)
+  - 移除分散的 6 个 HTTP 服务
+
+### 🔧 Refactor
+- 新建 `src/webui/unified_server.js` 替代分散的服务
+- 更新 index.js 启动脚本指向统一服务器
+
+## v2.9.0 (2026-03-28)
+### 🚀 重大重构
+- **完整重写 Web UI** - 从 webui.js 整合所有功能到 unified_server.js
+- **响应式移动端设计** - CSS media queries 支持手机/平板/桌面
+- **中文界面** - 所有文字显示中文
+- **深色/亮色主题切换** - 🌓 按钮，localStorage 持久化
+- **修复 /memories 路由** - 现在正常显示记忆列表页
+- **丰富 API 数据** - /api/stats 返回完整统计（分类、重要度分布、时间统计）
+
+### 📱 页面功能
+| 页面 | 路由 | 功能 |
+|------|------|------|
+| 概览 | `/` | 统计卡片、分类分布、最近记忆 |
+| 记忆列表 | `/memories` | 分页、筛选、排序 |
+| 搜索 | `/search` | 关键词搜索 |
+
+### 🔌 API 端点
+| 端点 | 功能 |
+|------|------|
+| `/api/stats` | 完整统计 |
+| `/api/memories` | 记忆列表（分页） |
+| `/api/categories` | 分类列表 |
+| `/api/search?q=` | 搜索 |
+| `/api/recent` | 最近记忆 |
+| `/api/top` | 高重要度记忆 |
+| `/health` | 健康检查 |

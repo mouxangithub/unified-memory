@@ -1,26 +1,23 @@
-# 🧠 Unified Memory v2.7
+# 🧠 Unified Memory v3.x
 
 > AI Agent Memory System — Multi-layered, Persistent, Proactive
 
 **Author**: 程序员小刘 (@mouxangithub)  
 **GitHub**: https://github.com/mouxangithub/unified-memory  
 **Registry**: `clawhub install unified-memory`  
-**Framework**: OpenClaw Agent | Node.js ESM | 76 MCP Tools | Web Dashboard v2.7
+**Framework**: OpenClaw Agent | Node.js ESM | 28 MCP Tools | Web Dashboard v3.x
 
 ---
 
 ## 📖 Table of Contents
 
 - [Features](#features)
-- [Requirements](#requirements)
-- [Installation](#installation)
-  - [Option 1 — Clawhub (Recommended)](#option-1--clawhub-recommended)
-  - [Option 2 — Curl Installer](#option-2--curl-installer)
-  - [Option 3 — Manual](#option-3--manual)
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
 - [Architecture](#architecture)
-- [Phase 3 New Tools](#phase-3-new-tools)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [28 MCP Tools](#28-mcp-tools)
+- [Quick Start](#quick-start)
+- [Scope Isolation](#scope-isolation)
 - [Development](#development)
 - [License](#license)
 
@@ -31,24 +28,43 @@
 | Feature | Description |
 |---------|-------------|
 | 🔄 **Persistent Context** | No more re-explaining every session |
-| 🔍 **Hybrid Search** | BM25 + Vector + RRF (100% local, Ollama-powered) |
+| 🔍 **Hybrid Search** | BM25 + Vector + RRF (configurable: LanceDB / Ollama / none) |
 | 💬 **Auto-Store** | Hooks mode, no manual calls needed |
-| 🏷️ **Scope Isolation** | AGENT / USER / TEAM / GLOBAL — enforced at LanceDB query level |
+| 🏷️ **Scope Isolation** | AGENT / USER / TEAM / GLOBAL |
 | 📈 **Weibull Decay** | Human-like forgetting curve (shape=1.5, scale=30 days) |
 | 🔗 **Git Versioning** | Git-backed memory snapshots and notes |
-| ☁️ **Cloud Backup** | SuperMemory API + Custom REST dual sync |
+| ☁️ **Cloud Backup** | Local Git + Cloud backup dual mode |
 | 📊 **Knowledge Graph** | Entity extraction and relationship mapping |
 | 🏥 **Health Check** | Complete system health monitoring |
+| ⚡ **Pluggable Architecture** | LanceDB / Ollama / none — choose what you need |
 
 ---
 
-## Requirements
+## Architecture
 
-| Dependency | Version | Notes |
-|------------|---------|-------|
-| Node.js | ≥ 22 | ESM required |
-| Ollama | ≥ 0.1.40 | Optional — falls back to BM25-only if missing |
-| OpenClaw | ≥ 2026.3 | For skill system / Clawhub integration |
+```
+OpenClaw Agent
+└── unified-memory (Node.js ESM MCP Server)
+    ├── 28 core tools (unified action-parameter entry points)
+    ├── Storage layer: JSON + WAL (crash-recoverable)
+    ├── Vector layer (pluggable):
+    │   ├── LanceDB (default, zero-config)
+    │   ├── Ollama Embedding (optional)
+    │   └── none (BM25-only mode)
+    ├── LLM layer (pluggable):
+    │   ├── Ollama (default, local)
+    │   └── none (rule-based fallback)
+    └── Tier management: HOT / WARM / COLD
+```
+
+**Configuration Modes**:
+
+| Mode | Vector Engine | Embedding | LLM |
+|------|-------------|-----------|-----|
+| Default (Recommended) | LanceDB | Ollama | Ollama |
+| Lightweight | none | none | none |
+| Local Vector | LanceDB | Ollama | none |
+| Cloud Managed | LanceDB Cloud | LanceDB managed | Ollama/OpenAI |
 
 ---
 
@@ -60,7 +76,7 @@ clawhub install unified-memory
 openclaw gateway restart
 ```
 
-### Option 2 — Curl Installer
+### Option 2 — Curl Installer (auto-installs LanceDB)
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mouxangithub/unified-memory/main/install.sh | bash
 ```
@@ -73,6 +89,58 @@ cd unified-memory && npm install --ignore-scripts
 
 ---
 
+## Configuration
+
+See [docs/CONFIG.md](docs/CONFIG.md) for full details. Core settings:
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `OLLAMA_HOST` | `http://localhost:11434` | Ollama server address |
+| `OLLAMA_EMBED_MODEL` | `nomic-embed-text` | Embedding model |
+| `MEMORY_FILE` | `~/.openclaw/workspace/memory/memories.json` | Memory storage path |
+| `VECTOR_DB_DIR` | `~/.unified-memory/vector.lance` | LanceDB path |
+| `LANCEDB_API_KEY` | (none) | LanceDB Cloud API Key (optional) |
+| `VECTOR_ENGINE` | `lancedb` | Vector engine: lancedb / ollama / none |
+| `LLM_PROVIDER` | `ollama` | LLM provider: ollama / openai / none |
+
+---
+
+## 28 MCP Tools
+
+### Storage Core (5)
+| Tool | Description |
+|------|-------------|
+| `store` | Store memory (category/importance/tags/scope) |
+| `get` | Get single memory |
+| `list` | Paginated memory list |
+| `delete` | Delete memory |
+| `search` | Hybrid search: BM25 → Vector → Rerank → MMR |
+
+### Unified Entry Points (8, action parameter)
+| Tool | Actions |
+|------|---------|
+| `memory_reminder` | add / list / cancel |
+| `memory_preference` | get / set / infer / explain / stats / slots |
+| `memory_version` | list / diff / restore |
+| `memory_tier` | status / migrate / compress |
+| `memory_proactive` | status / trigger / start / stop |
+| `memory_proactive_care` | - |
+| `memory_proactive_recall` | - |
+| `memory_qmd` | search / get / vsearch / list / status |
+| `memory_engine` | bm25 / embed / search / mmr / rerank |
+| `memory_graph` | entity / relation / query / stats / add / delete |
+
+### Search & Retrieval (4)
+`memory_bm25` · `memory_vector` · `memory_scope` · `memory_concurrent_search`
+
+### Analysis & Management (9)
+`memory_trace` · `memory_metrics` · `memory_noise` · `memory_decay` · `memory_dedup` · `memory_extract` · `memory_reflection` · `memory_intent` · `memory_wal`
+
+### Cloud & System (6)
+`memory_cloud_backup` · `memory_cloud_restore` · `memory_export` · `memory_adaptive` · `memory_autostore` · `memory_auto_extract` · `memory_health` · `memory_insights` · `memory_predict` · `memory_feedback`
+
+---
+
 ## Quick Start
 
 ```bash
@@ -80,69 +148,24 @@ cd unified-memory && npm install --ignore-scripts
 mcporter call unified-memory memory_health '{}'
 
 # Store a memory
-mcporter call unified-memory memory_store '{"text": "刘总喜欢简洁直接的沟通风格", "category": "preference", "scope": "USER"}'
+mcporter call unified-memory memory_store '{"text": "Liu prefers concise communication", "category": "preference", "scope": "USER"}'
 
 # Search memories
-mcporter call unified-memory memory_search '{"query": "刘总沟通风格", "scope": "USER"}'
+mcporter call unified-memory memory_search '{"query": "Liu communication style", "scope": "USER"}'
 
 # Check stats
 mcporter call unified-memory memory_stats '{}'
+
+# Add a reminder
+mcporter call unified-memory memory_reminder '{"action": "add", "content": "meeting", "minutes": 30}'
+
+# View knowledge graph
+mcporter call unified-memory memory_graph '{"action": "stats"}'
 ```
-
----
-
-## Configuration
-
-| Environment Variable | Default | Description |
-|---------------------|---------|-------------|
-| `OLLAMA_HOST` | `http://localhost:11434` | Ollama server |
-| `OLLAMA_EMBED_MODEL` | `nomic-embed-text-v1.5` | Embedding model |
-| `MEMORY_FILE` | `~/.openclaw/workspace/memory/memories.json` | Memory storage path |
-| `VECTOR_DB_DIR` | `~/.unified-memory/vector.lance` | LanceDB path |
-
----
-
-## Architecture
-
-```
-OpenClaw Agent
-└── unified-memory (Node.js ESM MCP Server)
-    ├── 63 core tools (index.js)
-    ├── Phase 3 additions:
-    │   ├── plugin/         — OpenClaw Memory Plugin interface
-    │   ├── search/         — QMD backend integration
-    │   ├── integrations/   — Git + Cloud backup
-    │   └── decay/          — Weibull decay model
-    ├── BM25 + Vector + RRF hybrid search
-    ├── LanceDB (embedded, zero-config)
-    ├── WAL + tier management
-    └── Knowledge graph + preference slots
-```
-
----
-
-## Phase 3 New Tools
-
-### Plugin Interface (3)
-`phase3_memory_search` · `phase3_memory_get` · `phase3_memory_write`
-
-### Git Integration (7)
-`memory_git_init` · `memory_git_sync` · `memory_git_history` · `memory_git_note` · `memory_git_pull` · `memory_git_push` · `memory_git_status`
-
-### Cloud Backup (3)
-`memory_cloud_sync` · `memory_cloud_push` · `memory_cloud_pull`
-
-### Weibull Decay (2)
-`memory_decay_stats` · `memory_decay_strength`
-
-### QMD Backend (3)
-`memory_qmd_query` · `memory_qmd_status` · `memory_qmd_search2`
 
 ---
 
 ## Scope Isolation
-
-Scope filtering is enforced at **LanceDB query level** (not post-filter), so each scope sees only its own vectors:
 
 | Scope | Access |
 |-------|--------|
@@ -152,7 +175,6 @@ Scope filtering is enforced at **LanceDB query level** (not post-filter), so eac
 | `GLOBAL` | Public to all |
 
 ```bash
-# Search within USER scope only
 mcporter call unified-memory memory_search '{"query": "project plans", "scope": "USER"}'
 ```
 
@@ -161,71 +183,38 @@ mcporter call unified-memory memory_search '{"query": "project plans", "scope": 
 ## Development
 
 ```bash
-# Install deps (peer deps provided by host)
+# Install deps
 npm install --ignore-scripts
 
-# Start MCP server (stdio)
+# Start MCP server
 node src/index.js
-
-# Start REST API
-node src/cli/index.js server --port 38421
 
 # CLI help
 node src/cli/index.js --help
 
 # Run tests
 node run-tests.cjs
+
+# Web dashboard
+node src/webui/dashboard.js
 ```
 
 ---
 
 ## File Structure
 
-| File | Description |
-|------|-------------|
-| `src/index.js` | MCP server (63 core tools) |
-| `src/plugin/` | OpenClaw Memory Plugin interface |
-| `src/search/` | QMD search backend |
-| `src/integrations/` | Git + Cloud backup |
-| `src/decay/` | Weibull decay model |
-| `src/core/` | BM25, vector, fusion, tier, dedup, etc. |
-| `src/cli/` | CLI tools |
-| `src/webui/dashboard.js` | Web monitoring dashboard (v2.7) |
-| `wal/` | Write-ahead log |
-| `memories.json` | Memory persistence |
-
----
-
-## Web UI Dashboard (v2.7)
-
-A real-time monitoring dashboard for memory system health and statistics.
-
-```bash
-# Start dashboard
-npm run dashboard
-
-# Or with custom port
-npm run dashboard:port -- --port=3850
 ```
-
-**Access**: http://localhost:3849
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Dashboard UI |
-| `/api/stats` | GET | Memory statistics (categories, tiers, scopes, tags) |
-| `/api/health` | GET | System health (Ollama, LanceDB, storage) |
-| `/api/memories` | GET | All memories |
-| `/api/export` | GET | Export memories as JSON file |
-| `/api/manage` | POST | Management actions (cleanup) |
-
-**Dashboard Features**:
-- Real-time search stats (total, 7d growth, access counts)
-- Memory distribution by category, scope, tier, importance, tags
-- System health monitoring with color-coded status
-- 14-day memory growth trend chart
-- Cleanup old memories (30 days threshold)
-- Auto-refresh every 5 seconds
+src/
+├── index.js          # MCP server (28 tools)
+├── storage.js        # JSON persistence + WAL
+├── vector_lancedb.js # LanceDB vector backend
+├── bm25.js           # BM25 search engine
+├── graph/            # Knowledge graph
+├── tools/            # Tool wrappers
+└── webui/            # Web dashboard
+docs/
+└── CONFIG.md         # Detailed configuration guide
+```
 
 ---
 
@@ -233,4 +222,4 @@ npm run dashboard:port -- --port=3850
 
 MIT
 
-*Last updated: 2026-03-28 | v2.6.0*
+*Last updated: 2026-03-29 | v3.x*

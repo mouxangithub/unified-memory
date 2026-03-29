@@ -7,7 +7,24 @@ import {
   getCurrentTeam,
   filterByTeamAndScope,
   normalizeScope,
+  getCurrentAgentId,
 } from './scope.js';
+
+// Lazy import to avoid circular deps and to handle missing Ollama gracefully
+let _vectorMem = null;
+async function getVectorMem() {
+  if (!_vectorMem) {
+    try {
+      const { VectorMemory } = await import('./vector_lancedb.js');
+      _vectorMem = new VectorMemory();
+      await _vectorMem.initialize();
+    } catch (e) {
+      console.warn('[storage] VectorMemory init failed:', e.message);
+      return null;
+    }
+  }
+  return _vectorMem;
+}
 
 /**
  * @typedef {import('./types.js').Memory} Memory
@@ -109,9 +126,11 @@ export function invalidateCache() {
 export function addMemory(mem) {
   const memories = getAllMemories();
   const now = Date.now();
-  // v2.7.0: Identity category — highest priority, weighted in search
-  // Identity memories: identity, preference, habit, requirement, skill, goal
-  // Identity memories use importance >= 0.9 by default (set in autostore.js and identity_tools.js)
+  
+  // v3.2: Auto-tag with agent_id if in AGENT scope
+  const scope = mem.scope || 'USER';
+  const agentId = scope === 'AGENT' ? mem.agent_id || getCurrentAgentId() : null;
+  
   /** @type {Memory} */
   const newMem = {
     id: `mem_${now}_${Math.random().toString(36).slice(2, 8)}`,
@@ -119,6 +138,8 @@ export function addMemory(mem) {
     category: mem.category || 'general',
     importance: mem.importance || 0.5,
     tags: mem.tags || [],
+    scope,
+    ...(agentId ? { agent_id: agentId } : {}),
     created_at: now,
     updated_at: now,
     access_count: 0,
@@ -132,6 +153,20 @@ export function addMemory(mem) {
   }
 
   saveMemories(memories);
+
+  // Sync to LanceDB vector store (fire-and-forget, non-blocking)
+  getVectorMem().then(vm => {
+    if (vm) vm.upsert({
+      id: newMem.id,
+      text: newMem.text,
+      category: newMem.category,
+      scope: newMem.scope,
+      importance: newMem.importance,
+      created_at: newMem.created_at,
+      ...(agentId ? { agent_id: agentId } : {}),
+    }).catch(e => console.warn('[storage→LanceDB] upsert failed:', e.message));
+  }).catch(() => {});
+
   return newMem;
 }
 
@@ -152,6 +187,12 @@ export function deleteMemory(id) {
   }
 
   saveMemories(memories);
+
+  // Sync delete to LanceDB vector store
+  getVectorMem().then(vm => {
+    if (vm) vm.delete(id).catch(e => console.warn('[storage→LanceDB] delete failed:', e.message));
+  }).catch(() => {});
+
   return true;
 }
 

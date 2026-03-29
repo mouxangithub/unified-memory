@@ -1,6 +1,10 @@
 /**
- * lesson.js — Lesson System for unified-memory v1.2
- * Extracts durable high-level lessons from recurring memory recall patterns.
+ * lesson.js — Lesson System MCP Adapter + Recall Tracking
+ * 
+ * Thin wrapper around lessons.js storage with added recall tracking.
+ * - lessons.json: shared lesson storage (same format as lessons.js)
+ * - lesson_access_log.json: tracks recall_count per lesson
+ * 
  * MCP tool: memory_lessons (extract/recall/list/stats/delete/touch/candidates)
  */
 import { readFileSync, writeFileSync, existsSync } from 'fs';
@@ -24,86 +28,68 @@ const load = (f, fallback) => {
   if (!existsSync(f)) return fallback;
   try { return JSON.parse(readFileSync(f, 'utf8')); } catch { return fallback; }
 };
-const save = (f, data) => { try { writeFileSync(f, JSON.stringify(data, null, 2), 'utf8'); } catch (e) { console.error('[lesson]', f, e.message); } };
+const save = (f, data) => {
+  try { writeFileSync(f, JSON.stringify(data, null, 2), 'utf8'); } catch (e) { console.error('[lesson]', e.message); }
+};
 
-function getLessons() { if (lessonsCache !== null) return lessonsCache; lessonsCache = load(LESSONS_FILE, []); return lessonsCache; }
-function putLessons(lessons) { lessonsCache = lessons; save(LESSONS_FILE, lessons); }
+// Fixed: lessons.json is {lessons:[],version,lastUpdated}, not plain array
+function getLessons() {
+  if (lessonsCache !== null) return lessonsCache;
+  const store = load(LESSONS_FILE, { lessons: [], version: '1.0', lastUpdated: Date.now() });
+  lessonsCache = store.lessons || [];
+  return lessonsCache;
+}
+function putLessons(lessons) {
+  lessonsCache = lessons;
+  save(LESSONS_FILE, { lessons, version: '1.0', lastUpdated: Date.now() });
+}
 
-function getLog() { if (accessLogCache !== null) return accessLogCache; accessLogCache = load(ACCESS_FILE, {}); return accessLogCache; }
-function putLog(log) { accessLogCache = log; save(ACCESS_FILE, log); }
+function getLog() {
+  if (accessLogCache !== null) return accessLogCache;
+  accessLogCache = load(ACCESS_FILE, {});
+  return accessLogCache;
+}
+function putLog(log) {
+  accessLogCache = log;
+  save(ACCESS_FILE, log);
+}
 
-/** Record a memory recall for pattern detection */
-export function recordRecall(memoryId) {
+/** Touch a lesson (increment its recall count) */
+export function touchLesson(lessonId) {
   const log = getLog();
-  const now = Date.now();
-  if (!log[memoryId]) log[memoryId] = { recall_count: 0, last_recall: 0, created_at: now };
-  log[memoryId].recall_count++;
-  log[memoryId].last_recall = now;
+  if (!log[lessonId]) {
+    log[lessonId] = { recall_count: 1, last_recall: Date.now(), created_at: Date.now() };
+  } else {
+    log[lessonId].recall_count++;
+    log[lessonId].last_recall = Date.now();
+  }
   putLog(log);
 }
 
-/** Access stats for a memory */
-export function getAccessStats(memoryId) {
-  const entry = getLog()[memoryId] ?? { recall_count: 0, last_recall: 0 };
-  return { ...entry, is_candidate: entry.recall_count >= LESSON_CANDIDATE_THRESHOLD };
+function generateId() {
+  return `les_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
 /** Create or update a lesson */
-export function extractLesson(memoryId, title, body, tags = []) {
+function upsertLesson(id, fields) {
   const lessons = getLessons();
-  const now = Date.now();
-  const safeTitle = String(title).slice(0, MAX_TITLE_CHARS).trim();
-  const safeBody  = String(body).slice(0, MAX_BODY_CHARS).trim();
-  const safeTags  = Array.isArray(tags) ? tags.slice(0, 20) : [];
-  if (!safeTitle || !safeBody) throw new Error('title and body are required');
-
-  const idx = lessons.findIndex(l => l.title === safeTitle);
-  const isNew = idx === -1;
-
-  if (isNew) {
-    if (lessons.length >= MAX_LESSONS) { lessons.sort((a, b) => (a.recall_count ?? 0) - (b.recall_count ?? 0)); lessons.shift(); }
-    lessons.push({ id: `lesson_${now}_${Math.random().toString(36).slice(2, 8)}`, memory_id: memoryId ?? null, title: safeTitle, body: safeBody, tags: safeTags, created_at: now, updated_at: now, access_count: 0, recall_count: 0, last_recalled: null });
-  } else {
-    lessons[idx] = { ...lessons[idx], body: safeBody, tags: safeTags, updated_at: now, memory_id: memoryId ?? lessons[idx].memory_id };
-  }
+  const idx = lessons.findIndex(l => l.id === id);
+  const updated = { ...fields, id, updated_at: Date.now(), recall_count: idx >= 0 ? (lessons[idx].recall_count ?? 0) : 0 };
+  if (idx >= 0) lessons[idx] = updated;
+  else lessons.unshift(updated);
+  if (lessons.length > MAX_LESSONS) lessons.splice(MAX_LESSONS);
   putLessons(lessons);
-  return { success: true, lesson: isNew ? lessons[lessons.length - 1] : lessons[idx], is_new: isNew };
+  return updated;
 }
 
-export function touchLesson(lessonId) {
-  const lessons = getLessons();
-  const idx = lessons.findIndex(l => l.id === lessonId);
-  if (idx === -1) return;
-  lessons[idx].recall_count = (lessons[idx].recall_count ?? 0) + 1;
-  lessons[idx].last_recalled = Date.now();
-  lessons[idx].access_count  = (lessons[idx].access_count ?? 0) + 1;
-  putLessons(lessons);
-}
-
-export function deleteLesson(lessonId) {
-  const lessons = getLessons();
-  const idx = lessons.findIndex(l => l.id === lessonId);
-  if (idx === -1) return { success: false };
-  lessons.splice(idx, 1);
-  putLessons(lessons);
-  return { success: true };
-}
-
-export function listLessons({ limit = 50, tag } = {}) {
-  let lessons = getLessons();
-  if (tag) lessons = lessons.filter(l => l.tags?.includes(tag));
-  return lessons.sort((a, b) => (b.recall_count ?? 0) - (a.recall_count ?? 0)).slice(0, limit);
-}
-
-/** Jaccard-based lesson recall */
+/** Search lessons by text similarity + recency boost */
 export function recallLessons(query, { limit = 5 } = {}) {
   const lessons = getLessons();
   const qWords = new Set(query.toLowerCase().split(/\s+/).filter(w => w.length > 2));
-  if (!qWords.size) return lessons.sort((a, b) => (b.recall_count ?? 0) - (a.recall_count ?? 0)).slice(0, limit)
-    .map(l => ({ ...l, match_score: 1.0 }));
+  if (!qWords.size) return lessons.slice(0, limit).map(l => ({ ...l, match_score: 1.0 }));
 
   const scored = lessons.map(l => {
-    const all = new Set([...l.title, ...l.body, ...(l.tags ?? [])].join(' ').toLowerCase().split(/\s+/).filter(w => w.length > 2));
+    const all = new Set([...(l.title || ''), ...(l.text || ''), ...(l.tags || [])].join(' ').toLowerCase().split(/\s+/).filter(w => w.length > 2));
     const inter = [...qWords].filter(w => all.has(w)).length;
     const union = new Set([...qWords, ...all]).size;
     const score = union === 0 ? 0 : inter / union;
@@ -115,40 +101,88 @@ export function recallLessons(query, { limit = 5 } = {}) {
 /** Memories recalled >= threshold but no lesson yet */
 export function getLessonCandidates() {
   const log = getLog();
-  const lessonMids = new Set(getLessons().map(l => l.memory_id).filter(Boolean));
-  return Object.entries(log).filter(([id]) => !lessonMids.has(id))
+  return Object.entries(log)
+    .filter(([, e]) => e.recall_count >= LESSON_CANDIDATE_THRESHOLD)
     .map(([memory_id, e]) => ({ memory_id, recall_count: e.recall_count, last_recall: e.last_recall }))
-    .filter(c => c.recall_count >= LESSON_CANDIDATE_THRESHOLD)
     .sort((a, b) => b.recall_count - a.recall_count);
 }
 
 export function lessonStats() {
   const lessons = getLessons(), log = getLog();
   const totalRecalls = Object.values(log).reduce((s, e) => s + (e.recall_count ?? 0), 0);
-  const tagCounts = {}; for (const l of lessons) for (const t of l.tags ?? []) tagCounts[t] = (tagCounts[t] ?? 0) + 1;
+  const tagCounts = {};
+  for (const l of lessons) for (const t of l.tags ?? []) tagCounts[t] = (tagCounts[t] ?? 0) + 1;
   const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([tag, count]) => ({ tag, count }));
   const rc = lessons.map(l => l.recall_count ?? 0);
   return {
-    total_lessons: lessons.length, total_recalls: totalRecalls, top_tags: topTags,
+    total_lessons: lessons.length,
+    total_recalls: totalRecalls,
+    top_tags: topTags,
     lesson_candidates: getLessonCandidates().length,
-    by_recall: { total: lessons.length, never_recalled: rc.filter(c => c === 0).length,
-      one_to_five: rc.filter(c => c >= 1 && c <= 5).length, six_to_ten: rc.filter(c => c >= 6 && c <= 10).length, above_ten: rc.filter(c => c > 10).length, total_recalls: totalRecalls },
+    by_recall: {
+      total: lessons.length,
+      never_recalled: rc.filter(c => c === 0).length,
+      one_to_five:   rc.filter(c => c >= 1 && c <= 5).length,
+      six_to_ten:    rc.filter(c => c >= 6 && c <= 10).length,
+      above_ten:     rc.filter(c => c > 10).length,
+      total_recalls: totalRecalls,
+    },
   };
 }
 
+// ===== MCP Tool: memory_lessons =====
 export function memoryLessonsTool({ action, memory_id, title, body, tags, query, lesson_id, limit, tag } = {}) {
   try {
     switch (action) {
-      case 'extract':    if (!title || !body) throw new Error('title and body required'); return { content: [{ type: 'text', text: JSON.stringify(extractLesson(memory_id, title, body, tags ?? []), null, 2) }] };
-      case 'recall':     if (!query) throw new Error('query required'); const r = recallLessons(query, { limit: limit ?? 5 }); r.forEach(l => touchLesson(l.id)); return { content: [{ type: 'text', text: JSON.stringify({ count: r.length, lessons: r }, null, 2) }] };
-      case 'list':       return { content: [{ type: 'text', text: JSON.stringify({ count: listLessons({ limit: limit ?? 50, tag }).length, lessons: listLessons({ limit: limit ?? 50, tag }) }, null, 2) }] };
-      case 'stats':      return { content: [{ type: 'text', text: JSON.stringify({ ...lessonStats(), top_candidates: getLessonCandidates().slice(0, 5) }, null, 2) }] };
-      case 'delete':     if (!lesson_id) throw new Error('lesson_id required'); return { content: [{ type: 'text', text: JSON.stringify(deleteLesson(lesson_id), null, 2) }] };
-      case 'touch':      if (!lesson_id) throw new Error('lesson_id required'); touchLesson(lesson_id); return { content: [{ type: 'text', text: JSON.stringify({ success: true }) }] };
-      case 'candidates': return { content: [{ type: 'text', text: JSON.stringify({ count: getLessonCandidates().length, candidates: getLessonCandidates() }, null, 2) }] };
-      default:           return { content: [{ type: 'text', text: JSON.stringify({ error: `Unknown action: ${action}`, hint: 'extract/recall/list/stats/delete/touch/candidates' }, null, 2) }], isError: true };
-    }
-  } catch (err) { return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true }; }
-}
+      case 'extract': {
+        if (!title || !body) throw new Error('title and body required');
+        const lesson = upsertLesson(generateId(), {
+          text: String(body).slice(0, MAX_BODY_CHARS),
+          title: String(title).slice(0, MAX_TITLE_CHARS),
+          type: 'general',
+          tags: Array.isArray(tags) ? tags.slice(0, 20) : [],
+          source_memory: memory_id ?? null,
+          created_at: Date.now(),
+        });
+        return { content: [{ type: 'text', text: JSON.stringify(lesson, null, 2) }] };
+      }
 
-export default { recordRecall, getAccessStats, extractLesson, touchLesson, deleteLesson, listLessons, recallLessons, getLessonCandidates, lessonStats, memoryLessonsTool };
+      case 'recall': {
+        if (!query) throw new Error('query required');
+        const results = recallLessons(query, { limit: limit ?? 5 });
+        for (const r of results) touchLesson(r.id);
+        return { content: [{ type: 'text', text: JSON.stringify({ count: results.length, lessons: results }, null, 2) }] };
+      }
+
+      case 'list': {
+        const all = getLessons();
+        const filtered = tag ? all.filter(l => l.tags?.includes(tag)) : all;
+        return { content: [{ type: 'text', text: JSON.stringify({ count: filtered.length, lessons: filtered.slice(0, limit ?? 50) }, null, 2) }] };
+      }
+
+      case 'stats':
+        return { content: [{ type: 'text', text: JSON.stringify({ ...lessonStats(), top_candidates: getLessonCandidates().slice(0, 5) }, null, 2) }] };
+
+      case 'delete': {
+        if (!lesson_id) throw new Error('lesson_id required');
+        const lessons2 = getLessons().filter(l => l.id !== lesson_id);
+        putLessons(lessons2);
+        return { content: [{ type: 'text', text: JSON.stringify({ success: true }, null, 2) }] };
+      }
+
+      case 'touch': {
+        if (!lesson_id) throw new Error('lesson_id required');
+        touchLesson(lesson_id);
+        return { content: [{ type: 'text', text: JSON.stringify({ success: true }, null, 2) }] };
+      }
+
+      case 'candidates':
+        return { content: [{ type: 'text', text: JSON.stringify({ count: getLessonCandidates().length, candidates: getLessonCandidates() }, null, 2) }] };
+
+      default:
+        return { content: [{ type: 'text', text: JSON.stringify({ error: `Unknown action: ${action}`, hint: 'extract/recall/list/stats/delete/touch/candidates' }, null, 2) }], isError: true };
+    }
+  } catch (err) {
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+}

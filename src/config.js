@@ -64,6 +64,35 @@ const LLM_PROVIDERS = [
   },
 ];
 
+// ─── Pluggable Engine Config ───
+// Vector engine: 'lancedb' (default) | 'ollama' | 'none'
+// LLM provider:  'ollama' (default)  | 'openai' | 'none'
+const VECTOR_ENGINE = process.env.VECTOR_ENGINE || 'lancedb';
+const LLM_PROVIDER  = process.env.LLM_PROVIDER  || 'ollama';
+
+// Active providers resolved from env
+const activeEmbedProvider = (() => {
+  if (VECTOR_ENGINE === 'none') return null;
+  if (VECTOR_ENGINE === 'openai') {
+    return EMBED_PROVIDERS.find(p => p.name === 'openai') || EMBED_PROVIDERS[1];
+  }
+  // 'lancedb' (default) and 'ollama' both use Ollama for embedding
+  return EMBED_PROVIDERS.find(p => p.name === 'ollama');
+})();
+
+const activeLlmProvider = (() => {
+  if (LLM_PROVIDER === 'ollama') {
+    return LLM_PROVIDERS.find(p => p.name === 'ollama');
+  }
+  if (LLM_PROVIDER === 'openai') {
+    return LLM_PROVIDERS.find(p => p.name === 'openai') || LLM_PROVIDERS[1];
+  }
+  if (LLM_PROVIDER === 'siliconflow') {
+    return LLM_PROVIDERS.find(p => p.name === 'siliconflow');
+  }
+  return null; // 'none'
+})();
+
 const defaultConfig = {
   memoryDir: MEMORY_DIR,
   memoryFile: join(MEMORY_DIR, 'memories.json'),
@@ -74,6 +103,26 @@ const defaultConfig = {
   rrfK: 60,
   embedProviders: EMBED_PROVIDERS,
   llmProviders: LLM_PROVIDERS,
+
+  // ─── Pluggable Engine Switches ───
+  vectorEngine: VECTOR_ENGINE,  // 'lancedb' | 'ollama' | 'none'
+  llmProvider:  LLM_PROVIDER,   // 'ollama' | 'openai' | 'siliconflow' | 'none'
+  activeEmbedProvider,
+  activeLlmProvider,
+
+  // ─── Backward-compat aliases (used by existing code) ───
+  get ollamaUrl() {
+    const p = this.activeEmbedProvider;
+    return p ? p.baseURL : null;
+  },
+  get embedModel() {
+    const p = this.activeEmbedProvider;
+    return p ? p.model : null;
+  },
+  get llmModel() {
+    const p = this.activeLlmProvider;
+    return p ? p.model : null;
+  },
 
   // ─── Phase 3: Search Backend ───
   qmd: {

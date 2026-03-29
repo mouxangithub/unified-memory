@@ -297,17 +297,6 @@ server.registerTool('memory_delete', {
 
 // ============ Advanced Tools (NEW in v1.1) ============
 
-server.registerTool('memory_insights', {
-  description: 'Analyze user memory insights: category distribution, tool usage patterns, project trends, and personalized suggestions.',
-  inputSchema: z.object({}),
-}, async () => {
-  try {
-    return await analyzeInsights();
-  } catch (err) {
-    log.error(`Insights failed: ${err.message}`);
-    return { content: [{ type: 'text', text: `Insights error: ${err.message}` }], isError: true };
-  }
-});
 
 server.registerTool('memory_export', {
   description: 'Export memories to JSON, Markdown, or CSV format. Supports filtering by category and minimum importance.',
@@ -371,127 +360,77 @@ server.registerTool('memory_qa', {
 
 // ============ Preference Slots (v1.2) ============
 
-server.registerTool('memory_preference_slots', {
-  description: 'Structured user preference slots: get, update, merge, reset, or stats on preference key-value store. Used to personalise memory recall.',
+// ============ Preference (5→1) ============
+// memory_preference: unified preference management (action=get|set|update|merge|delete|reset|stats|explain|infer)
+server.registerTool('memory_preference', {
+  description: 'Unified preference management. Actions: get/set/update/merge/delete/reset/stats/explain/infer.',
   inputSchema: z.object({
-    action: z.enum(['get', 'update', 'merge', 'delete', 'reset', 'stats']).describe('Action to perform'),
-    key: z.string().optional().describe('Slot key (required for update/delete)'),
-    value: z.unknown().optional().describe('Slot value (required for update)'),
-    slots: z.record(z.string(), z.unknown()).optional().describe('Key-value map for merge action'),
+    action: z.enum(['get', 'set', 'update', 'merge', 'delete', 'reset', 'stats', 'explain', 'infer']).describe('Action'),
+    key: z.string().optional().describe('Slot key (for get/set/update/delete/explain)'),
+    value: z.unknown().optional().describe('Slot value (for set/update)'),
+    confidence: z.number().optional().describe('Confidence 0-1 (for set/update)'),
+    source: z.enum(['explicit', 'inferred', 'historical']).optional().describe('Source (for set/update)'),
+    slots: z.record(z.string(), z.unknown()).optional().describe('Key-value map (for merge)'),
+    messageCount: z.number().optional().default(20).describe('Message count (for infer)'),
   }),
-}, async ({ action, key, value, slots }) => {
+}, async ({ action, key, value, confidence = 0.9, source = 'explicit', slots, messageCount = 20 }) => {
   try {
-    return memoryPreferenceSlotsTool({ action, key, value, slots });
+    if (action === 'get') {
+      return memoryPreferenceSlotsTool({ action: 'get', key });
+    } else if (action === 'set' || action === 'update') {
+      return memoryPreferenceSetTool({ key, value, confidence, source });
+    } else if (action === 'merge') {
+      return memoryPreferenceSlotsTool({ action: 'merge', slots });
+    } else if (action === 'delete') {
+      return memoryPreferenceSlotsTool({ action: 'delete', key });
+    } else if (action === 'reset') {
+      return memoryPreferenceSlotsTool({ action: 'reset' });
+    } else if (action === 'stats') {
+      return memoryPreferenceSlotsTool({ action: 'stats' });
+    } else if (action === 'explain') {
+      return memoryPreferenceExplainTool({ key });
+    } else if (action === 'infer') {
+      return memoryPreferenceInferTool({ messageCount });
+    }
   } catch (err) {
-    log.error(`Preference slots error: ${err.message}`);
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    return { content: [{ type: 'text', text: `Preference error [${action}]: ${err.message}` }], isError: true };
   }
 });
 
-// ============ Preference Slots Enhanced (Feature #10) ============
-
-server.registerTool('memory_preference_get', {
-  description: 'Get one or all preference slots with full metadata (value, confidence, source, lastUpdated).',
-  inputSchema: z.object({
-    key: z.string().optional().describe('Slot key to get (optional, returns all if not provided)'),
-  }),
-}, async ({ key }) => {
-  try {
-    return memoryPreferenceGetTool({ key });
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_preference_set', {
-  description: 'Set a preference slot value with explicit source and confidence.',
-  inputSchema: z.object({
-    key: z.string().describe('Slot key to set'),
-    value: z.unknown().describe('Value to set'),
-    confidence: z.number().optional().describe('Confidence 0-1 (default 0.9)'),
-    source: z.enum(['explicit', 'inferred', 'historical']).optional().describe('Source type (default explicit)'),
-  }),
-}, async ({ key, value, confidence, source }) => {
-  try {
-    return memoryPreferenceSetTool({ key, value, confidence, source });
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_preference_infer', {
-  description: 'Infer preferences from recent conversation history using pattern analysis.',
-  inputSchema: z.object({
-    messageCount: z.number().optional().default(20).describe('Number of recent messages to analyze'),
-  }),
-}, async ({ messageCount }) => {
-  try {
-    return memoryPreferenceInferTool({ messageCount });
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_preference_explain', {
-  description: 'Explain a preference slot: its source, confidence level, and how it was derived.',
-  inputSchema: z.object({
-    key: z.string().describe('Slot key to explain'),
-  }),
-}, async ({ key }) => {
-  try {
-    return memoryPreferenceExplainTool({ key });
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
-  }
-});
+// Deprecated wrappers (delegate to unified memory_preference)
 
 // ============ Semantic Versioning (Feature #11) ============
 
-server.registerTool('memory_version_list', {
-  description: 'List version history for a memory or all memories with versions.',
+// ============ Version (3→1) ============
+// memory_version: action=list|diff|restore
+server.registerTool('memory_version', {
+  description: 'Version control for memories. Actions: list (history), diff (compare versions), restore (rollback).',
   inputSchema: z.object({
-    memoryId: z.string().optional().describe('Memory ID to list versions for'),
-    limit: z.number().optional().default(10).describe('Max versions to return'),
-    offset: z.number().optional().default(0).describe('Offset for pagination'),
-    changeType: z.enum(['create', 'update', 'delete', 'rollback']).optional().describe('Filter by change type'),
+    action: z.enum(['list', 'diff', 'restore']).describe('Action'),
+    memoryId: z.string().optional().describe('Memory ID (required for diff/restore)'),
+    versionId: z.string().optional().describe('Version ID (for diff/restore)'),
+    versionId1: z.string().optional().describe('First version ID (for diff)'),
+    versionId2: z.string().optional().describe('Second version ID (for diff)'),
+    limit: z.number().optional().default(10).describe('Max versions (for list)'),
+    offset: z.number().optional().default(0).describe('Offset (for list)'),
+    changeType: z.enum(['create', 'update', 'delete', 'rollback']).optional().describe('Filter (for list)'),
+    preview: z.boolean().optional().default(false).describe('Preview without restore (for restore)'),
   }),
-}, async ({ memoryId, limit, offset, changeType }) => {
+}, async ({ action, memoryId, versionId, versionId1, versionId2, limit, offset, changeType, preview }) => {
   try {
-    return memoryVersionListTool({ memoryId, limit, offset, changeType });
+    if (action === 'list') {
+      return memoryVersionListTool({ memoryId, limit, offset, changeType });
+    } else if (action === 'diff') {
+      return memoryVersionDiffTool({ memoryId, versionId1, versionId2 });
+    } else if (action === 'restore') {
+      return memoryVersionRestoreTool({ memoryId, versionId, preview });
+    }
   } catch (err) {
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    return { content: [{ type: 'text', text: `Version error [${action}]: ${err.message}` }], isError: true };
   }
 });
 
-server.registerTool('memory_version_diff', {
-  description: 'Show diff between two versions of a memory or between adjacent versions.',
-  inputSchema: z.object({
-    memoryId: z.string().describe('Memory ID'),
-    versionId1: z.string().optional().describe('First version ID (or compare with previous if only one)'),
-    versionId2: z.string().optional().describe('Second version ID'),
-  }),
-}, async ({ memoryId, versionId1, versionId2 }) => {
-  try {
-    return memoryVersionDiffTool({ memoryId, versionId1, versionId2 });
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_version_restore', {
-  description: 'Restore a memory to a specific version (v2.7.0). Set preview:true to preview without actually restoring. Use memory_version_list first to find versionId.',
-  inputSchema: z.object({
-    memoryId: z.string().describe('Memory ID to restore'),
-    versionId: z.string().optional().describe('Version ID to restore to (latest if omitted)'),
-    preview: z.boolean().optional().default(false).describe('Preview the restore without actually performing it'),
-  }),
-}, async ({ memoryId, versionId, preview }) => {
-  try {
-    return memoryVersionRestoreTool({ memoryId, versionId, preview });
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
-  }
-});
+// Deprecated wrappers
 
 // ============ Lesson System (v1.2) ============
 
@@ -620,34 +559,6 @@ server.registerTool('memory_concurrent_search', {
 
 // ============ Predict (v1.2) ============
 
-server.registerTool('memory_predict', {
-  description: 'Predict user needs based on time patterns, behavior patterns, and project deadlines.',
-  inputSchema: z.object({
-    action: z.enum(['predict', 'patterns', 'trends', 'train', 'today', 'config']).describe('Action to perform'),
-    topic: z.string().optional().describe('Topic for prediction (for predict action)'),
-    json: z.boolean().optional().default(false).describe('Return JSON format'),
-  }),
-}, async ({ action, topic, json = false }) => {
-  try {
-    if (action === 'predict' || action === 'today') {
-      const result = cmdPredict('today', { json });
-      return { content: [{ type: 'text', text: result.type === 'json' ? JSON.stringify(result.data, null, 2) : result.text }] };
-    } else if (action === 'patterns' || action === 'train') {
-      const result = cmdPredict('train', { json });
-      return { content: [{ type: 'text', text: result.type === 'json' ? JSON.stringify(result.data, null, 2) : result.text }] };
-    } else if (action === 'trends') {
-      const result = cmdPredict('week', { json });
-      return { content: [{ type: 'text', text: result.text || result.error || 'Not implemented' }] };
-    } else if (action === 'config') {
-      const result = cmdPredict('config', { json });
-      return { content: [{ type: 'text', text: result.type === 'json' ? JSON.stringify(result.data, null, 2) : result.text }] };
-    }
-    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
-  } catch (err) {
-    log.error(`Predict error: ${err.message}`);
-    return { content: [{ type: 'text', text: `Predict error: ${err.message}` }], isError: true };
-  }
-});
 
 // ============ Recommend (v1.2) ============
 
@@ -762,189 +673,53 @@ server.registerTool('memory_summary', {
 
 // ============ Feedback Learner (v1.2) ============
 
-server.registerTool('memory_feedback', {
-  description: 'Feedback learning闭环: record memory usage outcomes (helpful/irrelevant/wrong/outdated) and adjust importance accordingly.',
-  inputSchema: z.object({
-    action: z.enum(['record', 'recommendations', 'stats', 'learn']).describe('Action to perform'),
-    memoryId: z.string().optional().describe('Memory ID to record feedback for'),
-    outcome: z.enum(['helpful', 'irrelevant', 'wrong', 'outdated']).optional().describe('Outcome type (for record action)'),
-    correction: z.string().optional().describe('Correction text (for learn action)'),
-  }),
-}, async ({ action, memoryId, outcome, correction }) => {
-  try {
-    const learner = new FeedbackLearner();
-    if (action === 'record') {
-      if (!memoryId || !outcome) {
-        return { content: [{ type: 'text', text: 'Error: memoryId and outcome are required' }], isError: true };
-      }
-      const feedback = learner.track(memoryId, outcome);
-      return { content: [{ type: 'text', text: JSON.stringify({ success: true, feedback }, null, 2) }] };
-    } else if (action === 'recommendations') {
-      const memories = getAllMemories();
-      const adjustments = learner.adjustImportance(memories);
-      const suggestions = learner.suggestForgetting(memories);
-      return { content: [{ type: 'text', text: JSON.stringify({ adjustments: Object.keys(adjustments).length, forget_suggestions: suggestions.length }, null, 2) }] };
-    } else if (action === 'stats') {
-      const stats = learner.getFeedbackStats();
-      return { content: [{ type: 'text', text: JSON.stringify(stats, null, 2) }] };
-    } else if (action === 'learn') {
-      if (!correction) {
-        return { content: [{ type: 'text', text: 'Error: correction is required for learn action' }], isError: true };
-      }
-      const entry = learner.learn(correction);
-      return { content: [{ type: 'text', text: JSON.stringify({ success: true, entry }, null, 2) }] };
-    }
-    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
-  } catch (err) {
-    log.error(`Feedback error: ${err.message}`);
-    return { content: [{ type: 'text', text: `Feedback error: ${err.message}` }], isError: true };
-  }
-});
 
 // ============ QMD Search (v1.2) ============
 
-server.registerTool('memory_qmd_search', {
-  description: 'QMD-style search using BM25 keyword matching with Ollama vector fallback.',
+// ============ QMD (4→1) ============
+// memory_qmd: unified QMD file search (action=search|get|vsearch|list|status)
+server.registerTool('memory_qmd', {
+  description: 'QMD local file search. Actions: search/get/vsearch/list/status.',
   inputSchema: z.object({
-    action: z.enum(['search', 'status']).describe('Action to perform'),
-    query: z.string().optional().describe('Search query (for search action)'),
-    topK: z.number().optional().default(5).describe('Number of results to return'),
-    mode: z.enum(['bm25', 'vector', 'hybrid', 'auto']).optional().default('hybrid').describe('Search mode'),
+    action: z.enum(['search', 'get', 'vsearch', 'list', 'status']).describe('Action'),
+    query: z.string().optional().describe('Search query (for search/vsearch)'),
+    path: z.string().optional().describe('File path (for get)'),
+    maxLines: z.number().optional().default(100).describe('Max lines (for get)'),
+    offset: z.number().optional().default(0).describe('Offset (for get)'),
+    topK: z.number().optional().default(5).describe('Results count (for search/vsearch)'),
+    mode: z.enum(['bm25', 'vector', 'hybrid', 'auto']).optional().default('hybrid').describe('Search mode (for search)'),
+    pattern: z.string().optional().default('**/*.md').describe('Glob pattern (for list)'),
+    limit: z.number().optional().default(20).describe('Max files (for list)'),
   }),
-}, async ({ action, query, topK = 5, mode = 'hybrid' }) => {
+}, async ({ action, query, path, maxLines=100, offset=0, topK=5, mode='hybrid', pattern='**/*.md', limit=20 }) => {
   try {
+    const { qmdSearch, qmdGet, qmdVSearch, qmdListFiles, getQMDStatus } = await import('./tools/qmd_search.js');
     if (action === 'search') {
-      if (!query) {
-        return { content: [{ type: 'text', text: 'Error: query is required for search action' }], isError: true };
-      }
+      if (!query) return { content: [{ type: 'text', text: 'Error: query required' }], isError: true };
       const results = await qmdSearch(query, { topK, mode });
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            count: results.length,
-            query,
-            mode,
-            results: results.map(r => ({
-              id: r.id,
-              text: r.text,
-              category: r.category,
-              score: Math.round(r.score * 1000) / 1000,
-              match_mode: r.mode
-            }))
-          }, null, 2)
-        }]
-      };
+      return { content: [{ type: 'text', text: JSON.stringify({ count: results.length, query, mode, results: results.map(r => ({ id: r.id, text: r.text, category: r.category, score: Math.round(r.score*1000)/1000, match_mode: r.mode })) }, null, 2) }] };
+    } else if (action === 'get') {
+      const result = await qmdGet(path, { maxLines, offset });
+      if (result.error) return { content: [{ type: 'text', text: `Error: ${result.error}` }], isError: true };
+      return { content: [{ type: 'text', text: JSON.stringify({ path: result.path, content: result.content, lines: result.lines, truncated: result.truncated, source: 'qmd' }, null, 2) }] };
+    } else if (action === 'vsearch') {
+      if (!query) return { content: [{ type: 'text', text: 'Error: query required' }], isError: true };
+      const results = await qmdVSearch(query, { topK });
+      if (results.error) return { content: [{ type: 'text', text: `Error: ${results.error}` }], isError: true };
+      return { content: [{ type: 'text', text: JSON.stringify({ count: results.length, query, mode: 'vector', results: results.map(r => ({ id: r.id, path: r.path, title: r.title, score: Math.round(r.score*1000)/1000, snippet: r.snippet })) }, null, 2) }] };
+    } else if (action === 'list') {
+      const result = await qmdListFiles(pattern, limit);
+      if (result.error) return { content: [{ type: 'text', text: `Error: ${result.error}` }], isError: true };
+      return { content: [{ type: 'text', text: JSON.stringify({ count: Array.isArray(result.files) ? result.files.length : 0, files: result.files || [], source: 'qmd' }, null, 2) }] };
     } else if (action === 'status') {
-      const { getQMDStatus } = await import('./tools/qmd_search.js');
-      const status = await getQMDStatus();
-      return { content: [{ type: 'text', text: JSON.stringify(status, null, 2) }] };
+      return { content: [{ type: 'text', text: JSON.stringify(await getQMDStatus(), null, 2) }] };
     }
-    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log.error(`QMD search error: ${err.message}`);
-    return { content: [{ type: 'text', text: `QMD search error: ${err.message}` }], isError: true };
+    return { content: [{ type: 'text', text: `QMD [${action}]: ${err.message}` }], isError: true };
   }
 });
 
-// ============ QMD File Access (v1.1) ============
-
-server.registerTool('memory_qmd_get', {
-  description: 'Get the content of a local file from QMD index. Use after memory_qmd_search finds relevant files.',
-  inputSchema: z.object({
-    path: z.string().describe('File path (from qmd_search results)'),
-    maxLines: z.number().optional().default(100).describe('Max lines to return'),
-    offset: z.number().optional().default(0).describe('Line offset to start from'),
-  }),
-}, async ({ path, maxLines = 100, offset = 0 }) => {
-  try {
-    const { qmdGet } = await import('./tools/qmd_search.js');
-    const result = await qmdGet(path, { maxLines, offset });
-    if (result.error) {
-      return { content: [{ type: 'text', text: `Error: ${result.error}` }], isError: true };
-    }
-    return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          path: result.path,
-          content: result.content,
-          lines: result.lines,
-          truncated: result.truncated,
-          source: 'qmd',
-        }, null, 2)
-      }]
-    };
-  } catch (err) {
-    log.error(`QMD get error: ${err.message}`);
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_qmd_vsearch', {
-  description: 'Vector semantic search of local markdown files via QMD (requires pre-embedded files).',
-  inputSchema: z.object({
-    query: z.string().describe('Semantic search query'),
-    topK: z.number().optional().default(5).describe('Number of results'),
-  }),
-}, async ({ query, topK = 5 }) => {
-  try {
-    const { qmdVSearch } = await import('./tools/qmd_search.js');
-    const results = await qmdVSearch(query, { topK });
-    if (results.error) {
-      return { content: [{ type: 'text', text: `Error: ${results.error}` }], isError: true };
-    }
-    return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          count: results.length,
-          query,
-          mode: 'vector',
-          results: results.map(r => ({
-            id: r.id,
-            path: r.path,
-            title: r.title,
-            score: Math.round(r.score * 1000) / 1000,
-            snippet: r.snippet,
-          }))
-        }, null, 2)
-      }]
-    };
-  } catch (err) {
-    log.error(`QMD vsearch error: ${err.message}`);
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_qmd_list', {
-  description: 'List indexed markdown files from QMD collection.',
-  inputSchema: z.object({
-    pattern: z.string().optional().describe('Glob pattern (e.g. **/*.md)'),
-    limit: z.number().optional().default(20).describe('Max files to return'),
-  }),
-}, async ({ pattern = '**/*.md', limit = 20 }) => {
-  try {
-    const { qmdListFiles } = await import('./tools/qmd_search.js');
-    const result = await qmdListFiles(pattern, limit);
-    if (result.error) {
-      return { content: [{ type: 'text', text: `Error: ${result.error}` }], isError: true };
-    }
-    return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          count: Array.isArray(result.files) ? result.files.length : result.length || 0,
-          files: result.files || result || [],
-          source: 'qmd',
-        }, null, 2)
-      }]
-    };
-  } catch (err) {
-    log.error(`QMD list error: ${err.message}`);
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
-  }
-});
+// Deprecated wrappers (use memory_qmd instead)
 
 // ============ Templates (v1.2) ============
 
@@ -1084,8 +859,10 @@ server.registerTool('memory_health', {
     const memories = getAllMemories();
     let ollamaOk = false;
     try {
-      const res = await fetch(`${config.ollamaUrl}/api/tags`);
-      ollamaOk = res.ok;
+      if (config.ollamaUrl) {
+        const res = await fetch(`${config.ollamaUrl}/api/tags`);
+        ollamaOk = res.ok;
+      }
     } catch { ollamaOk = false; }
 
     // WAL integrity check
@@ -1177,9 +954,12 @@ server.registerTool('memory_health', {
           status: 'ok',
           version: '1.1.0',
           memoryCount: memories.length,
-          ollama: ollamaOk ? 'connected' : 'disconnected',
+          // Pluggable engine config
+          vector_engine: config.vectorEngine,
+          llm_provider: config.llmProvider,
           embedModel: config.embedModel,
           llmModel: config.llmModel,
+          ollama: ollamaOk ? 'connected' : 'disconnected',
           // Enhanced health checks (v2.0)
           wal_integrity: walChecks,
           vector_cache_complete_rate: `${vectorCompleteRate}%`,
@@ -1350,78 +1130,33 @@ server.registerTool('memory_wal', {
   }
 });
 
+// ============ Tier (4→1) ============
+// memory_tier: action=status|migrate|compress|assign|partition|redistribute
 server.registerTool('memory_tier', {
-  description: 'HOT/WARM/COLD tier management. Automatically partition memories into temperature tiers, redistribute, or compress cold tier.',
+  description: 'HOT/WARM/COLD tier management. Actions: status, migrate (promote/demote), compress (cold tier), assign, partition, redistribute.',
   inputSchema: z.object({
-    action: z.enum(['assign', 'partition', 'redistribute', 'compress']).describe('Action: assign=assign tiers to all, partition=split by tier, redistribute=full rebalance, compress=compact cold tier'),
-    memories: z.array(z.object({ id: z.string(), content: z.string(), accessedAt: z.number(), importance: z.number().optional() })).optional().describe('Memories to process (for assign/partition/compress)'),
+    action: z.enum(['status', 'migrate', 'compress', 'assign', 'partition', 'redistribute']).describe('Action'),
+    apply: z.boolean().optional().default(false).describe('Apply changes (for migrate/compress)'),
+    memories: z.array(z.object({ id: z.string(), content: z.string(), accessedAt: z.number(), importance: z.number().optional(), tier: z.string().optional() })).optional().describe('Memories (for assign/partition/compress)'),
   }),
-}, async ({ action, memories }) => {
+}, async ({ action, apply, memories }) => {
   try {
-    if (action === 'assign') {
-      const result = assignTiers(memories || []);
-      return { content: [{ type: 'text', text: JSON.stringify(result) }] };
-    }
-    if (action === 'partition') {
-      const result = partitionByTier(memories || []);
-      return { content: [{ type: 'text', text: JSON.stringify(result) }] };
-    }
-    if (action === 'redistribute') {
-      const result = redistributeTiers(memories || []);
-      return { content: [{ type: 'text', text: JSON.stringify(result) }] };
-    }
-    if (action === 'compress') {
+    if (action === 'status') return memoryTierStatusTool();
+    else if (action === 'migrate') return memoryTierMigrateTool({ apply });
+    else if (action === 'compress') {
+      if (apply) return memoryTierCompressTool({ apply: true });
       const cold = (memories || []).filter(m => m.tier === 'COLD');
       const result = compressColdTier(cold);
-      return { content: [{ type: 'text', text: JSON.stringify(result) }] };
-    }
-    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+      return { content: [{ type: 'text', text: JSON.stringify({ preview: true, ...result }) }] };
+    } else if (action === 'assign') return { content: [{ type: 'text', text: JSON.stringify(assignTiers(memories || [])) }] };
+    else if (action === 'partition') return { content: [{ type: 'text', text: JSON.stringify(partitionByTier(memories || [])) }] };
+    else if (action === 'redistribute') return { content: [{ type: 'text', text: JSON.stringify(redistributeTiers(memories || [])) }] };
   } catch (err) {
-    return { content: [{ type: 'text', text: `Tier error: ${err.message}` }], isError: true };
+    return { content: [{ type: 'text', text: `Tier error [${action}]: ${err.message}` }], isError: true };
   }
 });
 
-// ============ Tier Management Tools (v2.7.0) ============
-
-server.registerTool('memory_tier_status', {
-  description: 'View tier statistics: memory count, size, and recent access stats per tier (HOT/WARM/COLD). Shows distribution, tier config, and per-tier details.',
-  inputSchema: z.object({}),
-}, async () => {
-  try {
-    return memoryTierStatusTool();
-  } catch (err) {
-    structuredLog.error(`memory_tier_status error: ${err.message}`);
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_tier_migrate', {
-  description: 'Manually trigger automatic tier migration. Uses access frequency and importance heuristics to promote or demote memories between HOT/WARM/COLD tiers. Supports dry-run mode.',
-  inputSchema: z.object({
-    apply: z.boolean().optional().default(false).describe('If true, apply changes to storage; if false (default), only preview'),
-  }),
-}, async ({ apply }) => {
-  try {
-    return memoryTierMigrateTool({ apply });
-  } catch (err) {
-    structuredLog.error(`memory_tier_migrate error: ${err.message}`);
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_tier_compress', {
-  description: 'Compress COLD tier memories to reduce storage. Truncates text to 200 chars, drops embeddings and access metadata. Supports dry-run mode.',
-  inputSchema: z.object({
-    apply: z.boolean().optional().default(false).describe('If true, apply compression to storage; if false (default), only preview'),
-  }),
-}, async ({ apply }) => {
-  try {
-    return memoryTierCompressTool({ apply });
-  } catch (err) {
-    structuredLog.error(`memory_tier_compress error: ${err.message}`);
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
-  }
-});
+// Deprecated wrappers
 
 server.registerTool('memory_adaptive', {
   description: 'Adaptive retrieval control. Check if a query should skip vector search (non-informational queries like greetings).',
@@ -1437,70 +1172,62 @@ server.registerTool('memory_adaptive', {
   }
 });
 
-server.registerTool('memory_bm25', {
-  description: 'BM25 keyword-based search. Build index and search using Okapi BM25 algorithm (pure keyword, no embedding required).',
+// ============ Search Engine (4→1: BM25+Vector+MMR+Rerank) ============
+// memory_engine: unified search engine (action=bm25|embed|search|mmr|rerank)
+server.registerTool('memory_engine', {
+  description: 'Unified search engine. Actions: bm25, embed, search, mmr, rerank.',
   inputSchema: z.object({
-    query: z.string().describe('Query string'),
-    topK: z.number().default(10).describe('Number of results'),
-    build: z.boolean().default(false).describe('Rebuild the BM25 index first'),
+    action: z.enum(['bm25', 'embed', 'search', 'mmr', 'rerank']).describe('Action'),
+    query: z.string().optional().describe('Query string (for bm25/search/rerank)'),
+    text: z.string().optional().describe('Text to embed (for embed)'),
+    documents: z.array(z.object({ id: z.string(), content: z.string(), score: z.number().optional() })).optional().describe('Documents (for mmr/rerank)'),
+    topK: z.number().optional().default(10).describe('Number of results'),
+    build: z.boolean().optional().default(false).describe('Rebuild BM25 index (for bm25)'),
+    lambda: z.number().optional().default(0.5).describe('MMR lambda balance (for mmr)'),
+    useEmbedding: z.boolean().optional().default(false).describe('Use embedding MMR (for mmr)'),
+    scope: z.string().optional().describe('Scope filter (for search)'),
+    method: z.enum(['keyword', 'llm', 'cross']).optional().default('keyword').describe('Rerank method (for rerank)'),
   }),
-}, async ({ query, topK, build }) => {
+}, async ({ action, query, text, documents, topK=10, build=false, lambda=0.5, useEmbedding=false, scope, method='keyword' }) => {
   try {
-    if (build) buildBM25Index();
-    const results = bm25Search(query, topK);
-    return { content: [{ type: 'text', text: JSON.stringify(results) }] };
-  } catch (err) {
-    return { content: [{ type: 'text', text: `BM25 error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_vector', {
-  description: 'Dense vector semantic search using Ollama embeddings. Get embedding for text or search by semantic similarity. Supports scope filtering for multi-tenant isolation.',
-  inputSchema: z.object({
-    action: z.enum(['embed', 'search']).describe('Action: embed=get vector for text, search=semantic similarity search'),
-    text: z.string().optional().describe('Text to embed (for embed action)'),
-    query: z.string().optional().describe('Query for search (for search action)'),
-    topK: z.number().default(10).describe('Number of results for search'),
-    scope: z.string().optional().describe('Scope filter: AGENT, USER, TEAM, GLOBAL (only for search action)'),
-  }),
-}, async ({ action, text, query, topK, scope }) => {
-  try {
-    if (action === 'embed') {
+    if (action === 'bm25') {
+      if (build) buildBM25Index();
+      const results = bm25Search(query || '', topK);
+      return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+    } else if (action === 'embed') {
       const embedding = await getEmbedding(text || '');
       return { content: [{ type: 'text', text: JSON.stringify({ embedding, dimensions: embedding.length }) }] };
-    }
-    if (action === 'search') {
-      const results = await vectorSearch(query || '', topK || 10, scope || null);
+    } else if (action === 'search') {
+      const results = await vectorSearch(query || '', topK, scope || null);
       return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+    } else if (action === 'mmr') {
+      if (useEmbedding) {
+        const { getEmbedding: ge } = await import('./vector.js');
+        const results = await mmrSelectWithEmbedding(documents || [], topK, lambda, ge);
+        return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+      }
+      const results = mmrSelect(documents || [], topK, lambda);
+      return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+    } else if (action === 'rerank') {
+      if (method === 'keyword') {
+        const results = keywordRerank(query || '', documents || [], topK);
+        return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+      } else if (method === 'llm') {
+        const reranker = new LlmReranker();
+        const results = await reranker.rerank(query || '', documents || [], topK);
+        return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+      } else if (method === 'cross') {
+        const reranker = new CrossEncoderRerank();
+        const results = await rerankResults(query || '', documents || [], topK, reranker);
+        return { content: [{ type: 'text', text: JSON.stringify(results) }] };
+      }
     }
-    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    return { content: [{ type: 'text', text: `Vector error: ${err.message}` }], isError: true };
+    return { content: [{ type: 'text', text: `Engine [${action}]: ${err.message}` }], isError: true };
   }
 });
 
-server.registerTool('memory_mmr', {
-  description: 'Maximal Marginal Relevance diversity selection. Select diverse top-K results to reduce redundancy from BM25 or vector search.',
-  inputSchema: z.object({
-    documents: z.array(z.object({ id: z.string(), content: z.string(), score: z.number().optional() })).describe('Documents with scores'),
-    topK: z.number().default(5).describe('Number of diverse results to return'),
-    lambda: z.number().default(0.5).describe('Balance parameter (0= max diversity, 1= max relevance)'),
-    useEmbedding: z.boolean().default(false).describe('Use embedding-based MMR (slower but accurate)'),
-  }),
-}, async ({ documents, topK, lambda, useEmbedding }) => {
-  try {
-    if (useEmbedding) {
-      const { getEmbedding: ge } = await import('./vector.js');
-      const results = await mmrSelectWithEmbedding(documents, topK, lambda, ge);
-      return { content: [{ type: 'text', text: JSON.stringify(results) }] };
-    } else {
-      const results = mmrSelect(documents, topK, lambda);
-      return { content: [{ type: 'text', text: JSON.stringify(results) }] };
-    }
-  } catch (err) {
-    return { content: [{ type: 'text', text: `MMR error: ${err.message}` }], isError: true };
-  }
-});
+// Deprecated wrappers (use memory_engine instead)
 
 server.registerTool('memory_scope', {
   description: 'Filter and manage memory scope levels (AGENT, USER, TEAM, GLOBAL). Normalize scope strings and filter memories by scope.',
@@ -1527,94 +1254,32 @@ server.registerTool('memory_scope', {
   }
 });
 
-server.registerTool('memory_rerank_llm', {
-  description: 'LLM-based result reranking using cross-encoder or keyword matching. Rerank results from BM25/vector search for better relevance.',
-  inputSchema: z.object({
-    query: z.string().describe('Original query'),
-    documents: z.array(z.object({ id: z.string(), content: z.string(), score: z.number().optional() })).describe('Documents to rerank'),
-    topK: z.number().default(10).describe('Return top-K after reranking'),
-    method: z.enum(['keyword', 'llm', 'cross']).default('keyword').describe('Reranking method'),
-  }),
-}, async ({ query, documents, topK, method }) => {
-  try {
-    if (method === 'keyword') {
-      const results = keywordRerank(query, documents, topK);
-      return { content: [{ type: 'text', text: JSON.stringify(results) }] };
-    }
-    if (method === 'llm') {
-      const reranker = new LlmReranker();
-      const results = await reranker.rerank(query, documents, topK);
-      return { content: [{ type: 'text', text: JSON.stringify(results) }] };
-    }
-    if (method === 'cross') {
-      const reranker = new CrossEncoderRerank();
-      const results = await rerankResults(query, documents, topK, reranker);
-      return { content: [{ type: 'text', text: JSON.stringify(results) }] };
-    }
-    return { content: [{ type: 'text', text: 'Unknown method' }], isError: true };
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Rerank error: ${err.message}` }], isError: true };
-  }
-});
-
 // ============ Proactive Memory Tools (v1.2) ============
 
-server.registerTool('memory_proactive_status', {
-  description: 'Check proactive memory system status: running state, recent predictions, care alerts.',
-  inputSchema: z.object({}),
-}, async () => {
-  try {
-    const m = getProactiveManager();
-    return { content: [{ type: 'text', text: JSON.stringify(m.getStatus(), null, 2) }] };
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Proactive status error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_proactive_trigger', {
-  description: 'Manually trigger a proactive memory tick (run care checks + recall predictions).',
-  inputSchema: z.object({}),
-}, async () => {
-  try {
-    const m = getProactiveManager();
-    const result = await m.trigger();
-    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Proactive trigger error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_proactive_start', {
-  description: 'Start the proactive memory background manager (auto care checks every N minutes).',
+// ============ Proactive (6→3) ============
+// memory_proactive: action=status|trigger|start|stop
+server.registerTool('memory_proactive', {
+  description: 'Proactive memory manager. Actions: status, trigger (manual tick), start (background), stop.',
   inputSchema: z.object({
-    intervalMinutes: z.number().optional().default(5).describe('Check interval in minutes (default 5)'),
+    action: z.enum(['status', 'trigger', 'start', 'stop']).describe('Action'),
+    intervalMinutes: z.number().optional().default(5).describe('Interval minutes (for start)'),
   }),
-}, async ({ intervalMinutes = 5 }) => {
+}, async ({ action, intervalMinutes }) => {
   try {
     const m = getProactiveManager();
-    if (m.timer) {
-      return { content: [{ type: 'text', text: 'Already running' }] };
-    }
-    m.intervalMs = intervalMinutes * 60000;
-    m.start();
-    return { content: [{ type: 'text', text: `Started with ${intervalMinutes}min interval` }] };
+    if (action === 'status') return { content: [{ type: 'text', text: JSON.stringify(m.getStatus(), null, 2) }] };
+    else if (action === 'trigger') { const r = await m.trigger(); return { content: [{ type: 'text', text: JSON.stringify(r, null, 2) }] }; }
+    else if (action === 'start') {
+      if (m.timer) return { content: [{ type: 'text', text: 'Already running' }] };
+      m.intervalMs = (intervalMinutes || 5) * 60000; m.start();
+      return { content: [{ type: 'text', text: `Started with ${intervalMinutes||5}min interval` }] };
+    } else if (action === 'stop') { m.stop(); return { content: [{ type: 'text', text: 'Stopped' }] }; }
   } catch (err) {
-    return { content: [{ type: 'text', text: `Proactive start error: ${err.message}` }], isError: true };
+    return { content: [{ type: 'text', text: `Proactive [${action}]: ${err.message}` }], isError: true };
   }
 });
 
-server.registerTool('memory_proactive_stop', {
-  description: 'Stop the proactive memory background manager.',
-  inputSchema: z.object({}),
-}, async () => {
-  try {
-    const m = getProactiveManager();
-    m.stop();
-    return { content: [{ type: 'text', text: 'Stopped' }] };
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Proactive stop error: ${err.message}` }], isError: true };
-  }
-});
+// Deprecated wrappers (removed - use memory_proactive directly)
 
 // ============ Proactive Care & Recall (v1.2 - wired from core stubs) ============
 
@@ -1731,124 +1396,42 @@ server.registerTool('memory_proactive_recall', {
   }
 });
 
-server.registerTool('memory_reminder_add', {
-  description: 'Add a reminder: one-time or recurring. Reminders are checked every 30 seconds.',
+// ============ Reminder (3→1) ============
+// memory_reminder: action=add|list|cancel
+server.registerTool('memory_reminder', {
+  description: 'Reminder management. Actions: add (one-time/recurring), list (all active), cancel (by ID).',
   inputSchema: z.object({
-    text: z.string().describe('Reminder text'),
-    type: z.enum(['once', 'recurring']).default('once').describe('Reminder type'),
-    hours: z.number().optional().default(24).describe('Hours until reminder (default 24)'),
+    action: z.enum(['add', 'list', 'cancel']).describe('Action to perform'),
+    text: z.string().optional().describe('Reminder text (for add)'),
+    type: z.enum(['once', 'recurring']).default('once').describe('Type (for add)'),
+    hours: z.number().optional().default(24).describe('Hours until reminder (for add)'),
+    id: z.string().optional().describe('Reminder ID (for cancel)'),
   }),
-}, async ({ text, type = 'once', hours = 24 }) => {
+}, async ({ action, text, type = 'once', hours = 24, id }) => {
+  const scheduler = getReminderScheduler();
   try {
-    const scheduler = getReminderScheduler();
-    let id;
-    if (type === 'recurring') {
-      id = scheduler.addRecurringReminder(text, hours);
-    } else {
-      id = scheduler.add({ type: 'once', text, dueAt: Date.now() + hours * 3600 * 1000, repeat: null });
-    }
-    return { content: [{ type: 'text', text: JSON.stringify({ success: true, id }) }] };
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Reminder add error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_reminder_list', {
-  description: 'List all active reminders.',
-  inputSchema: z.object({}),
-}, async () => {
-  try {
-    const scheduler = getReminderScheduler();
-    const reminders = scheduler.list();
-    return { content: [{ type: 'text', text: JSON.stringify({ count: reminders.length, reminders }, null, 2) }] };
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Reminder list error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_reminder_cancel', {
-  description: 'Cancel a reminder by ID.',
-  inputSchema: z.object({
-    id: z.string().describe('Reminder ID to cancel'),
-  }),
-}, async ({ id }) => {
-  try {
-    const scheduler = getReminderScheduler();
-    const removed = scheduler.cancel(id);
-    return { content: [{ type: 'text', text: JSON.stringify({ success: removed }) }] };
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Reminder cancel error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_predict_enhanced', {
-  description: 'Enhanced prediction with time-awareness, TTL warnings, and importance scoring. Includes anniversary and high-value memory predictions.',
-  inputSchema: z.object({
-    action: z.enum(['predict', 'related', 'high_value']).describe('Action to perform'),
-    context: z.string().optional().describe('Context for prediction (for predict action)'),
-    memoryId: z.string().optional().describe('Memory ID for related predictions (for related action)'),
-    topK: z.number().optional().default(5).describe('Number of predictions to return'),
-  }),
-}, async ({ action, context, memoryId, topK = 5 }) => {
-  try {
-    if (action === 'predict') {
-      const results = await enhancedPredictRecall(context || '', { topK, includeTTL: true });
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            count: results.length,
-            predictions: results.map(r => ({
-              id: r.memory.id,
-              text: r.memory.text,
-              relevance: Math.round(r.relevance * 1000) / 1000,
-              reasons: r.reasons,
-              type: r.type,
-            }))
-          }, null, 2)
-        }]
-      };
-    } else if (action === 'related') {
-      if (!memoryId) {
-        return { content: [{ type: 'text', text: 'Error: memoryId required for related action' }], isError: true };
+    if (action === 'add') {
+      let rid;
+      if (type === 'recurring') {
+        rid = scheduler.addRecurringReminder(text, hours);
+      } else {
+        rid = scheduler.add({ type: 'once', text, dueAt: Date.now() + hours * 3600 * 1000, repeat: null });
       }
-      const results = predictRelatedOnAccess(memoryId, topK);
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            count: results.length,
-            predictions: results.map(r => ({
-              id: r.memory.id,
-              text: r.memory.text,
-              relevance: Math.round(r.relevance * 1000) / 1000,
-              reasons: r.reasons,
-            }))
-          }, null, 2)
-        }]
-      };
-    } else if (action === 'high_value') {
-      const results = predictHighValueMemories(topK);
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            count: results.length,
-            predictions: results.map(r => ({
-              id: r.memory.id,
-              text: r.memory.text,
-              score: Math.round(r.score * 1000) / 1000,
-              reasons: r.reasons,
-            }))
-          }, null, 2)
-        }]
-      };
+      return { content: [{ type: 'text', text: JSON.stringify({ success: true, id: rid }) }] };
+    } else if (action === 'list') {
+      const reminders = scheduler.list();
+      return { content: [{ type: 'text', text: JSON.stringify({ count: reminders.length, reminders }, null, 2) }] };
+    } else if (action === 'cancel') {
+      const removed = scheduler.cancel(id);
+      return { content: [{ type: 'text', text: JSON.stringify({ success: removed }) }] };
     }
-    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    return { content: [{ type: 'text', text: `Enhanced predict error: ${err.message}` }], isError: true };
+    return { content: [{ type: 'text', text: `Reminder error [${action}]: ${err.message}` }], isError: true };
   }
 });
+
+// Deprecated wrappers (delegate to memory_reminder)
+
 
 
 // ============ Knowledge Graph Tools (Entity + Relation Extraction) ============
@@ -1868,379 +1451,79 @@ import {
   clearGraph,
 } from './graph/graph_store.js';
 
-server.registerTool('memory_graph_entity', {
-  description: 'Extract entities (person/org/project/tool) from text or memories. Builds knowledge graph.',
+// ============ Graph (6→1: entity|relation|query|stats|add|delete) ============
+// memory_graph: unified knowledge graph tool
+server.registerTool('memory_graph', {
+  description: 'Knowledge graph operations. Actions: entity (extract), relation (extract), query (neighbors/paths), stats, add, delete.',
   inputSchema: z.object({
-    source: z.enum(['text', 'memory', 'all']).default('all').describe('Source to extract from'),
-    text: z.string().optional().describe('Text to extract from (for text source)'),
-    memoryId: z.string().optional().describe('Memory ID (for memory source)'),
-    useLLM: z.boolean().optional().default(false).describe('Use LLM for enhanced extraction'),
+    action: z.enum(['entity', 'relation', 'query', 'stats', 'add', 'delete']).describe('Action'),
+    source: z.enum(['text', 'memory', 'all']).optional().default('all').describe('Source (for entity/relation)'),
+    text: z.string().optional().describe('Text to process (for entity/relation)'),
+    memoryId: z.string().optional().describe('Memory ID (for entity/relation/query)'),
+    useLLM: z.boolean().optional().default(false).describe('Use LLM extraction'),
+    entity: z.string().optional().describe('Entity name/ID (for query/delete)'),
+    depth: z.number().optional().default(1).describe('Query depth (for query)'),
+    relationType: z.string().optional().describe('Relation filter (for query)'),
+    entityName: z.string().optional().describe('Entity name (for add/delete)'),
+    entityId: z.string().optional().describe('Entity ID (for add/delete)'),
+    entityType: z.enum(['person','organization','project','topic','tool','location','date','event','other']).optional().describe('Entity type (for add)'),
+    entityDesc: z.string().optional().describe('Entity description (for add)'),
+    from: z.string().optional().describe('From entity (for add relation)'),
+    to: z.string().optional().describe('To entity (for add relation)'),
+    relationType2: z.string().optional().describe('Relation type (for add)'),
+    confidence: z.number().optional().default(0.8).describe('Confidence (for add)'),
+    relationId: z.string().optional().describe('Relation ID (for delete)'),
   }),
-}, async ({ source, text, memoryId, useLLM = false }) => {
+}, async (args) => {
   try {
-    let textsToProcess = [];
-
-    if (source === 'text' && text) {
-      textsToProcess = [{ id: 'inline', text }];
-    } else if (source === 'memory' && memoryId) {
-      const mem = getMemory(memoryId);
-      if (!mem) {
-        return { content: [{ type: 'text', text: `Memory not found: ${memoryId}` }], isError: true };
-      }
-      textsToProcess = [mem];
-    } else if (source === 'all') {
-      const memories = getAllMemories();
-      textsToProcess = memories.map(m => ({ id: m.id, text: m.text }));
-    }
-
-    if (textsToProcess.length === 0) {
-      return { content: [{ type: 'text', text: JSON.stringify({ entities: [], count: 0 }) }] };
-    }
-
-    /** @type {Array<{ id: string, name: string, type: string, method: string, memory_ids: string[] }>} */
-    const allEntities = [];
-
-    for (const item of textsToProcess) {
-      if (!item.text?.trim()) continue;
-      try {
-        const entities = await extractEntities(item.text, { useLLM });
-        for (const e of entities) {
-          const existing = allEntities.find(n => n.name === e.name && n.type === e.type);
-          if (existing) {
-            existing.memory_ids.push(item.id);
-          } else {
-            allEntities.push({ ...e, memory_ids: [item.id] });
-          }
-        }
-      } catch {
-        // Skip on error
-      }
-    }
-
-    // Add entities to graph store
-    for (const e of allEntities) {
-      addEntity(e);
-    }
-
-    return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          count: allEntities.length,
-          entities: allEntities.map(e => ({
-            id: e.id,
-            name: e.name,
-            type: e.type,
-            method: e.method,
-            memory_ids: e.memory_ids.slice(0, 5),
-          })),
-          stats: getGraphStats(),
-        }, null, 2),
-      }],
-    };
-  } catch (err) {
-    structuredLog.error(`memory_graph_entity error: ${err.message}`);
-    return { content: [{ type: 'text', text: `Entity extraction error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_graph_relation', {
-  description: 'Extract relationships between entities in the knowledge graph.',
-  inputSchema: z.object({
-    text: z.string().optional().describe('Text to extract relations from'),
-    memoryId: z.string().optional().describe('Memory ID to extract from'),
-    entityIds: z.array(z.string()).optional().describe('Entity IDs to find relations between'),
-    useLLM: z.boolean().optional().default(false).describe('Use LLM for relation extraction'),
-  }),
-}, async ({ text, memoryId, entityIds, useLLM = false }) => {
-  try {
-    let sourceText = '';
-
-    if (memoryId) {
-      const mem = getMemory(memoryId);
-      if (!mem) {
-        return { content: [{ type: 'text', text: `Memory not found: ${memoryId}` }], isError: true };
-      }
-      sourceText = mem.text;
-    } else if (text) {
-      sourceText = text;
-    } else {
-      return { content: [{ type: 'text', text: 'Error: text or memoryId is required' }], isError: true };
-    }
-
-    // Get entities from the source text
-    const entities = await extractEntities(sourceText, { useLLM });
-
-    // Extract relations between entities in the text
-    const relations = await extractRelations(sourceText, entities, {});
-
-    // Add to graph store
-    for (const r of relations) {
-      addRelation(r);
-    }
-
-    return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          count: relations.length,
-          relations: relations.map(r => ({
-            id: r.id,
-            from: r.from,
-            to: r.to,
-            relation: r.relation,
-            confidence: r.confidence,
-            source: r.source,
-          })),
-          entities_found: entities.map(e => ({ id: e.id, name: e.name, type: e.type })),
-        }, null, 2),
-      }],
-    };
-  } catch (err) {
-    structuredLog.error(`memory_graph_relation error: ${err.message}`);
-    return { content: [{ type: 'text', text: `Relation extraction error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_graph_query', {
-  description: 'Query the knowledge graph: find entity neighbors, paths, or related entities.',
-  inputSchema: z.object({
-    entity: z.string().describe('Entity name or ID'),
-    depth: z.number().default(1).describe('Query depth'),
-    relationType: z.string().optional().describe('Filter by relation type'),
-  }),
-}, async ({ entity, depth = 1, relationType }) => {
-  try {
-    const graph = loadGraph();
-
-    // Try to find entity by name or ID
-    let entityObj = graph.entities.find(e => e.id === entity || e.name === entity);
-
-    if (!entityObj) {
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            error: `Entity not found: ${entity}`,
-            available_entities: graph.entities.slice(0, 20).map(e => ({ id: e.id, name: e.name, type: e.type })),
-          }, null, 2),
-        }],
-      };
-    }
-
-    // Get neighbors
-    const neighbors = getNeighbors(entityObj.id, relationType || null);
-
-    // Query paths
-    const pathResult = queryGraph(entity, relationType, depth);
-
-    return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          entity: { id: entityObj.id, name: entityObj.name, type: entityObj.type, count: entityObj.count },
-          neighbors: neighbors.map(n => ({ id: n.entity.id, name: n.entity.name, type: n.entity.type, relation: n.relation, weight: n.weight })),
-          paths: (pathResult?.paths || []).map(p => ({
-            path: p.path,
-            relations: p.relations,
-            weight: p.totalWeight,
-          })),
-          stats: getGraphStats(),
-        }, null, 2),
-      }],
-    };
-  } catch (err) {
-    structuredLog.error(`memory_graph_query error: ${err.message}`);
-    return { content: [{ type: 'text', text: `Graph query error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_graph_stats', {
-  description: 'Get knowledge graph statistics: entity counts, relation types, graph density.',
-  inputSchema: z.object({}),
-}, async () => {
-  try {
-    const stats = getGraphStats();
-    const graph = loadGraph();
-
-    return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          ...stats,
-          sample_entities: graph.entities.slice(0, 10).map(e => ({ id: e.id, name: e.name, type: e.type })),
-          sample_relations: graph.relations.slice(0, 10).map(r => ({ id: r.id, from: r.from, to: r.to, relation: r.relation })),
-        }, null, 2),
-      }],
-    };
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Graph stats error: ${err.message}` }], isError: true };
-  }
-});
-
-
-// ============ Graph Add / Delete (v1.1) ============
-
-server.registerTool('memory_graph_add', {
-  description: 'Add a new entity or relation to the knowledge graph manually.',
-  inputSchema: z.object({
-    entity: z.object({
-      name: z.string().describe('Entity name'),
-      type: z.enum(['person', 'organization', 'project', 'topic', 'tool', 'location', 'date', 'event', 'other']).describe('Entity type'),
-      description: z.string().optional().describe('Optional description'),
-    }).optional().describe('Entity to add'),
-    relation: z.object({
-      from: z.string().describe('Source entity name or ID'),
-      to: z.string().describe('Target entity name or ID'),
-      type: z.enum(['worked_with', 'belongs_to', 'uses_tool', 'participated_in', 'decided', 'created', 'related_to', 'knows', 'owns']).describe('Relation type'),
-      confidence: z.number().min(0).max(1).optional().default(0.8).describe('Confidence score'),
-    }).optional().describe('Relation to add'),
-  }),
-}, async ({ entity, relation }) => {
-  try {
-    const { addEntity, addRelation } = await import('./graph/graph_store.js');
-    const { loadGraph } = await import('./graph/graph_store.js');
-
-    const results = [];
-
-    if (entity) {
-      const existing = loadGraph().entities.find(
-        e => e.name === entity.name && e.type === entity.type
-      );
-      if (existing) {
-        results.push({ action: 'skipped', reason: 'entity_exists', entity: existing.name });
-      } else {
-        const added = addEntity({
-          name: entity.name,
-          type: entity.type,
-          description: entity.description || null,
-        });
-        results.push({ action: 'added', entity: added });
-      }
-    }
-
-    if (relation) {
+    const { action, source='all', text, memoryId, useLLM=false, entity, depth=1, relationType, entityName, entityId, entityType, entityDesc, from: relFrom, to: relTo, relationType2, confidence=0.8, relationId } = args;
+    if (action === 'entity') {
+      let textsToProcess = [];
+      if (source === 'text' && text) textsToProcess = [{ id: 'inline', text }];
+      else if (source === 'memory' && memoryId) { const mem = getMemory(memoryId); if (!mem) return { content: [{ type: 'text', text: 'Memory not found' }], isError: true }; textsToProcess = [mem]; }
+      else { const all = getAllMemories(); textsToProcess = all.map(m => ({ id: m.id, text: m.text })); }
+      const allEntities = [];
+      for (const item of textsToProcess) { if (!item.text?.trim()) continue; try { const entities = await extractEntities(item.text, { useLLM }); for (const e of entities) { const ex = allEntities.find(n => n.name === e.name && n.type === e.type); if (ex) ex.memory_ids.push(item.id); else allEntities.push({ ...e, memory_ids: [item.id] }); } } catch {} }
+      for (const e of allEntities) addEntity(e);
+      return { content: [{ type: 'text', text: JSON.stringify({ count: allEntities.length, entities: allEntities.map(e => ({ id: e.id, name: e.name, type: e.type, method: e.method, memory_ids: e.memory_ids.slice(0,5) })), stats: getGraphStats() }, null, 2) }] };
+    } else if (action === 'relation') {
+      let sourceText = memoryId ? (getMemory(memoryId)?.text || '') : (text || '');
+      if (!sourceText) return { content: [{ type: 'text', text: 'text or memoryId required' }], isError: true };
+      const entities = await extractEntities(sourceText, { useLLM });
+      const relations = await extractRelations(sourceText, entities, {});
+      for (const r of relations) addRelation(r);
+      return { content: [{ type: 'text', text: JSON.stringify({ count: relations.length, relations: relations.map(r => ({ id: r.id, from: r.from, to: r.to, relation: r.relation, confidence: r.confidence })), entities_found: entities.map(e => ({ id: e.id, name: e.name, type: e.type })) }, null, 2) }] };
+    } else if (action === 'query') {
+      if (!entity) return { content: [{ type: 'text', text: 'entity required' }], isError: true };
       const graph = loadGraph();
-      const fromEntity = graph.entities.find(
-        e => e.name === relation.from || e.id === relation.from
-      );
-      const toEntity = graph.entities.find(
-        e => e.name === relation.to || e.id === relation.to
-      );
-
-      if (!fromEntity || !toEntity) {
-        results.push({ action: 'error', reason: 'entity_not_found', from: relation.from, to: relation.to });
-      } else {
-        const added = addRelation({
-          from: fromEntity.id,
-          to: toEntity.id,
-          relation: relation.type,
-          confidence: relation.confidence ?? 0.8,
-          source: 'manual',
-        });
-        results.push({ action: 'added', relation: { from: fromEntity.name, to: toEntity.name, type: relation.type } });
-      }
-    }
-
-    return { content: [{ type: 'text', text: JSON.stringify({ results }, null, 2) }] };
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
-  }
-});
-
-server.registerTool('memory_graph_delete', {
-  description: 'Delete an entity (and its relations) or a specific relation from the knowledge graph.',
-  inputSchema: z.object({
-    entityName: z.string().optional().describe('Entity name to delete'),
-    entityId: z.string().optional().describe('Entity ID to delete'),
-    relationId: z.string().optional().describe('Relation ID to delete'),
-  }),
-}, async ({ entityName, entityId, relationId }) => {
-  try {
-    const { loadGraph, saveGraph } = await import('./graph/graph_store.js');
-
-    if (relationId) {
+      const entityObj = graph.entities.find(e => e.id === entity || e.name === entity);
+      if (!entityObj) return { content: [{ type: 'text', text: JSON.stringify({ error: 'Entity not found', available: graph.entities.slice(0,10).map(e => ({ id:e.id, name:e.name })) }) }] };
+      const neighbors = getNeighbors(entityObj.id, relationType || null);
+      const pathResult = queryGraph(entity, relationType, depth);
+      return { content: [{ type: 'text', text: JSON.stringify({ entity: { id: entityObj.id, name: entityObj.name, type: entityObj.type }, neighbors: neighbors.map(n => ({ id: n.entity.id, name: n.entity.name, type: n.entity.type, relation: n.relation, weight: n.weight })), paths: (pathResult?.paths||[]).map(p => ({ path: p.path, relations: p.relations, weight: p.totalWeight })), stats: getGraphStats() }, null, 2) }] };
+    } else if (action === 'stats') {
+      const stats = getGraphStats();
       const graph = loadGraph();
-      const before = graph.relations.length;
-      graph.relations = graph.relations.filter(r => r.id !== relationId);
-      graph.version++;
-      saveGraph(graph);
-      return { content: [{ type: 'text', text: JSON.stringify({ deleted: 'relation', count: before - graph.relations.length }) }] };
+      return { content: [{ type: 'text', text: JSON.stringify({ ...stats, sample_entities: graph.entities.slice(0,10), sample_relations: graph.relations.slice(0,10) }, null, 2) }] };
+    } else if (action === 'add') {
+      const results = [];
+      if (entityName && entityType) { const { loadGraph: lg } = await import('./graph/graph_store.js'); const existing = lg().entities.find(e => e.name === entityName && e.type === entityType); if (existing) results.push({ action: 'skipped', reason: 'exists', entity: entityName }); else { const added = addEntity({ name: entityName, type: entityType, description: entityDesc || null }); results.push({ action: 'added', entity: added }); } }
+      if (relFrom && relTo && relationType2) { const { loadGraph: lg } = await import('./graph/graph_store.js'); const graph = lg(); const fromE = graph.entities.find(e => e.name === relFrom || e.id === relFrom); const toE = graph.entities.find(e => e.name === relTo || e.id === relTo); if (!fromE || !toE) results.push({ action: 'error', reason: 'entity_not_found' }); else { addRelation({ from: fromE.id, to: toE.id, relation: relationType2, confidence, source: 'manual' }); results.push({ action: 'added', relation: { from: relFrom, to: relTo, type: relationType2 } }); } }
+      return { content: [{ type: 'text', text: JSON.stringify({ results }, null, 2) }] };
+    } else if (action === 'delete') {
+      const { loadGraph: lg, saveGraph: sg } = await import('./graph/graph_store.js');
+      if (relationId) { const graph = lg(); const before = graph.relations.length; graph.relations = graph.relations.filter(r => r.id !== relationId); graph.version++; sg(graph); return { content: [{ type: 'text', text: JSON.stringify({ deleted: 'relation', count: before - graph.relations.length }) }] }; }
+      if (entityName || entityId) { const graph = lg(); const ent = graph.entities.find(e => (entityName && e.name === entityName) || (entityId && e.id === entityId)); if (!ent) return { content: [{ type: 'text', text: JSON.stringify({ error: 'entity_not_found' }) }] }; const beforeE = graph.entities.length, beforeR = graph.relations.length; graph.entities = graph.entities.filter(e => e.id !== ent.id); graph.relations = graph.relations.filter(r => r.from !== ent.id && r.to !== ent.id); graph.version++; sg(graph); return { content: [{ type: 'text', text: JSON.stringify({ deleted: 'entity', entity: ent.name, entities_removed: beforeE - graph.entities.length, relations_removed: beforeR - graph.relations.length }) }] }; }
+      return { content: [{ type: 'text', text: 'Provide entityName/entityId or relationId' }], isError: true };
     }
-
-    if (entityName || entityId) {
-      const graph = loadGraph();
-      const entity = graph.entities.find(
-        e => (entityName && e.name === entityName) || (entityId && e.id === entityId)
-      );
-      if (!entity) {
-        return { content: [{ type: 'text', text: JSON.stringify({ error: 'entity_not_found' }) }] };
-      }
-
-      const beforeE = graph.entities.length;
-      const beforeR = graph.relations.length;
-      graph.entities = graph.entities.filter(e => e.id !== entity.id);
-      graph.relations = graph.relations.filter(r => r.from !== entity.id && r.to !== entity.id);
-      graph.version++;
-      saveGraph(graph);
-
-      return { content: [{ type: 'text', text: JSON.stringify({
-        deleted: 'entity',
-        entity: entity.name,
-        entities_removed: beforeE - graph.entities.length,
-        relations_removed: beforeR - graph.relations.length,
-      }) }] };
-    }
-
-    return { content: [{ type: 'text', text: 'Provide entityName/entityId or relationId' }], isError: true };
-  } catch (err) {
-    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
-  }
+  } catch (err) { return { content: [{ type: 'text', text: `Graph [${args.action}]: ${err.message}` }], isError: true }; }
 });
 
-// ============ P0-2: Entity Tools ============
+// Deprecated wrappers
 
-server.registerTool('memory_entity_extract', {
-  description: 'Extract entities (person/organization/project/topic/tool/date/location) from text using rule-based extraction. Adds entities to the knowledge graph.',
-  inputSchema: z.object({
-    text: z.string().describe('Text to extract entities from'),
-  }),
-}, async ({ text }) => {
-  return memoryEntityExtractTool({ text });
-});
 
-server.registerTool('memory_entity_link', {
-  description: 'Create a directed relation between two entities in the knowledge graph. If entities do not exist they will be auto-created.',
-  inputSchema: z.object({
-    from: z.string().describe('Source entity name or ID'),
-    to: z.string().describe('Target entity name or ID'),
-    relation: z.string().describe('Relation type: worked_with, related_to, belongs_to, uses_tool, participated_in, decided, created, knows, owns'),
-    strength: z.number().optional().default(0.8).describe('Relation strength/confidence 0-1'),
-  }),
-}, async ({ from, to, relation, strength }) => {
-  return memoryEntityLinkTool({ from, to, relation, strength });
-});
 
-server.registerTool('memory_entity_neighbors', {
-  description: 'Get neighbor entities connected to a given entity via graph relations.',
-  inputSchema: z.object({
-    entity: z.string().describe('Entity name or ID to look up'),
-    relationType: z.string().optional().describe('Filter by relation type'),
-  }),
-}, async ({ entity, relationType }) => {
-  return memoryEntityNeighborsTool({ entity, relationType });
-});
 
-server.registerTool('memory_entity_search', {
-  description: 'Graph-expanded search: uses the knowledge graph to expand the query with related entity names before searching.',
-  inputSchema: z.object({
-    query: z.string().describe('Search query'),
-    topK: z.number().optional().default(5).describe('Number of results'),
-    scope: z.string().optional().describe('Scope filter'),
-  }),
-}, async ({ query, topK, scope }) => {
-  return memoryEntitySearchTool({ query, topK, scope });
-});
 
 // ============ v2.7.0: Identity Memory Tools ============
 
@@ -2485,19 +1768,18 @@ async function main() {
     structuredLog.info( `Memory file: ${config.memoryFile}`);
     structuredLog.info( `Ollama: ${config.ollamaUrl}`);
 
-  // Start v2.7.0 Dashboard Web UI (port 3850)
+  // Start v2.8.0 Unified Web UI + API Server (port 3850)
   try {
-    // dashboard.js 是自包含的服务器，通过 child_process 启动
-    import { spawn } from 'child_process';
-    const dashboardProcess = spawn('node', ['src/webui/dashboard.js', '--port=3850'], {
+    const { spawn } = await import('child_process');
+    const unifiedProcess = spawn('node', ['src/webui/unified_server.js', '--port=3850'], {
       stdio: 'ignore',
       detached: true
     });
-    dashboardProcess.unref();
-    structuredLog.info('v2.7.0 Dashboard started on port 3850');
+    unifiedProcess.unref();
+    structuredLog.info('v2.8.0 Unified Server started on port 3850');
     
   } catch (err) {
-    structuredLog.warn(`Failed to start dashboard: ${err.message}`);
+    structuredLog.warn(`Failed to start unified server: ${err.message}`);
   }
 
   // Register multimodal tools (image/audio/file analysis)

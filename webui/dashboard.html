@@ -1,335 +1,153 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🧠 Unified Memory Dashboard</title>
+<title>🧠 统一记忆系统 v3.2</title>
 <style>
-  :root {
-    --bg: #f4f6fa;
-    --surface: #ffffff;
-    --surface2: #f0f2f5;
-    --border: #e2e8f0;
-    --text: #1a202c;
-    --text2: #718096;
-    --accent: #5b6af0;
-    --accent2: #7c85f5;
-    --danger: #e53e3e;
-    --success: #38a169;
-    --warning: #d69e2e;
-    --tag-cat: #ebf4ff;
-    --tag-cat2: #5b6af0;
-    --tag-imp: #fff5f5;
-    --tag-imp2: #e53e3e;
-    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
-    --shadow-lg: 0 4px 12px rgba(0,0,0,0.10), 0 2px 4px rgba(0,0,0,0.06);
-    --radius: 10px;
-    --radius-sm: 6px;
-  }
-  [data-theme="dark"] {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface2: #242736;
-    --border: #2d3148;
-    --text: #e2e8f0;
-    --text2: #a0aec0;
-    --accent: #7c85f5;
-    --accent2: #9fa5f7;
-    --danger: #fc5c5c;
-    --success: #4fd1a5;
-    --warning: #f6c90e;
-    --tag-cat: #1e2640;
-    --tag-cat2: #7c85f5;
-    --tag-imp: #2d1a1a;
-    --tag-imp2: #fc5c5c;
-    --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
-    --shadow-lg: 0 4px 12px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.2);
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    transition: background 0.3s, color 0.3s;
-  }
-  .container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
-
-  /* Header */
-  header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 28px; flex-wrap: wrap; gap: 12px;
-  }
-  .logo { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
-  .logo-icon { font-size: 28px; }
-  .header-actions { display: flex; align-items: center; gap: 10px; }
-  .mode-btn {
-    background: var(--surface2); border: 1px solid var(--border);
-    color: var(--text2); border-radius: 8px; padding: 7px 14px;
-    cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px;
-    transition: all 0.2s;
-  }
-  .mode-btn:hover { background: var(--surface); border-color: var(--accent); color: var(--accent); }
-  .mode-badge {
-    background: var(--accent); color: #fff; border-radius: 4px;
-    padding: 2px 7px; font-size: 11px; font-weight: 600;
-  }
-  .mode-badge.live { background: var(--success); }
-  .mode-badge.mock { background: var(--warning); }
-
-  /* Stats Cards */
-  .stats-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 14px; margin-bottom: 28px;
-  }
-  .stat-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 18px 20px;
-    box-shadow: var(--shadow); transition: box-shadow 0.2s, transform 0.2s;
-  }
-  .stat-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
-  .stat-label { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-  .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
-  .stat-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
-  .stat-icon { font-size: 20px; margin-bottom: 6px; }
-
-  /* Charts */
-  .charts-row {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 28px;
-  }
-  @media (max-width: 700px) { .charts-row { grid-template-columns: 1fr; } }
-  .chart-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 18px 20px;
-    box-shadow: var(--shadow);
-  }
-  .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 14px; color: var(--text); }
-  .bar-chart { display: flex; flex-direction: column; gap: 8px; }
-  .bar-row { display: flex; align-items: center; gap: 8px; }
-  .bar-label { font-size: 12px; color: var(--text2); width: 80px; flex-shrink: 0; text-align: right; }
-  .bar-track { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
-  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
-  .bar-fill.cat { background: var(--accent); }
-  .bar-fill.imp { background: var(--danger); }
-  .bar-val { font-size: 11px; color: var(--text2); width: 28px; flex-shrink: 0; }
-
-  /* Memory List Section */
-  .section-header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 14px; flex-wrap: wrap; gap: 10px;
-  }
-  .section-title { font-size: 16px; font-weight: 600; }
-  .search-wrap { position: relative; }
-  .search-wrap input {
-    background: var(--surface); border: 1px solid var(--border);
-    color: var(--text); border-radius: 8px; padding: 8px 12px 8px 34px;
-    font-size: 13px; width: 240px; outline: none; transition: border-color 0.2s;
-  }
-  .search-wrap input:focus { border-color: var(--accent); }
-  .search-wrap .search-icon {
-    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
-    font-size: 14px; opacity: 0.5; pointer-events: none;
-  }
-  .btn {
-    background: var(--accent); color: #fff; border: none;
-    border-radius: 8px; padding: 8px 16px; font-size: 13px;
-    cursor: pointer; display: flex; align-items: center; gap: 6px;
-    transition: background 0.2s, transform 0.1s;
-  }
-  .btn:hover { background: var(--accent2); transform: translateY(-1px); }
-  .btn:active { transform: translateY(0); }
-  .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: var(--radius-sm); }
-  .btn-danger { background: var(--danger); }
-  .btn-danger:hover { background: #c53030; }
-
-  /* Memory Cards */
-  .memory-list { display: flex; flex-direction: column; gap: 10px; }
-  .memory-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 16px 18px;
-    box-shadow: var(--shadow); transition: box-shadow 0.2s, transform 0.2s;
-    position: relative;
-  }
-  .memory-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
-  .memory-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
-  .memory-id { font-size: 11px; color: var(--text2); font-family: monospace; margin-bottom: 4px; }
-  .memory-text { font-size: 14px; line-height: 1.6; color: var(--text); word-break: break-word; }
-  .memory-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-  .tag {
-    display: inline-flex; align-items: center; gap: 3px;
-    padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500;
-  }
-  .tag-cat { background: var(--tag-cat); color: var(--tag-cat2); }
-  .tag-imp { background: var(--tag-imp); color: var(--tag-imp2); }
-  .tag-time { background: var(--surface2); color: var(--text2); font-size: 10px; }
-  .memory-actions { display: flex; gap: 6px; margin-top: 10px; justify-content: flex-end; }
-  .empty-state {
-    text-align: center; padding: 48px 20px; color: var(--text2);
-    background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius);
-  }
-  .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
-
-  /* Modal */
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 1000; padding: 16px; display: none;
-  }
-  .modal-overlay.show { display: flex; }
-  .modal {
-    background: var(--surface); border-radius: 14px; padding: 28px;
-    width: 100%; max-width: 540px; box-shadow: var(--shadow-lg);
-    max-height: 90vh; overflow-y: auto;
-  }
-  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 18px; }
-  .form-group { margin-bottom: 14px; }
-  .form-label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text2); }
-  .form-input, .form-select, .form-textarea {
-    width: 100%; background: var(--bg); border: 1px solid var(--border);
-    color: var(--text); border-radius: 8px; padding: 9px 12px;
-    font-size: 13px; outline: none; transition: border-color 0.2s;
-  }
-  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
-  .form-textarea { resize: vertical; min-height: 100px; font-family: inherit; line-height: 1.5; }
-  .form-select { appearance: none; cursor: pointer; }
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
-  .btn-cancel {
-    background: var(--surface2); color: var(--text2); border: 1px solid var(--border);
-    border-radius: 8px; padding: 8px 16px; font-size: 13px; cursor: pointer;
-    transition: all 0.2s;
-  }
-  .btn-cancel:hover { background: var(--bg); color: var(--text); }
-
-  /* Toast */
-  .toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }
-  .toast {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 8px; padding: 12px 16px; font-size: 13px;
-    box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 8px;
-    animation: slideIn 0.3s ease;
-    min-width: 220px;
-  }
-  .toast.success { border-left: 3px solid var(--success); }
-  .toast.error { border-left: 3px solid var(--danger); }
-  .toast.info { border-left: 3px solid var(--accent); }
-  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
-  /* Filter tabs */
-  .filter-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
-  .filter-tab {
-    padding: 5px 12px; border-radius: 20px; font-size: 12px;
-    border: 1px solid var(--border); background: var(--surface);
-    color: var(--text2); cursor: pointer; transition: all 0.2s;
-  }
-  .filter-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .filter-tab:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
-
-  /* Tooltip for API info */
-  .api-info {
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); padding: 12px 14px; font-size: 12px;
-    color: var(--text2); margin-bottom: 20px; display: flex; align-items: flex-start; gap: 8px;
-  }
-  .api-info-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f4f6fa;--surface:#fff;--surface2:#f0f2f5;--border:#e2e8f0;--text:#1a202c;--text2:#718096;--accent:#5b6af0;--accent2:#7c85f5;--danger:#e53e3e;--success:#38a169;--warning:#d69e2e;--tag-cat-bg:#ebf4ff;--tag-cat:#5b6af0;--tag-imp-bg:#fff5f5;--tag-imp:#e53e3e;--shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);--shadow-lg:0 4px 12px rgba(0,0,0,.10),0 2px 4px rgba(0,0,0,.06);--radius:10px;--radius-sm:6px;}
+[data-theme=dark]{--bg:#0f1117;--surface:#1a1d27;--surface2:#242736;--border:#2d3148;--text:#e2e8f0;--text2:#a0aec0;--accent:#7c85f5;--accent2:#9fa5f7;--danger:#fc5c5c;--success:#4fd1a5;--warning:#f6c90e;--tag-cat-bg:#1e2640;--tag-cat:#7c85f5;--tag-imp-bg:#2d1a1a;--tag-imp:#fc5c5c;--shadow:0 1px 3px rgba(0,0,0,.3);--shadow-lg:0 4px 12px rgba(0,0,0,.4);}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background .3s,color .3s}
+.container{max-width:1200px;margin:0 auto;padding:24px 16px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.logo{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:700}
+.logo-icon{font-size:28px}
+.header-actions{display:flex;align-items:center;gap:10px}
+.badge{padding:3px 10px;border-radius:6px;font-size:12px;font-weight:700;color:#fff}
+.badge.ok{background:var(--success)}.badge.warn{background:var(--warning)}.badge.err{background:var(--danger)}
+.btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .2s}
+.btn:hover{background:var(--accent2)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-danger{background:var(--danger)}
+.btn-cancel{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer}
+.btn-cancel:hover{background:var(--bg)}
+.mode-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;transition:all .2s}
+.mode-btn:hover{border-color:var(--accent);color:var(--accent)}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:24px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);transition:box-shadow .2s,transform .2s}
+.stat-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-1px)}
+.stat-icon{font-size:18px;margin-bottom:4px}
+.stat-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.stat-value{font-size:24px;font-weight:700;color:var(--accent);margin-top:2px}
+.stat-sub{font-size:10px;color:var(--text2)}
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+@media(max-width:700px){.charts-row{grid-template-columns:1fr}}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+.chart-card.full{grid-column:1/-1;margin-bottom:14px}
+.chart-title{font-size:14px;font-weight:600;margin-bottom:12px}
+.bar-chart{display:flex;flex-direction:column;gap:7px}
+.bar-row{display:flex;align-items:center;gap:8px}
+.bar-label{font-size:12px;color:var(--text2);width:70px;flex-shrink:0;text-align:right}
+.bar-track{flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .6s}
+.bar-cat{background:var(--accent)}.bar-imp{background:var(--danger)}
+.bar-val{font-size:11px;color:var(--text2);width:24px;text-align:right}
+.canvas-wrap{position:relative;height:130px}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px}
+.section-title{font-size:16px;font-weight:600}
+.search-wrap{position:relative}
+.search-wrap input{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px 8px 32px;font-size:13px;width:200px;outline:none}
+.search-wrap input:focus{border-color:var(--accent)}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:14px;opacity:.5;pointer-events:none}
+.filter-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.filter-tab{padding:5px 12px;border-radius:20px;font-size:12px;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .2s}
+.filter-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.filter-tab:hover:not(.active){border-color:var(--accent);color:var(--accent)}
+.memory-list{display:flex;flex-direction:column;gap:10px}
+.mem-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);cursor:pointer;transition:box-shadow .2s,transform .2s;position:relative}
+.mem-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-1px)}
+.mem-card::after{content:'点击查看详情';position:absolute;bottom:8px;right:12px;font-size:10px;color:var(--text2);opacity:0;transition:opacity .2s;pointer-events:none}
+.mem-card:hover::after{opacity:.5}
+.mem-id{font-size:11px;color:var(--text2);font-family:monospace;margin-bottom:4px}
+.mem-text{font-size:14px;line-height:1.6;color:var(--text);word-break:break-word;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.mem-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.tag{padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500}
+.tag-cat{background:var(--tag-cat-bg);color:var(--tag-cat)}
+.tag-imp{background:var(--tag-imp-bg);color:var(--tag-imp)}
+.tag-time{background:var(--surface2);color:var(--text2)}
+.tag-scope{background:#f0fff4;color:#276749}
+.mem-actions{display:flex;gap:6px;margin-top:8px;justify-content:flex-end}
+.empty{text-align:center;padding:48px 20px;color:var(--text2);background:var(--surface);border:1px dashed var(--border);border-radius:var(--radius)}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:.4}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px;display:none}
+.modal-overlay.show{display:flex}
+.modal{background:var(--surface);border-radius:14px;padding:24px;width:100%;max-width:540px;box-shadow:var(--shadow-lg);max-height:90vh;overflow-y:auto}
+.modal-title{font-size:18px;font-weight:700;margin-bottom:16px}
+.form-group{margin-bottom:12px}
+.form-label{display:block;font-size:13px;font-weight:500;margin-bottom:5px;color:var(--text2)}
+.form-input,.form-select,.form-textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:13px;outline:none;font-family:inherit;transition:border-color .2s}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent)}
+.form-textarea{resize:vertical;min-height:90px;line-height:1.5}
+.form-select{appearance:none;cursor:pointer}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-hint{font-size:11px;color:var(--text2);margin-top:3px}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.detail-item{background:var(--bg);border-radius:var(--radius-sm);padding:8px 12px}
+.detail-item .label{font-size:10px;color:var(--text2);text-transform:uppercase;margin-bottom:3px}
+.detail-item .value{font-size:13px;font-weight:600;color:var(--text)}
+.detail-full{background:var(--bg);border-radius:var(--radius);padding:12px;margin-bottom:14px;font-size:14px;line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto}
+.detail-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px}
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:8px;animation:slideIn .3s;min-width:200px}
+.toast.ok{border-left:3px solid var(--success)}
+.toast.err{border-left:3px solid var(--danger)}
+.toast.info{border-left:3px solid var(--accent)}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.loading{text-align:center;padding:40px;color:var(--text2)}
 </style>
 </head>
 <body>
 <div class="container">
-
-  <!-- Header -->
-  <header>
-    <div class="logo">
-      <span class="logo-icon">🧠</span>
-      <span>Unified Memory</span>
-    </div>
-    <div class="header-actions">
-      <span class="mode-badge mock" id="modeBadge">MOCK</span>
-      <button class="mode-btn" onclick="toggleTheme()" title="Toggle dark mode">
-        <span id="themeIcon">🌙</span>
-        <span id="themeLabel">Dark</span>
-      </button>
-    </div>
-  </header>
-
-  <!-- API Info -->
-  <div class="api-info">
-    <span class="api-info-icon">💡</span>
-    <div>
-      <strong id="apiStatusText">Running in Mock Mode</strong> — memories are simulated locally.
-      To connect to a real backend, set <code>apiEndpoint</code> in the script below.
-    </div>
+<header>
+  <div class="logo"><span class="logo-icon">🧠</span><span>统一记忆系统 v3.2</span></div>
+  <div class="header-actions">
+    <span class="badge warn" id="badge">连接中</span>
+    <button class="mode-btn" onclick="toggleTheme()"><span id="themeIcon">🌙</span><span id="themeLabel">深色</span></button>
   </div>
-
-  <!-- Stats Cards -->
-  <div class="stats-grid" id="statsGrid">
-    <div class="stat-card">
-      <div class="stat-icon">📦</div>
-      <div class="stat-label">Total Memories</div>
-      <div class="stat-value" id="statTotal">0</div>
-      <div class="stat-sub" id="statStorage">—</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">🔍</div>
-      <div class="stat-label">Categories</div>
-      <div class="stat-value" id="statCategories">0</div>
-      <div class="stat-sub">Distinct types</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">⭐</div>
-      <div class="stat-label">Avg. Importance</div>
-      <div class="stat-value" id="statImportance">—</div>
-      <div class="stat-sub">0.0 – 1.0 scale</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">🏷️</div>
-      <div class="stat-label">Total Tags</div>
-      <div class="stat-value" id="statTags">0</div>
-      <div class="stat-sub">Across all memories</div>
-    </div>
+</header>
+<div class="stats-grid" id="statsGrid"></div>
+<div class="charts-row">
+  <div class="chart-card"><div class="chart-title">📂 分类分布</div><div class="bar-chart" id="catChart"></div></div>
+  <div class="chart-card"><div class="chart-title">⭐ 重要性分布</div><div class="bar-chart" id="impChart"></div></div>
+</div>
+<div class="chart-card full">
+  <div class="chart-title">📈 记忆增长趋势（14天）<span id="updateTime" style="font-size:11px;color:var(--text2);font-weight:400;margin-left:8px"></span></div>
+  <div class="canvas-wrap"><canvas id="growthChart"></canvas></div>
+</div>
+<div class="section-header">
+  <div class="section-title">💾 记忆列表</div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <div class="search-wrap"><span class="search-icon">🔍</span><input type="text" id="searchInput" placeholder="搜索记忆…" oninput="renderMems()"></div>
+    <div class="filter-tabs" id="filterTabs"></div>
+    <button class="btn" onclick="openAdd()">+ 新增记忆</button>
   </div>
-
-  <!-- Charts Row -->
-  <div class="charts-row">
-    <div class="chart-card">
-      <div class="chart-title">📊 Category Distribution</div>
-      <div class="bar-chart" id="catChart"></div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-title">⭐ Importance Distribution</div>
-      <div class="bar-chart" id="impChart"></div>
-    </div>
-  </div>
-
-  <!-- Memory List -->
-  <div class="section-header">
-    <div class="section-title">💾 Memories</div>
-    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-      <div class="search-wrap">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="searchInput" placeholder="Search memories…" oninput="renderMemories()">
-      </div>
-      <div class="filter-tabs" id="filterTabs"></div>
-      <button class="btn" onclick="openAddModal()">+ Add Memory</button>
-    </div>
-  </div>
-
-  <div class="memory-list" id="memoryList"></div>
+</div>
+<div class="memory-list" id="memList"><div class="loading">加载中…</div></div>
 </div>
 
-<!-- Add/Edit Modal -->
-<div class="modal-overlay" id="modal">
+<div class="modal-overlay" id="detailModal">
   <div class="modal">
-    <div class="modal-title" id="modalTitle">➕ Add Memory</div>
-    <input type="hidden" id="editId">
-    <div class="form-group">
-      <label class="form-label">Memory Text *</label>
-      <textarea class="form-textarea" id="fText" placeholder="What would you like to remember?"></textarea>
+    <div class="modal-title" id="detailTitle">记忆详情</div>
+    <div class="detail-full" id="detailText"></div>
+    <div class="detail-grid" id="detailMeta"></div>
+    <div class="detail-tags" id="detailTags"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeDetail()">关闭</button>
+      <button class="btn btn-danger" id="detailDelBtn">🗑 删除</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-title">➕ 新增记忆</div>
+    <div class="form-group"><label class="form-label">记忆内容 *</label><textarea class="form-textarea" id="fText" placeholder="输入要记住的内容…"></textarea></div>
     <div class="form-row">
       <div class="form-group">
-        <label class="form-label">Category</label>
-        <select class="form-select" id="fCategory">
+        <label class="form-label">分类</label>
+        <select class="form-select" id="fCat">
           <option value="general">general</option>
           <option value="preference">preference</option>
           <option value="fact">fact</option>
@@ -340,354 +158,264 @@
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Importance (0.0 – 1.0)</label>
-        <input type="number" class="form-input" id="fImportance" min="0" max="1" step="0.1" value="0.7">
+        <label class="form-label">重要性 (0.0–1.0)</label>
+        <input type="number" class="form-input" id="fImp" min="0" max="1" step="0.1" value="0.7">
       </div>
     </div>
     <div class="form-group">
-      <label class="form-label">Tags (comma-separated)</label>
-      <input type="text" class="form-input" id="fTags" placeholder="e.g. work, urgent, project-x">
+      <label class="form-label">标签（逗号分隔）</label>
+      <input type="text" class="form-input" id="fTags" placeholder="如：工作, 重要, 项目A">
+      <div class="form-hint">多个标签用逗号隔开</div>
     </div>
     <div class="modal-footer">
-      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-      <button class="btn" id="modalSaveBtn" onclick="saveMemory()">Save Memory</button>
+      <button class="btn-cancel" onclick="closeAdd()">取消</button>
+      <button class="btn" onclick="saveMem()">保存</button>
     </div>
   </div>
 </div>
 
-<!-- Toast Container -->
 <div class="toast-wrap" id="toasts"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-// ─────────────────────────────────────────────
-// CONFIG
-// ─────────────────────────────────────────────
-const API_ENDPOINT = 'http://localhost:3848'; // Set to e.g. 'http://localhost:8080' to use real API
+var allMems=[];
+var filter='all';
+var growthChart=null;
+var curDetailId=null;
 
-// ─────────────────────────────────────────────
-// STATE
-// ─────────────────────────────────────────────
-let memories = [];
-let isMock = true;
-let activeFilter = 'all';
-
-// ─────────────────────────────────────────────
-// MOCK DATA
-// ─────────────────────────────────────────────
-function generateMockMemories() {
-  return [
-    { id: 'mem_a1b2c3d4', text: 'User prefers morning meetings before 11am for maximum productivity and focus', category: 'preference', importance: 0.85, tags: ['meetings', 'schedule', 'work'], created_at: '2026-03-25T09:15:00+08:00' },
-    { id: 'mem_b2c3d4e5', text: 'Project Alpha deadline is March 31, 2026. All deliverables must be submitted via the shared drive', category: 'fact', importance: 0.9, tags: ['project-alpha', 'deadline'], created_at: '2026-03-24T14:30:00+08:00' },
-    { id: 'mem_c3d4e5f6', text: 'The user prefers concise, direct responses without unnecessary pleasantries or filler phrases', category: 'preference', importance: 0.75, tags: ['communication', 'style'], created_at: '2026-03-23T11:00:00+08:00' },
-    { id: 'mem_d4e5f6g7', text: 'Decision made: use PostgreSQL as primary database for the new analytics platform', category: 'decision', importance: 0.8, tags: ['database', 'tech-stack', 'analytics'], created_at: '2026-03-22T16:45:00+08:00' },
-    { id: 'mem_e5f6g7h8', text: 'QingCloud OpenClaw agent is configured with memory-qdrant for semantic recall and unified-memory for structured storage', category: 'fact', importance: 0.6, tags: ['openclaw', 'setup', 'memory'], created_at: '2026-03-21T10:20:00+08:00' },
-    { id: 'mem_f6g7h8i9', text: 'Key stakeholders: CTO (David), PM (Sarah), Tech Lead (Alex). Escalation path is CTO → CEO for critical blockers', category: 'entity', importance: 0.88, tags: ['team', 'stakeholders', 'escalation'], created_at: '2026-03-20T13:00:00+08:00' },
-    { id: 'mem_g7h8i9j0', text: 'Retrospective insight: async communication works better than expected; consider reducing scheduled meetings by 20%', category: 'reflection', importance: 0.7, tags: ['retrospective', 'process', 'async'], created_at: '2026-03-19T17:30:00+08:00' },
-    { id: 'mem_h8i9j0k1', text: 'API rate limit is 1000 req/min. Implement exponential backoff with jitter for burst handling', category: 'fact', importance: 0.65, tags: ['api', 'rate-limit', 'backend'], created_at: '2026-03-18T09:00:00+08:00' },
-    { id: 'mem_i9j0k1l2', text: 'Favorite design reference sites: Dribbble, Behance, Awwwards. Use for client inspiration only, not direct copying', category: 'preference', importance: 0.55, tags: ['design', 'references', 'creative'], created_at: '2026-03-17T11:45:00+08:00' },
-    { id: 'mem_j0k1l2m3', text: 'Memory system health check passed: Qdrant vector DB connected, unified-memory storage at 78% capacity', category: 'fact', importance: 0.5, tags: ['system', 'health', 'memory'], created_at: '2026-03-26T08:00:00+08:00' },
-  ];
+function norm(m){
+  var text=m.text||m.content||'';
+  var ca=m.created_at;
+  if(typeof ca==='number')ca=new Date(ca).toISOString();
+  else if(typeof ca==='string'&&/^\d+$/.test(ca))ca=new Date(parseInt(ca)).toISOString();
+  var la=m.last_access||m.last_accessed;
+  if(typeof la==='number')la=new Date(la).toISOString();
+  else if(typeof la==='string'&&/^\d+$/.test(la))la=new Date(parseInt(la)).toISOString();
+  return{
+    id:m.id||'mem_'+(Math.random().toString(36)+Math.random().toString(36)).slice(2,10),
+    text:text,
+    category:m.category||'general',
+    importance:typeof m.importance==='number'?m.importance:0.5,
+    tags:Array.isArray(m.tags)?m.tags:[],
+    scope:m.scope||'USER',
+    created_at:ca||new Date().toISOString(),
+    last_access:la||ca||new Date().toISOString(),
+    access_count:typeof m.access_count==='number'?m.access_count:0
+  };
 }
 
-// ─────────────────────────────────────────────
-// UTILS
-// ─────────────────────────────────────────────
-function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
 
-function randId() {
-  return Math.random().toString(36).substr(2, 8) + Math.random().toString(36).substr(2, 8);
-}
+function fmtDate(iso){if(!iso)return'-';try{var d=new Date(iso),diff=Date.now()-d.getTime();if(diff<86400000)return'今天';if(diff<172800000)return'昨天';return d.toLocaleDateString('zh-CN',{month:'short',day:'numeric'});}catch(e){return'-';}}
 
-function escHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
+function fmtFromNow(iso){if(!iso)return'-';try{var d=new Date(iso),diff=Date.now()-d.getTime(),mins=Math.floor(diff/60000);if(mins<1)return'刚刚';if(mins<60)return mins+'分钟前';var hrs=Math.floor(mins/60);if(hrs<24)return hrs+'小时前';var days=Math.floor(hrs/24);if(days<7)return days+'天前';return fmtDate(iso);}catch(e){return'-';}}
 
-function formatDate(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  const now = new Date();
-  const diff = now - d;
-  if (diff < 86400000) return 'today';
-  if (diff < 172800000) return 'yesterday';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
+function impLevel(v){if(v>=0.7)return'高';if(v>=0.4)return'中';return'低';}
 
-// ─────────────────────────────────────────────
-// API CALLS
-// ─────────────────────────────────────────────
-async function apiList() {
-  if (!API_ENDPOINT) {
-    await delay(150);
-    return memories;
+function setBadge(c,t){var e=document.getElementById('badge');e.className='badge '+c;e.textContent=t;}
+
+function loadAPI(){fetch('/memories').then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(function(data){allMems=Array.isArray(data)?data:[];setBadge('ok','已连接');renderAll();startPoll();}).catch(function(){setBadge('err','离线');allMems=genMock();renderAll();});}
+
+var pollTimer=null;
+function startPoll(){if(pollTimer)clearInterval(pollTimer);pollTimer=setInterval(function(){fetch('/memories').then(function(r){return r.ok?r.json():null;}).then(function(d){if(d){allMems=d;renderAll();if(growthChart)updateGrowthChart();}}).catch(function(){});},8000);}
+
+function createMem(d){return fetch('/memories',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(function(r){if(!r.ok)throw new Error('创建失败');return r.json();});}
+
+function delMemApi(id){return fetch('/memories/'+encodeURIComponent(id),{method:'DELETE'}).then(function(r){if(!r.ok)throw new Error('删除失败');});}
+
+function genMock(){return[{id:'mem_001',text:'用户名叫刘选权，喜欢简洁直接的沟通方式，不喜欢废话。',category:'preference',importance:0.9,tags:['用户','沟通风格'],scope:'USER',created_at:'2026-03-25T09:00:00+08:00',last_access:'2026-03-28T10:00:00+08:00',access_count:15},{id:'mem_002',text:'安装了 faster-whisper 作为语音转文字方案，效果好速度快。',category:'fact',importance:0.7,tags:['whisper','语音','工具'],scope:'AGENT',created_at:'2026-03-24T14:00:00+08:00',last_access:'2026-03-27T11:00:00+08:00',access_count:8},{id:'mem_003',text:'统一记忆系统 v3.0 已部署，包含 LanceDB 向量存储和 BM25+Vector 混合检索。',category:'fact',importance:0.8,tags:['unified-memory','部署'],scope:'AGENT',created_at:'2026-03-23T10:00:00+08:00',last_access:'2026-03-26T09:00:00+08:00',access_count:12},{id:'mem_004',text:'决定使用 PostgreSQL 作为主数据库，Redis 做缓存层。',category:'decision',importance:0.85,tags:['数据库','技术选型'],scope:'TEAM',created_at:'2026-03-22T16:00:00+08:00',last_access:'2026-03-25T14:00:00+08:00',access_count:6},{id:'mem_005',text:'关键干系人：CTO David、PM Sarah、技术负责人 Alex。',category:'entity',importance:0.88,tags:['团队','干系人'],scope:'TEAM',created_at:'2026-03-21T13:00:00+08:00',last_access:'2026-03-28T08:00:00+08:00',access_count:20}];}
+
+function stats(){
+  var total=allMems.length,cats={},impD={high:0,medium:0,low:0},allTags=[],totalAccess=0;
+  for(var i=0;i<allMems.length;i++){
+    var n=norm(allMems[i]);
+    cats[n.category]=(cats[n.category]||0)+1;
+    if(n.importance>=0.7)impD.high++;else if(n.importance>=0.4)impD.medium++;else impD.low++;
+    for(var j=0;j<n.tags.length;j++)allTags.push(n.tags[j]);
+    totalAccess+=n.access_count;
   }
-  const res = await fetch(`${API_ENDPOINT}/memories`);
-  if (!res.ok) throw new Error('Failed to fetch memories');
-  return res.json();
+  var uniq=[];var seen={};for(var k=0;k<allTags.length;k++){if(!seen[allTags[k]]){seen[allTags[k]]=true;uniq.push(allTags[k]);}}
+  var avgImp=total>0?(allMems.reduce(function(s,m){return s+norm(m).importance;},0)/total).toFixed(2):'0.00';
+  var avgAcc=total>0?(totalAccess/total).toFixed(1):'0';
+  return{total:total,cats:cats,impD:impD,avgImp:avgImp,totalAccess:totalAccess,avgAcc:avgAcc,uniqTags:uniq.length};
 }
 
-async function apiStats() {
-  if (!API_ENDPOINT) {
-    await delay(100);
-    return computeStats();
+function growthTrend(){
+  var now=new Date(),labels=[],data=[];
+  for(var i=13;i>=0;i--){
+    var d=new Date(now-i*86400000);d.setHours(0,0,0,0);
+    var next=new Date(d);next.setDate(next.getDate()+1);
+    var label=(d.getMonth()+1)+'/'+d.getDate();
+    var count=0;
+    for(var j=0;j<allMems.length;j++){
+      var c=new Date(norm(allMems[j]).created_at);
+      if(c>=d&&c<next)count++;
+    }
+    labels.push(label);data.push(count);
   }
-  const res = await fetch(`${API_ENDPOINT}/stats`);
-  if (!res.ok) throw new Error('Failed to fetch stats');
-  return res.json();
+  return{labels:labels,data:data};
 }
 
-async function apiCreate(data) {
-  if (!API_ENDPOINT) {
-    await delay(200);
-    const mem = { ...data, id: 'mem_' + randId(), created_at: new Date().toISOString() };
-    memories.unshift(mem);
-    return mem;
+function renderAll(){renderStats();renderCharts();renderMems();renderFilterTabs();}
+
+function renderStats(){
+  var s=stats();
+  var items=[['📦','总记忆数',s.total,''],['🔍','分类数',Object.keys(s.cats).length,'种不同分类'],['⭐','平均重要性',s.avgImp,'0.0~1.0'],['🔓','访问总次数',s.totalAccess,'平均 '+s.avgAcc+' 次'],['🏷️','标签总数',s.uniqTags,'个不重复标签'],['📈','7天新增',s.total,'']];
+  var h='';
+  for(var i=0;i<items.length;i++){
+    var it=items[i];
+    h+='<div class="stat-card"><div class="stat-icon">'+it[0]+'</div><div class="stat-label">'+it[1]+'</div><div class="stat-value">'+it[2]+'</div><div class="stat-sub">'+it[3]+'</div></div>';
   }
-  const res = await fetch(`${API_ENDPOINT}/memories`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-  if (!res.ok) throw new Error('Failed to create memory');
-  return res.json();
+  document.getElementById('statsGrid').innerHTML=h;
 }
 
-async function apiDelete(id) {
-  if (!API_ENDPOINT) {
-    await delay(150);
-    memories = memories.filter(m => m.id !== id);
+function renderCharts(){
+  var s=stats();
+  var catEl=document.getElementById('catChart');
+  var entries=[];
+  for(var k in s.cats)entries.push([k,s.cats[k]]);
+  entries.sort(function(a,b){return b[1]-a[1];});
+  if(entries.length===0){
+    catEl.innerHTML='<div style="font-size:12px;color:var(--text2);text-align:center;padding:8px">暂无数据</div>';
+  }else{
+    var max=1;for(var i=0;i<entries.length;i++)if(entries[i][1]>max)max=entries[i][1];
+    var h='';
+    for(var j=0;j<Math.min(entries.length,8);j++){
+      h+='<div class="bar-row"><span class="bar-label">'+entries[j][0]+'</span><div class="bar-track"><div class="bar-fill bar-cat" style="width:'+(entries[j][1]/max*100).toFixed(1)+'%"></div></div><span class="bar-val">'+entries[j][1]+'</span></div>';
+    }
+    catEl.innerHTML=h;
+  }
+  var impEl=document.getElementById('impChart');
+  var impMax=Math.max(s.impD.high,s.impD.medium,s.impD.low,1);
+  var impData=[['≥ 0.7',s.impD.high,'#22c55e'],['0.4–0.7',s.impD.medium,'#f59e0b'],['< 0.4',s.impD.low,'#94a3b8']];
+  var ih='';
+  for(var p=0;p<impData.length;p++){
+    ih+='<div class="bar-row"><span class="bar-label">'+impData[p][0]+'</span><div class="bar-track"><div class="bar-fill bar-imp" style="width:'+(impData[p][1]/impMax*100).toFixed(1)+'%;background:'+impData[p][2]+'"></div></div><span class="bar-val">'+impData[p][1]+'</span></div>';
+  }
+  impEl.innerHTML=ih;
+  var g=growthTrend(),ctx=document.getElementById('growthChart').getContext('2d');
+  if(growthChart)growthChart.destroy();
+  growthChart=new Chart(ctx,{type:'bar',data:{labels:g.labels,datasets:[{label:'记忆数',data:g.data,backgroundColor:'rgba(91,106,240,0.7)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#334155'}},y:{ticks:{color:'#64748b'},grid:{color:'#334155'},beginAtZero:true,precision:0}}}});
+  document.getElementById('updateTime').textContent='更新: '+new Date().toLocaleTimeString();
+}
+
+function updateGrowthChart(){
+  if(!growthChart)return;
+  var g=growthTrend();
+  growthChart.data.labels=g.labels;
+  growthChart.data.datasets[0].data=g.data;
+  growthChart.update();
+  document.getElementById('updateTime').textContent='更新: '+new Date().toLocaleTimeString();
+}
+
+function renderMems(){
+  var q=document.getElementById('searchInput').value.trim().toLowerCase();
+  var list=[];
+  for(var i=0;i<allMems.length;i++){
+    var n=norm(allMems[i]),match=true;
+    if(filter!=='all'&&n.category!==filter)match=false;
+    if(q){
+      var tm=n.text.toLowerCase().indexOf(q)!==-1,tagMatch=false;
+      for(var j=0;j<n.tags.length;j++)if(n.tags[j].toLowerCase().indexOf(q)!==-1){tagMatch=true;break;}
+      if(!tm&&!tagMatch)match=false;
+    }
+    if(match)list.push(n);
+  }
+  var el=document.getElementById('memList');
+  if(list.length===0){
+    var msg=(q||filter!=='all')?'试试调整搜索条件':'点击上方"+ 新增记忆"添加第一条';
+    el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><div style="font-weight:600;margin-bottom:4px">没有找到记忆</div><div style="font-size:13px">'+msg+'</div></div>';
     return;
   }
-  const res = await fetch(`${API_ENDPOINT}/memories/${id}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to delete memory');
-}
-
-// ─────────────────────────────────────────────
-// STATS COMPUTATION
-// ─────────────────────────────────────────────
-function computeStats() {
-  const total = memories.length;
-  const cats = [...new Set(memories.map(m => m.category))];
-  const allTags = memories.flatMap(m => m.tags || []);
-  const avgImp = total > 0 ? (memories.reduce((s, m) => s + m.importance, 0) / total).toFixed(2) : '—';
-  return { total, categories: cats.length, avgImportance: avgImp, tagCount: allTags.length, tagSet: [...new Set(allTags)] };
-}
-
-function getCatDist() {
-  const dist = {};
-  memories.forEach(m => { dist[m.category] = (dist[m.category] || 0) + 1; });
-  return dist;
-}
-
-function getImpDist() {
-  return { high: memories.filter(m => m.importance >= 0.8).length,
-           medium: memories.filter(m => m.importance >= 0.5 && m.importance < 0.8).length,
-           low: memories.filter(m => m.importance < 0.5).length };
-}
-
-// ─────────────────────────────────────────────
-// RENDER
-// ─────────────────────────────────────────────
-async function loadAll() {
-  try {
-    memories = await apiList();
-  } catch(e) {
-    toast('Failed to load memories: ' + e.message, 'error');
-    memories = generateMockMemories();
+  var h='';
+  for(var k=0;k<list.length;k++){
+    var m=list[k],th='';
+    for(var t=0;t<m.tags.length;t++)th+='<span class="tag tag-time">'+esc(m.tags[t])+'</span>';
+    var sh=m.scope!=='USER'?'<span class="tag tag-scope">'+m.scope+'</span>':'';
+    h+='<div class="mem-card" onclick="openDetail(&quot;'+esc(m.id)+'&quot;)"><div class="mem-id">'+m.id+' · '+fmtDate(m.created_at)+'</div><div class="mem-text">'+esc(m.text)+'</div><div class="mem-tags"><span class="tag tag-cat">'+m.category+'</span><span class="tag tag-imp">⭐ '+m.importance.toFixed(1)+'</span>'+sh+th+'<span class="tag tag-time">🔒 '+m.access_count+'次</span></div><div class="mem-actions" onclick="event.stopPropagation()"><button class="btn btn-danger btn-sm" onclick="deleteMem(&quot;'+esc(m.id)+'&quot;)">🗑 删除</button></div></div>';
   }
-  renderAll();
+  el.innerHTML=h;
 }
 
-function renderAll() {
-  renderStats();
-  renderCharts();
-  renderMemories();
-  renderFilterTabs();
+function renderFilterTabs(){
+  var cats={};
+  for(var i=0;i<allMems.length;i++)cats[norm(allMems[i]).category]=true;
+  var keys=[];for(var k in cats)keys.push(k);keys.sort();
+  var h='<button class="filter-tab '+(filter==='all'?'active':'')+'" onclick="setFilter(&quot;all&quot;)">全部</button>';
+  for(var j=0;j<keys.length;j++)h+='<button class="filter-tab '+(filter===keys[j]?'active':'')+'" onclick="setFilter(&quot;'+keys[j]+'&quot;)">'+keys[j]+'</button>';
+  document.getElementById('filterTabs').innerHTML=h;
 }
 
-function renderStats() {
-  const s = computeStats();
-  document.getElementById('statTotal').textContent = s.total;
-  document.getElementById('statCategories').textContent = s.categories;
-  document.getElementById('statImportance').textContent = s.avgImportance;
-  document.getElementById('statTags').textContent = s.tagCount;
-  document.getElementById('statStorage').textContent = isMock ? 'Mock data' : 'Connected';
+function setFilter(f){filter=f;renderFilterTabs();renderMems();}
+
+function openDetail(id){
+  var orig=null;
+  for(var i=0;i<allMems.length;i++)if(norm(allMems[i]).id===id){orig=allMems[i];break;}
+  if(!orig)return;
+  var n=norm(orig);
+  curDetailId=id;
+  document.getElementById('detailTitle').textContent='💡 '+n.id;
+  document.getElementById('detailText').textContent=n.text;
+  document.getElementById('detailMeta').innerHTML='<div class="detail-item"><div class="label">分类</div><div class="value">'+n.category+'</div></div><div class="detail-item"><div class="label">重要性</div><div class="value">⭐ '+n.importance.toFixed(2)+' ('+impLevel(n.importance)+')</div></div><div class="detail-item"><div class="label">范围</div><div class="value">'+(n.scope||'-')+'</div></div><div class="detail-item"><div class="label">创建时间</div><div class="value">'+fmtDate(n.created_at)+'</div></div><div class="detail-item"><div class="label">最后访问</div><div class="value">'+fmtFromNow(n.last_access)+'</div></div><div class="detail-item"><div class="label">访问次数</div><div class="value">'+n.access_count+' 次</div></div>';
+  var th='';
+  for(var j=0;j<n.tags.length;j++)th+='<span class="tag tag-cat">'+esc(n.tags[j])+'</span>';
+  document.getElementById('detailTags').innerHTML=th;
+  document.getElementById('detailModal').classList.add('show');
 }
 
-function renderCharts() {
-  // Category chart
-  const catDist = getCatDist();
-  const catEl = document.getElementById('catChart');
-  if (Object.keys(catDist).length === 0) {
-    catEl.innerHTML = '<div style="font-size:12px;color:var(--text2);text-align:center;padding:10px">No data</div>';
-  } else {
-    const max = Math.max(...Object.values(catDist));
-    catEl.innerHTML = Object.entries(catDist)
-      .sort((a,b) => b[1]-a[1])
-      .map(([cat, count]) => `
-        <div class="bar-row">
-          <span class="bar-label">${cat}</span>
-          <div class="bar-track"><div class="bar-fill cat" style="width:${(count/max*100).toFixed(1)}%"></div></div>
-          <span class="bar-val">${count}</span>
-        </div>`).join('');
-  }
+function closeDetail(){document.getElementById('detailModal').classList.remove('show');curDetailId=null;}
 
-  // Importance chart
-  const impDist = getImpDist();
-  const impEl = document.getElementById('impChart');
-  const impMax = Math.max(impDist.high, impDist.medium, impDist.low, 1);
-  const impLabels = [['high','≥ 0.8',impDist.high],['medium','0.5–0.8',impDist.medium],['low','< 0.5',impDist.low]];
-  impEl.innerHTML = impLabels.map(([key, label, count]) => `
-    <div class="bar-row">
-      <span class="bar-label">${label}</span>
-      <div class="bar-track"><div class="bar-fill imp" style="width:${(count/impMax*100).toFixed(1)}%"></div></div>
-      <span class="bar-val">${count}</span>
-    </div>`).join('');
+function deleteMem(id){
+  if(!confirm('确定要删除这条记忆吗？此操作不可撤销。'))return;
+  delMemApi(id).then(function(){
+    toast('删除成功','ok');
+    allMems=allMems.filter(function(m){return norm(m).id!==id;});
+    renderAll();
+    if(curDetailId===id)closeDetail();
+  }).catch(function(e){toast('删除失败: '+e.message,'err');});
 }
 
-function renderMemories() {
-  const q = document.getElementById('searchInput').value.toLowerCase();
-  let list = memories;
-  if (activeFilter !== 'all') list = list.filter(m => m.category === activeFilter);
-  if (q) list = list.filter(m => m.text.toLowerCase().includes(q) || (m.tags||[]).some(t=>t.toLowerCase().includes(q)));
+document.getElementById('detailDelBtn').onclick=function(){deleteMem(curDetailId);};
 
-  const el = document.getElementById('memoryList');
-  if (list.length === 0) {
-    el.innerHTML = `<div class="empty-state">
-      <div class="empty-icon">📭</div>
-      <div style="font-weight:600;margin-bottom:4px">No memories found</div>
-      <div style="font-size:13px">${q || activeFilter!=='all' ? 'Try adjusting your search or filter' : 'Add your first memory to get started'}</div>
-    </div>`;
-    return;
-  }
-
-  el.innerHTML = list.map(mem => `
-    <div class="memory-card">
-      <div class="memory-id">${mem.id}</div>
-      <div class="memory-text">${escHtml(mem.text)}</div>
-      <div class="memory-tags">
-        <span class="tag tag-cat">${mem.category}</span>
-        <span class="tag tag-imp">⭐ ${mem.importance}</span>
-        ${(mem.tags||[]).map(t => `<span class="tag tag-time">${escHtml(t)}</span>`).join('')}
-        <span class="tag tag-time">${formatDate(mem.created_at)}</span>
-      </div>
-      <div class="memory-actions">
-        <button class="btn btn-danger btn-sm" onclick="deleteMemory('${mem.id}')">🗑 Delete</button>
-      </div>
-    </div>`).join('');
-}
-
-function renderFilterTabs() {
-  const cats = [...new Set(memories.map(m => m.category))];
-  const el = document.getElementById('filterTabs');
-  el.innerHTML = [
-    `<button class="filter-tab ${activeFilter==='all'?'active':''}" onclick="setFilter('all')">All</button>`,
-    ...cats.map(c => `<button class="filter-tab ${activeFilter===c?'active':''}" onclick="setFilter('${c}')">${c}</button>`)
-  ].join('');
-}
-
-function setFilter(f) {
-  activeFilter = f;
-  renderFilterTabs();
-  renderMemories();
-}
-
-// ─────────────────────────────────────────────
-// MODAL
-// ─────────────────────────────────────────────
-function openAddModal() {
-  document.getElementById('modalTitle').textContent = '➕ Add Memory';
-  document.getElementById('editId').value = '';
-  document.getElementById('fText').value = '';
-  document.getElementById('fCategory').value = 'general';
-  document.getElementById('fImportance').value = '0.7';
-  document.getElementById('fTags').value = '';
-  document.getElementById('modal').classList.add('show');
+function openAdd(){
+  document.getElementById('fText').value='';
+  document.getElementById('fCat').value='general';
+  document.getElementById('fImp').value='0.7';
+  document.getElementById('fTags').value='';
+  document.getElementById('addModal').classList.add('show');
   document.getElementById('fText').focus();
 }
 
-function closeModal() {
-  document.getElementById('modal').classList.remove('show');
+function closeAdd(){document.getElementById('addModal').classList.remove('show');}
+
+function saveMem(){
+  var text=document.getElementById('fText').value.trim();
+  if(!text){toast('请输入记忆内容','err');return;}
+  var imp=parseFloat(document.getElementById('fImp').value);
+  if(isNaN(imp)||imp<0||imp>1){toast('重要性必须在 0.0 到 1.0 之间','err');return;}
+  var tagsRaw=document.getElementById('fTags').value,tags=[];
+  if(tagsRaw){var parts=tagsRaw.split(',');for(var i=0;i<parts.length;i++){var t=parts[i].trim();if(t)tags.push(t);}}
+  var data={text:text,category:document.getElementById('fCat').value,importance:imp,scope:'USER',tags:tags};
+  createMem(data).then(function(){toast('记忆保存成功！','ok');closeAdd();return fetch('/memories').then(function(r){return r.json();});}).then(function(d){allMems=Array.isArray(d)?d:allMems;renderAll();}).catch(function(e){toast('保存失败: '+e.message,'err');});
 }
-
-async function saveMemory() {
-  const text = document.getElementById('fText').value.trim();
-  if (!text) { toast('Memory text is required', 'error'); return; }
-  const importance = parseFloat(document.getElementById('fImportance').value);
-  if (isNaN(importance) || importance < 0 || importance > 1) { toast('Importance must be 0.0–1.0', 'error'); return; }
-  const data = {
-    text,
-    category: document.getElementById('fCategory').value,
-    importance,
-    tags: document.getElementById('fTags').value.split(',').map(t=>t.trim()).filter(Boolean)
-  };
-  try {
-    await apiCreate(data);
-    toast('Memory saved successfully!', 'success');
-    closeModal();
-    memories = await apiList();
-    renderAll();
-  } catch(e) {
-    toast('Error saving memory: ' + e.message, 'error');
-  }
+function toggleTheme(){
+  var isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  if(isDark){document.documentElement.removeAttribute('data-theme');document.getElementById('themeIcon').textContent='🌙';document.getElementById('themeLabel').textContent='深色';}
+  else{document.documentElement.setAttribute('data-theme','dark');document.getElementById('themeIcon').textContent='☀️';document.getElementById('themeLabel').textContent='浅色';}
 }
-
-async function deleteMemory(id) {
-  if (!confirm('Delete this memory? This cannot be undone.')) return;
-  try {
-    await apiDelete(id);
-    toast('Memory deleted', 'success');
-    memories = memories.filter(m => m.id !== id);
-    renderAll();
-  } catch(e) {
-    toast('Error deleting memory: ' + e.message, 'error');
-  }
+function toast(msg,type){
+  var icons={ok:'✅',err:'❌',info:'ℹ️'};
+  var div=document.createElement('div');
+  div.className='toast '+(type||'info');
+  div.innerHTML='<span>'+(icons[type]||icons.info)+'</span><span>'+esc(msg)+'</span>';
+  var wrap=document.getElementById('toasts');wrap.appendChild(div);
+  setTimeout(function(){div.style.opacity='0';},3000);
+  setTimeout(function(){div.remove();},3500);
 }
-
-// ─────────────────────────────────────────────
-// THEME
-// ─────────────────────────────────────────────
-function toggleTheme() {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  if (isDark) {
-    document.documentElement.removeAttribute('data-theme');
-    document.getElementById('themeIcon').textContent = '🌙';
-    document.getElementById('themeLabel').textContent = 'Dark';
-  } else {
-    document.documentElement.setAttribute('data-theme', 'dark');
-    document.getElementById('themeIcon').textContent = '☀️';
-    document.getElementById('themeLabel').textContent = 'Light';
-  }
-}
-
-// ─────────────────────────────────────────────
-// TOAST
-// ─────────────────────────────────────────────
-function toast(msg, type = 'info') {
-  const wrap = document.getElementById('toasts');
-  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
-  const div = document.createElement('div');
-  div.className = `toast ${type}`;
-  div.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${escHtml(msg)}</span>`;
-  wrap.appendChild(div);
-  setTimeout(() => div.style.opacity = '0', 3000);
-  setTimeout(() => div.remove(), 3500);
-}
-
-// ─────────────────────────────────────────────
-// INIT
-// ─────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  memories = generateMockMemories();
-  renderAll();
-});
-
-// Close modal on outside click
-document.getElementById('modal').addEventListener('click', (e) => {
-  if (e.target.id === 'modal') closeModal();
-});
-
-// Close modal on Escape key
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeModal();
-});
+document.addEventListener('DOMContentLoaded',function(){loadAPI();});
+document.getElementById('detailModal').addEventListener('click',function(e){if(e.target===this)closeDetail();});
+document.getElementById('addModal').addEventListener('click',function(e){if(e.target===this)closeAdd();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeDetail();closeAdd();}});
 </script>
 </body>
 </html>
