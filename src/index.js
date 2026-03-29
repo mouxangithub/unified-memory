@@ -956,9 +956,12 @@ server.registerTool('memory_health', {
           memoryCount: memories.length,
           // Pluggable engine config
           vector_engine: config.vectorEngine,
+          embed_provider: config.embedProvider,
           llm_provider: config.llmProvider,
-          embedModel: config.embedModel,
-          llmModel: config.llmModel,
+          embed_url: config.ollamaUrl,
+          embed_model: config.embedModel,
+          llm_url: config.llmUrl,
+          llm_model: config.llmModel,
           ollama: ollamaOk ? 'connected' : 'disconnected',
           // Enhanced health checks (v2.0)
           wal_integrity: walChecks,
