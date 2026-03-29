@@ -10,7 +10,7 @@ import { startHttpServer, stopHttpServer } from './http_server.js';
  * @param {number} [port=3849] - Port to listen on
  * @returns {object} tool result
  */
-export async function memory_http_start(port = 3849) {
+export async function memory_http_start({ port = 3849 }) {
   try {
     const server = await startHttpServer(port);
     return {

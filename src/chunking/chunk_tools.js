@@ -16,7 +16,7 @@ import {
  * @param {string} memoryId - Memory ID
  * @returns {object} tool result
  */
-export async function memory_chunk_list(memoryId) {
+export async function memory_chunk_list({ memoryId }) {
   try {
     if (!memoryId) {
       return { type: 'text', text: '❌ memoryId is required' };
@@ -50,7 +50,7 @@ export async function memory_chunk_list(memoryId) {
  * @param {string} memoryId - Memory ID to search within
  * @returns {object} tool result
  */
-export async function memory_chunk_search(query, memoryId) {
+export async function memory_chunk_search({ query, memoryId }) {
   try {
     if (!query) {
       return { type: 'text', text: '❌ query is required' };

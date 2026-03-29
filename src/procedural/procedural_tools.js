@@ -21,7 +21,7 @@ import {
  * @param {string} trigger - regex trigger pattern
  * @returns {object} result with the created procedural
  */
-export function memory_procedure_add(name, steps, trigger) {
+export function memory_procedure_add({ name, steps, trigger }) {
   try {
     const proc = addProcedure(name, steps, trigger);
     return {
@@ -38,7 +38,7 @@ export function memory_procedure_add(name, steps, trigger) {
  * @param {string} trigger - text to match against trigger patterns
  * @returns {object} result with matching procedurals
  */
-export function memory_procedure_find(trigger) {
+export function memory_procedure_find({ trigger }) {
   try {
     const matches = findProcedure(trigger);
     return {
@@ -73,7 +73,7 @@ export function memory_procedure_list() {
  * @param {string} id
  * @returns {object} result
  */
-export function memory_procedure_delete(id) {
+export function memory_procedure_delete({ id }) {
   try {
     const deleted = deleteProcedure(id);
     return { ok: deleted, deleted: id };
@@ -86,7 +86,7 @@ export function memory_procedure_delete(id) {
  * Record usage of a procedural (increment counter + update timestamp)
  * @param {string} id
  */
-export function memory_procedure_touch(id) {
+export function memory_procedure_touch({ id }) {
   try {
     touchProcedure(id);
     return { ok: true };
@@ -96,8 +96,31 @@ export function memory_procedure_touch(id) {
 }
 
 export function registerProceduralTools(server) {
-  server.registerTool('memory_procedure_add', { description: '...', inputSchema: z.object({}) }, memory_procedure_add);
-  server.registerTool('memory_procedure_find', { description: '...', inputSchema: z.object({}) }, memory_procedure_find);
-  server.registerTool('memory_procedure_list', { description: '...', inputSchema: z.object({}) }, memory_procedure_list);
-  server.registerTool('memory_procedure_delete', { description: '...', inputSchema: z.object({}) }, memory_procedure_delete);
+  server.registerTool('memory_procedure_add', {
+    description: 'Add a new procedural memory (how-to steps for a task).',
+    inputSchema: z.object({
+      name: z.string().describe('Procedure name'),
+      steps: z.array(z.object({ step: z.number(), action: z.string(), tool: z.string().nullable().optional() })).describe('Ordered list of steps'),
+      trigger: z.string().optional().describe('Regex pattern to auto-trigger this procedure'),
+    }),
+  }, memory_procedure_add);
+
+  server.registerTool('memory_procedure_find', {
+    description: 'Find procedural memories matching a trigger keyword or pattern.',
+    inputSchema: z.object({
+      trigger: z.string().describe('Keyword or pattern to match against triggers'),
+    }),
+  }, memory_procedure_find);
+
+  server.registerTool('memory_procedure_list', {
+    description: 'List all stored procedural memories.',
+    inputSchema: z.object({}),
+  }, memory_procedure_list);
+
+  server.registerTool('memory_procedure_delete', {
+    description: 'Delete a procedural memory by ID.',
+    inputSchema: z.object({
+      id: z.string().describe('Procedural memory ID to delete'),
+    }),
+  }, memory_procedure_delete);
 }

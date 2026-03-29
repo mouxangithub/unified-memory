@@ -9,13 +9,7 @@
 import { z } from 'zod';
 import { rerankWithLLM } from './cross_encoder.js';
 import { getAllMemories } from '../storage.js';
-import { search as searchMemories } from '../search.js';
-
-// Fallback: try to import the old tools/rerank.js for search integration
-let oldRerank;
-try {
-  oldRerank = await import('../tools/rerank.js').catch(() => null);
-} catch { /* ignore */ }
+import { hybridSearch } from '../fusion.js';
 
 // ============================================================
 // memory_rerank
@@ -29,7 +23,7 @@ try {
  * @param {number} [topK=5] - Number of top results to return
  * @returns {Promise<object>} - { reranked: [...], original_order: [...] }
  */
-export async function memory_rerank(query, memoryIds, topK = 5) {
+export async function memory_rerank({ query, memoryIds, topK = 5 }) {
   if (!memoryIds || memoryIds.length === 0) {
     return { reranked: [], original_order: [] };
   }
@@ -61,7 +55,7 @@ export async function memory_rerank(query, memoryIds, topK = 5) {
  * @param {boolean} [useRerank=true] - Whether to apply LLM reranking
  * @returns {Promise<object>} - { results: [...], reranked: bool, search_time_ms: number }
  */
-export async function memory_search_reranked(query, topK = 10, useRerank = true) {
+export async function memory_search_reranked({ query, topK = 10, useRerank = true }) {
   const startTime = Date.now();
 
   if (!query || query.trim() === '') {
@@ -71,12 +65,9 @@ export async function memory_search_reranked(query, topK = 10, useRerank = true)
   // Step 1: Initial search (vector + BM25 hybrid)
   let initialResults;
   try {
-    if (typeof searchMemories === 'function') {
-      initialResults = await searchMemories(query, { topK: topK * 3 }); // fetch more for reranking
-    } else if (oldRerank?.rerankResults) {
-      // Fallback: use old rerank tool for search
-      const raw = await oldRerank.rerankResults(query, [], topK * 3);
-      initialResults = Array.isArray(raw) ? raw : [];
+    if (hybridSearch) {
+      const raw = await hybridSearch(query, topK * 3, 'hybrid');
+      initialResults = Array.isArray(raw) ? raw : (raw?.results || []);
     } else {
       // Last fallback: simple text match from all memories
       const allMemories = getAllMemories();

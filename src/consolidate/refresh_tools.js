@@ -26,7 +26,7 @@ import { checkAndReconsolidate, getReconsolidateStats } from './reconsolidation.
  * // Refresh memories not updated in the last 24 hours
  * await memory_refresh(24);
  */
-export async function memory_refresh(olderThanHours = 48) {
+export async function memory_refresh({ olderThanHours = 48 }) {
   // Convert hours to milliseconds and calculate cutoff
   // Note: reconsolidation.js uses its own 48h hardcoded interval,
   // but we can simulate a custom window by adjusting what we consider "needs refresh"
