@@ -1,6 +1,6 @@
 {
   "name": "unified-memory",
-  "version": "3.6.0",
+  "version": "3.6.1",
   "type": "module",
   "description": "🧠 Unified Memory System v2.0 - AI Agent专用记忆系统，多层级、持久化、主动式记忆",
   "main": "src/index.js",
