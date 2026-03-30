@@ -78,15 +78,34 @@ import { memoryIdentityExtractTool, memoryIdentityUpdateTool, memoryIdentityGetT
 
 // P1-4: Git Notes
 import { memoryGitnotesBackupTool, memoryGitnotesRestoreTool } from './tools/git_notes.js';
+import { memoryGitNotesTool } from './git_notes.js';
 
 // P1-6: Auto Extractor
 import { AutoExtractor } from './tools/auto_extractor.js';
 
 // P1-5: Token Budget
-import { calculateBudget } from './budget.js';
+import { calculateBudget, TokenAllocator, getAllocator, allocateTokens, getBudgetStatus, compressIfNeeded, recalculateBudgets } from './budget.js';
 
 // P2-7: Cloud Backup (from existing collab/cloud.js)
 import { MemoryBackup, CloudConfig } from './collab/cloud.js';
+
+// Cloud Backup API (managed multi-provider backup with versioning, retention, sync)
+import { memoryCloudBackupApiTool } from './cloud_backup_api.js';
+
+// Session State RAM Layer
+import { memorySessionTool } from './session_state.js';
+
+// Cognitive Memory Scheduler (curiosity-driven exploration)
+import { memoryCognitiveTool } from './cognitive_scheduler.js';
+
+// P0-3: Transcript Manager (Transcript-first memory system)
+import { memoryTranscriptTool } from './transcript_manager.js';
+
+// P0-4: Revision Manager (version conflict detection)
+import { registerRevisionTools } from './revision_manager.js';
+
+// Memory Lanes - Parallel swim lanes for different memory contexts
+import { memoryLanesTool } from './lanes_manager.js';
 
 // P1-1: QMD Deep Integration
 import { isQMDEngine, getQMDEngineStatus, qmdEngineSearch, vectorSearch as qmdVectorSearch } from './qmd_integration.js';
@@ -1005,8 +1024,8 @@ server.registerTool('memory_health', {
     const coldRatio = tierCounts.COLD / totalMemories;
     const hotRatio = tierCounts.HOT / totalMemories;
     const tierWarnings = [];
-    if (coldRatio > 0.8) tierWarnings.push({ level: 'warning', message: `COLD tier占比${Math.round(coldRatio * 100)}% > 80%，分级可能有问题` });
-    if (hotRatio > 0.8) tierWarnings.push({ level: 'warning', message: `HOT tier占比${Math.round(hotRatio * 100)}% > 80%，没有正常衰减` });
+    if (coldRatio > 0.8) tierWarnings.push({ level: 'warning', message: `COLD tier占比${Math.round(coldRatio * 100)}% > 80%,分级可能有问题` });
+    if (hotRatio > 0.8) tierWarnings.push({ level: 'warning', message: `HOT tier占比${Math.round(hotRatio * 100)}% > 80%,没有正常衰减` });
 
     // Long-time-no-access memories (>30 days)
     const staleMemories = [];
@@ -1085,6 +1104,86 @@ server.registerTool('memory_metrics', {
     const m = metrics.collect();
     const trace = getTraceExport();
     return { content: [{ type: 'text', text: JSON.stringify({ metrics: m, trace }, null, 2) }] };
+  }
+});
+
+// P1-5: Token Budget Tool (enhanced)
+server.registerTool('memory_budget', {
+  description: 'Token budget management for memory types. Actions: status (view all budgets), allocate (get allocation for type+priority), compress (compress content if over budget), recalculate (redistribute budgets).',
+  inputSchema: z.object({
+    action: z.enum(['status', 'allocate', 'compress', 'recalculate']).describe('Action to perform'),
+    memoryType: z.string().optional().describe('Memory type: transcript, memory, episode, working, system'),
+    priority: z.string().optional().default('medium').describe('Priority: critical, high, medium, low'),
+    content: z.string().optional().describe('Content to compress (for compress action)'),
+    maxBudget: z.number().optional().describe('Total budget in tokens (for status action, default 8000)'),
+  }),
+}, async ({ action, memoryType, priority = 'medium', content, maxBudget }) => {
+  try {
+    if (action === 'status') {
+      // Allow setting maxBudget on status call to reconfigure
+      const allocator = getAllocator(maxBudget);
+      const status = allocator.getStatus();
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            action: 'status',
+            ...status,
+          }, null, 2),
+        }],
+      };
+    } else if (action === 'allocate') {
+      if (!memoryType) {
+        return { content: [{ type: 'text', text: 'Error: memoryType is required for allocate action' }], isError: true };
+      }
+      const allocator = getAllocator(maxBudget);
+      const tokens = allocator.allocate(memoryType, priority);
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            action: 'allocate',
+            memoryType,
+            priority,
+            allocatedTokens: tokens,
+            remainingTokens: allocator.getRemaining(memoryType),
+          }, null, 2),
+        }],
+      };
+    } else if (action === 'compress') {
+      if (!memoryType || content === undefined) {
+        return { content: [{ type: 'text', text: 'Error: memoryType and content are required for compress action' }], isError: true };
+      }
+      const result = compressIfNeeded(memoryType, content);
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            action: 'compress',
+            memoryType,
+            originalLength: content.length,
+            compressed: result.compressed,
+            savedTokens: result.savedTokens,
+            ratio: Math.round(result.ratio * 100) / 100,
+            content: result.content,
+          }, null, 2),
+        }],
+      };
+    } else if (action === 'recalculate') {
+      const result = recalculateBudgets();
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            action: 'recalculate',
+            ...result,
+          }, null, 2),
+        }],
+      };
+    }
+    return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `memory_budget error: ${err.message}` }], isError: true };
   }
 });
 
@@ -1687,6 +1786,43 @@ server.registerTool('memory_gitnotes_restore', {
   return memoryGitnotesRestoreTool({ scope });
 });
 
+// ============ Enhanced Git Notes (decisions, learnings, context) ============
+server.registerTool('memory_git_notes', {
+  description: 'Enhanced Git Notes for permanent knowledge storage. Actions: add (add decision note to commit), show (view note), list (all notes), tag (add tag), branch_notes (group by branch), search (full-text search). Branch-aware: tracks which branch notes were created on.',
+  inputSchema: z.object({
+    action: z.enum(['add', 'show', 'list', 'tag', 'branch_notes', 'search']).describe('Action to perform'),
+    commit_hash: z.string().optional().describe('Commit hash (for add|show|tag actions)'),
+    decision: z.string().optional().describe('Decision/knowledge text (for add action)'),
+    category: z.string().optional().describe('Category: decision, learning, context (default: decision)'),
+    tag: z.string().optional().describe('Tag to add (for tag action)'),
+    query: z.string().optional().describe('Search query (for search action)'),
+    limit: z.number().optional().default(100).describe('Max results (for list action)'),
+  }),
+}, async (args) => {
+  return memoryGitNotesTool(args);
+});
+
+// ============ Cloud Backup API (managed multi-provider backup) ============
+server.registerTool('memory_cloud_backup_api', {
+  description: 'Managed Cloud Backup API for unified memory. Supports S3, GCS, Azure, HTTP (WebDAV), and local storage. Actions: configure (set provider), list (list backups), restore (restore from backup), status (get backup status), prune (delete old backups per retention policy), trigger (manual backup), sync (incremental cloud sync).',
+  inputSchema: z.object({
+    action: z.enum(['configure', 'list', 'restore', 'status', 'prune', 'trigger', 'sync']).describe('Action to perform'),
+    provider: z.enum(['s3', 'gcs', 'azure', 'http', 'none']).optional().describe('Cloud provider type (for configure)'),
+    endpoint: z.string().optional().describe('API endpoint URL (for configure, e.g. S3 endpoint or WebDAV URL)'),
+    bucket: z.string().optional().describe('Bucket/container name (for configure)'),
+    accessKey: z.string().optional().describe('Access key or username (for configure)'),
+    secretKey: z.string().optional().describe('Secret key or password (for configure)'),
+    region: z.string().optional().describe('Region (for configure, e.g. us-east-1)'),
+    enabled: z.boolean().optional().describe('Enable/disable cloud backup (for configure)'),
+    backupId: z.string().optional().describe('Backup ID to restore (for restore action)'),
+    limit: z.number().optional().default(50).describe('Max backups to return (for list action)'),
+    maxBackups: z.number().optional().describe('Max backups to keep (for prune action)'),
+    maxAgeDays: z.number().optional().describe('Max age in days for backups (for prune action)'),
+  }),
+}, async (args) => {
+  return memoryCloudBackupApiTool(args);
+});
+
 // ============ P1-6: Smart Extraction ============
 
 server.registerTool('memory_auto_extract', {
@@ -1763,7 +1899,7 @@ server.registerTool('memory_cloud_restore', {
   }
 });
 
-// ============ P1-1: QMD Deep Integration — QMD actions merged into existing memory_engine above [gap-fill]
+// ============ P1-1: QMD Deep Integration - QMD actions merged into existing memory_engine above [gap-fill]
 // (removed duplicate registration)
 
 // ============ P1-2: Web Dashboard HTTP Exposure [gap-fill]
@@ -1842,6 +1978,72 @@ server.registerTool('memory_sync', {
   } catch (err) {
     return { content: [{ type: 'text', text: `memory_sync error: ${err.message}` }], isError: true };
   }
+});
+
+// ============ Session State RAM Layer ============
+server.registerTool('memory_session', {
+  description: 'Session State RAM Layer: manages SESSION-STATE.md at workspace root. Tracks current task, key context, and pending actions. Survives context compaction. Actions: get (read state), set_task (update current task), add_context (add key:value), add_action (add pending action), complete_action (mark done), clear (reset).',
+  inputSchema: z.object({
+    action: z.enum(['get', 'set_task', 'add_context', 'add_action', 'complete_action', 'clear']).describe('Action to perform'),
+    task: z.string().optional().describe('Task description (for set_task)'),
+    key: z.string().optional().describe('Context key (for add_context)'),
+    value: z.string().optional().describe('Context value (for add_context)'),
+    action_text: z.string().optional().describe('Action text (for add_action/complete_action)'),
+  }),
+}, async (args) => {
+  return memorySessionTool(args);
+});
+
+// ============ Cognitive Memory Scheduler ============
+// memory_cognitive: Curiosity-driven memory exploration
+server.registerTool('memory_cognitive', {
+  description: 'Cognitive memory scheduler: curiosity-driven memory exploration. Actions: trigger (check curiosity after memory access), score (score curiosity between two memories), get_recalls (get memories to proactively recall), record_exploration (record a curiosity exploration), status (get cognitive state).',
+  inputSchema: z.object({
+    action: z.enum(['trigger', 'score', 'get_recalls', 'record_exploration', 'status']).describe('Action to perform'),
+    memory_id: z.string().optional().describe('Memory ID (for trigger/score actions)'),
+    candidate_id: z.string().optional().describe('Candidate memory ID (for score action)'),
+    from_memory: z.string().optional().describe('Source memory ID (for record_exploration)'),
+    to_memory: z.string().optional().describe('Target memory ID (for record_exploration)'),
+  }),
+}, async (args) => {
+  return memoryCognitiveTool(args);
+});
+
+// ============ Memory Lanes ============
+// memory_lanes: Parallel swim lanes for different memory contexts (action=create|switch|current|list|move|archive|memories)
+server.registerTool('memory_lanes', {
+  description: 'Parallel memory lanes for organizing memories into different contexts. Lanes: primary (main conversation), task (current task focus), background (long-running investigations), archive (completed threads). Actions: create (new lane), switch (set active lane), current (get active lane), list (all lanes), move (move memory between lanes), archive (archive a lane), memories (get memories in a lane).',
+  inputSchema: z.object({
+    action: z.enum(['create', 'switch', 'current', 'list', 'move', 'archive', 'memories']).describe('Action to perform'),
+    name: z.string().optional().describe('Lane name (for create/switch/list actions)'),
+    description: z.string().optional().describe('Lane description (for create action)'),
+    lane_name: z.string().optional().describe('Lane name (for switch/move/archive/memories actions)'),
+    memory_id: z.string().optional().describe('Memory ID (for move action)'),
+  }),
+}, async (args) => {
+  return memoryLanesTool(args);
+});
+
+// ============ Transcript Manager ============
+// memory_transcript: Transcript-first memory system (action=create|log|end|get|list|search|rebuild|link_memory|extract_entities)
+server.registerTool('memory_transcript', {
+  description: 'Transcript-first memory system. Stores full conversation transcripts as JSON files. Actions: create (new transcript), log (add message), end (close transcript), get (retrieve), list (paginated), search (full-text), rebuild (context), link_memory (associate), extract_entities.',
+  inputSchema: z.object({
+    action: z.enum(['create', 'log', 'end', 'get', 'list', 'search', 'rebuild', 'link_memory', 'extract_entities']).describe('Action to perform'),
+    transcript_id: z.string().optional().describe('Transcript ID (for log/end/get/rebuild/extract_entities/link_memory)'),
+    topic: z.string().optional().describe('Topic/title (for create, optional)'),
+    session_id: z.string().optional().describe('Session ID (for create, optional, auto-generated if not provided)'),
+    role: z.string().optional().describe('Message role: user|assistant|system (for log action)'),
+    content: z.string().optional().describe('Message content (for log action)'),
+    metadata: z.record(z.string(), z.unknown()).optional().describe('Additional metadata (for log action, e.g. message_id)'),
+    query: z.string().optional().describe('Search query (for search action)'),
+    memory_id: z.string().optional().describe('Memory ID to link (for link_memory action)'),
+    limit: z.number().optional().default(20).describe('Result limit (for list/search actions)'),
+    offset: z.number().optional().default(0).describe('Offset for pagination (for list action)'),
+    status: z.string().optional().describe('Status filter: active|completed|archived (for list action)'),
+  }),
+}, async (args) => {
+  return memoryTranscriptTool(args);
 });
 
 // ============ HTTP Dashboard Server (Optional) ============
@@ -1965,7 +2167,7 @@ async function main() {
     });
     unifiedProcess.unref();
     structuredLog.info('v2.8.0 Unified Server started on port 3850');
-    
+
   } catch (err) {
     structuredLog.warn(`Failed to start unified server: ${err.message}`);
   }
@@ -1999,6 +2201,9 @@ async function main() {
   registerGitTools(server);
   registerCloudTools(server);
   registerDecayStatsTool(server);
+
+  // P0-4: Revision Manager
+  registerRevisionTools(server);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
