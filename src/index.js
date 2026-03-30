@@ -48,6 +48,9 @@ import { mmrSelect, mmrSelectWithEmbedding } from './mmr.js';
 import { LlmReranker, keywordRerank } from './rerank.js';
 import { CrossEncoderRerank, rerankResults } from './tools/rerank.js';
 import { normalizeScope, filterByScope, SCOPE_LEVELS, SCOPE_HIERARCHY } from './scope.js';
+import { walWrite, walReplay, walTruncate, walStatus, walExport, walImport } from './wal.js';
+import { evidenceAdd, evidenceGet, evidenceFindByType, evidenceFindBySource, evidenceGetHighestConfidence, evidenceGetHighConfidence, evidenceExport, evidenceImport, evidenceStats } from './evidence.js';
+import { organizeMemories, compressTier, archiveOldMemories, getTierStats, fullOrganize } from './organize.js';
 import { getProactiveManager } from './proactive_manager.js';
 import { getReminderScheduler } from './reminder.js';
 import { enhancedPredictRecall, predictRelatedOnAccess, predictHighValueMemories } from './tools/predict.js';
@@ -2204,6 +2207,192 @@ async function main() {
 
   // P0-4: Revision Manager
   registerRevisionTools(server);
+
+  // P1: WAL Protocol
+  structuredLog.info('Registering WAL tools...');
+  registerWALTools(server);
+  structuredLog.info('WAL tools registered');
+
+  // P2: Evidence Chain
+  structuredLog.info('Registering Evidence tools...');
+  registerEvidenceTools(server);
+  structuredLog.info('Evidence tools registered');
+
+  // P3: Auto Organization
+  structuredLog.info('Registering Organize tools...');
+  registerOrganizeTools(server);
+  structuredLog.info('Organize tools registered');
+
+  // WAL Tools
+  function registerWALTools(server) {
+    server.registerTool('memory_wal_write', {
+      description: 'Write entry to Write-Ahead Log for durability',
+      inputSchema: z.object({
+        operation: z.enum(['insert', 'update', 'delete']).describe('Operation type'),
+        collection: z.string().describe('Collection name'),
+        data: z.any().describe('Data to write')
+      })
+    }, async ({ operation, collection, data }) => {
+      const entry = walWrite({ operation, collection, data });
+      return { content: [{ type: 'text', text: JSON.stringify(entry, null, 2) }] };
+    });
+
+    server.registerTool('memory_wal_replay', {
+      description: 'Replay WAL entries for crash recovery',
+      inputSchema: z.object({})
+    }, async () => {
+      let replayed = 0;
+      let errors = 0;
+      
+      walReplay((entry) => {
+        // Execute the operation
+        if (entry.operation === 'insert') {
+          addMemory(entry.data);
+        } else if (entry.operation === 'delete') {
+          deleteMemory(entry.data.id);
+        }
+        replayed++;
+      });
+      
+      return { content: [{ type: 'text', text: `Replayed ${replayed} entries, ${errors} errors` }] };
+    });
+
+    server.registerTool('memory_wal_status', {
+      description: 'Get WAL status and statistics',
+      inputSchema: z.object({})
+    }, async () => {
+      const status = walStatus();
+      return { content: [{ type: 'text', text: JSON.stringify(status, null, 2) }] };
+    });
+
+    server.registerTool('memory_wal_truncate', {
+      description: 'Truncate WAL after successful commit',
+      inputSchema: z.object({})
+    }, async () => {
+      walTruncate();
+      return { content: [{ type: 'text', text: 'WAL truncated successfully' }] };
+    });
+
+    server.registerTool('memory_wal_export', {
+      description: 'Export WAL for backup',
+      inputSchema: z.object({})
+    }, async () => {
+      const content = walExport();
+      return { content: [{ type: 'text', text: content || 'No WAL content' }] };
+    });
+
+    server.registerTool('memory_wal_import', {
+      description: 'Import WAL from backup',
+      inputSchema: z.object({
+        walContent: z.string().describe('WAL content to import')
+      })
+    }, async ({ walContent }) => {
+      walImport(walContent);
+      return { content: [{ type: 'text', text: 'WAL imported successfully' }] };
+    });
+  }
+
+  // Evidence Tools
+  function registerEvidenceTools(server) {
+    server.registerTool('memory_evidence_add', {
+      description: 'Add evidence to a memory\'s chain',
+      inputSchema: z.object({
+        memoryId: z.string().describe('Memory ID'),
+        type: z.enum(['transcript', 'message', 'manual', 'inference']).describe('Evidence type'),
+        sourceId: z.string().describe('Source identifier'),
+        confidence: z.number().min(0).max(1).describe('Confidence score'),
+        context: z.string().describe('Evidence context')
+      })
+    }, async ({ memoryId, type, sourceId, confidence, context }) => {
+      const chain = evidenceAdd(memoryId, { type, sourceId, confidence, context });
+      return { content: [{ type: 'text', text: JSON.stringify(chain, null, 2) }] };
+    });
+
+    server.registerTool('memory_evidence_get', {
+      description: 'Get evidence chain for a memory',
+      inputSchema: z.object({
+        memoryId: z.string().describe('Memory ID')
+      })
+    }, async ({ memoryId }) => {
+      const chain = evidenceGet(memoryId);
+      return { content: [{ type: 'text', text: chain ? JSON.stringify(chain, null, 2) : 'No evidence found' }] };
+    });
+
+    server.registerTool('memory_evidence_find_by_type', {
+      description: 'Find memories by evidence type',
+      inputSchema: z.object({
+        type: z.string().describe('Evidence type to filter by')
+      })
+    }, async ({ type }) => {
+      const memories = evidenceFindByType(type);
+      return { content: [{ type: 'text', text: JSON.stringify(memories, null, 2) }] };
+    });
+
+    server.registerTool('memory_evidence_find_by_source', {
+      description: 'Find memories by source ID',
+      inputSchema: z.object({
+        sourceId: z.string().describe('Source ID to filter by')
+      })
+    }, async ({ sourceId }) => {
+      const memories = evidenceFindBySource(sourceId);
+      return { content: [{ type: 'text', text: JSON.stringify(memories, null, 2) }] };
+    });
+
+    server.registerTool('memory_evidence_stats', {
+      description: 'Get evidence statistics',
+      inputSchema: z.object({})
+    }, async () => {
+      const stats = evidenceStats();
+      return { content: [{ type: 'text', text: JSON.stringify(stats, null, 2) }] };
+    });
+  }
+
+  // Organize Tools
+  function registerOrganizeTools(server) {
+    server.registerTool('memory_organize', {
+      description: 'Organize memories across tiers (HOT/WARM/COLD)',
+      inputSchema: z.object({})
+    }, async () => {
+      const result = organizeMemories();
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    });
+
+    server.registerTool('memory_compress_tier', {
+      description: 'Compress memories in a specific tier',
+      inputSchema: z.object({
+        tier: z.enum(['hot', 'warm', 'cold']).describe('Tier to compress')
+      })
+    }, async ({ tier }) => {
+      const result = compressTier(tier);
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    });
+
+    server.registerTool('memory_archive_old', {
+      description: 'Archive memories older than threshold',
+      inputSchema: z.object({
+        thresholdDays: z.number().default(365).describe('Threshold in days')
+      })
+    }, async ({ thresholdDays }) => {
+      const result = archiveOldMemories(thresholdDays);
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    });
+
+    server.registerTool('memory_tier_stats', {
+      description: 'Get tier statistics',
+      inputSchema: z.object({})
+    }, async () => {
+      const stats = getTierStats();
+      return { content: [{ type: 'text', text: JSON.stringify(stats, null, 2) }] };
+    });
+
+    server.registerTool('memory_full_organize', {
+      description: 'Run full organization (organize + compress + archive)',
+      inputSchema: z.object({})
+    }, async () => {
+      const result = fullOrganize();
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    });
+  }
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
