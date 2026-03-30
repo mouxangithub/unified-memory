@@ -5,7 +5,7 @@
 **Author**: 程序员小刘 (@mouxangithub)  
 **GitHub**: https://github.com/mouxangithub/unified-memory  
 **Registry**: `clawhub install unified-memory`  
-**Framework**: OpenClaw Agent | Node.js ESM | 51 MCP Tools | Web Dashboard v3.x
+**Framework**: OpenClaw Agent | Node.js ESM | 97 MCP Tools | Web Dashboard v3.x
 
 ---
 
@@ -15,7 +15,7 @@
 - [Architecture](#architecture)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [51 MCP Tools](#28-mcp-tools)
+- [97 MCP Tools](#28-mcp-tools)
 - [Quick Start](#quick-start)
 - [Scope Isolation](#scope-isolation)
 - [Development](#development)
@@ -37,6 +37,12 @@
 | 📊 **Knowledge Graph** | Entity extraction and relationship mapping |
 | 🏥 **Health Check** | Complete system health monitoring |
 | ⚡ **Pluggable Architecture** | LanceDB / Ollama / none — choose what you need |
+| 🧠 **Session State RAM** | Hot context survives compaction |
+| 📝 **Transcript Rebuild** | Conversation → structured memory → replayable |
+| 🧭 **Cognitive Scheduler** | Curiosity-driven proactive exploration |
+| 🏊 **Memory Lanes** | Parallel memory swim lanes |
+| 💰 **Token Budget** | Fine-grained token allocation control |
+| 🔀 **Revision Conflict** | Version conflict detection and merge |
 
 ---
 
@@ -105,7 +111,7 @@ See [docs/CONFIG.md](docs/CONFIG.md) for full details. Core settings:
 
 ---
 
-## 51 MCP Tools
+## 97 MCP Tools
 
 ### Storage Core (6)
 | Tool | Description |
@@ -225,4 +231,4 @@ docs/
 
 MIT
 
-*Last updated: 2026-03-29 | v3.x*
+*Last updated: 2026-03-30 | v3.7.0*

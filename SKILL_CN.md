@@ -6,7 +6,7 @@
 
 > **🤖 本项目由小智 AI（OpenClaw）创建生成**  
 > 作者：程序员小刘（@mouxangithub）  
-> 框架：OpenClaw Agent | Node.js ESM | 51 个 MCP 工具
+> 框架：OpenClaw Agent | Node.js ESM | 97 个 MCP 工具
 
 **项目路径**: `/root/.openclaw/workspace/skills/unified-memory/`  
 **GitHub**: https://github.com/mouxangithub/unified-memory  
@@ -90,7 +90,7 @@ mcporter call unified-memory memory_stats '{}'
 
 ---
 
-## 51 个 MCP 工具完整清单
+## 97 个 MCP 工具完整清单
 
 ### 存储核心（5个）
 | 工具 | 说明 |
@@ -123,6 +123,18 @@ mcporter call unified-memory memory_stats '{}'
 | `memory_scope` | Scope 规范化与过滤 |
 | `memory_concurrent_search` | 并发多路搜索合并 |
 
+### 会话与转录（2个）
+| 工具 | 说明 |
+|------|------|
+| `memory_session` | Session State RAM 层（compaction 后保留热点上下文） |
+| `memory_transcript` | 转录管理器（会话 → 结构化记忆 → 可回放） |
+
+### 认知与泳道（2个）
+| 工具 | 说明 |
+|------|------|
+| `memory_cognitive` | 好奇心驱动的主动记忆探索 |
+| `memory_lanes` | 多车道并行记忆支持 |
+
 ### 分析管理（9个）
 | 工具 | 说明 |
 |------|------|
@@ -136,11 +148,12 @@ mcporter call unified-memory memory_stats '{}'
 | `memory_intent` | 意图分类 |
 | `memory_wal` | 写前日志操作 |
 
-### 云与系统（10个）
+### 云与系统（11个）
 | 工具 | 说明 |
 |------|------|
 | `memory_cloud_backup` | 云端备份 |
 | `memory_cloud_restore` | 云端恢复 |
+| `memory_cloud_backup_api` | 云端备份托管 API（S3/GCS/Azure） |
 | `memory_export` | 导出：JSON / Markdown / CSV |
 | `memory_adaptive` | 自适应搜索策略 |
 | `memory_autostore` | 自动存储模式开关 |
@@ -149,6 +162,18 @@ mcporter call unified-memory memory_stats '{}'
 | `memory_insights` | 用户洞察分析 |
 | `memory_predict` | 预测性召回 |
 | `memory_feedback` | 用户反馈集成 |
+
+### 预算与版本（2个）
+| 工具 | 说明 |
+|------|------|
+| `memory_budget` | Token 预算精细化分配（transcript/memory/episode/working/system） |
+| `memory_revision` | 版本冲突检测与自动合并 |
+
+### Git 与持久化（2个）
+| 工具 | 说明 |
+|------|------|
+| `memory_git_notes` | Git Notes 增强（决策永久化、分支感知） |
+| `memory_git` | Git 集成（快照、回滚） |
 
 ---
 
@@ -167,7 +192,8 @@ mcporter call unified-memory memory_stats '{}'
 
 | 版本 | 日期 | 更新内容 |
 |------|------|---------|
-| v3.x | 2026-03-29 | 工具整合 76→28，可插拔架构，四种配置模式 |
+| v3.7.0 | 2026-03-30 | 97工具：+session_state, +transcript_manager, +git_notes, +revision_manager, +budget, +cognitive_scheduler, +lanes_manager, +cloud_backup_api |
+| v3.6.1 | 2026-03-29 | 89工具：28个统一工具，可插拔架构，CONFIG.md |
 | v2.5.0 | 2026-03-28 | Phase 3：plugin 接口、QMD 后端、Git、云备份、Weibull |
 | v2.4.0 | 2026-03-27 | Phase 2：86工具、知识图谱、主动召回、推荐系统 |
 | v2.1.0 | 2026-03-27 | 33工具、分层/WAL/噪音过滤、ESM 重构 |
