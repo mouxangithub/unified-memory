@@ -6,7 +6,7 @@
 
 > **🤖 Created by 小智 AI (OpenClaw)**  
 > Author: 程序员小刘 (@mouxangithub)  
-> Framework: OpenClaw Agent | Node.js ESM | 51 MCP Tools
+> Framework: OpenClaw Agent | Node.js ESM | 97 MCP Tools
 
 **Project Path**: `/root/.openclaw/workspace/skills/unified-memory/`  
 **GitHub**: https://github.com/mouxangithub/unified-memory  
@@ -89,7 +89,7 @@ mcporter call unified-memory memory_stats '{}'
 
 ---
 
-## 51 MCP Tools
+## 97 MCP Tools
 
 ### Storage Core (5)
 | Tool | Description |
@@ -117,11 +117,23 @@ mcporter call unified-memory memory_stats '{}'
 ### Search Enhancement (4)
 `memory_bm25` · `memory_vector` · `memory_scope` · `memory_concurrent_search`
 
+### Session & Transcript (2)
+`memory_session` · `memory_transcript`
+
+### Cognitive & Lanes (2)
+`memory_cognitive` · `memory_lanes`
+
 ### Analysis & Management (9)
 `memory_trace` · `memory_metrics` · `memory_noise` · `memory_decay` · `memory_dedup` · `memory_extract` · `memory_reflection` · `memory_intent` · `memory_wal`
 
 ### Cloud & System (6)
-`memory_cloud_backup` · `memory_cloud_restore` · `memory_export` · `memory_adaptive` · `memory_autostore` · `memory_auto_extract` · `memory_health` · `memory_insights` · `memory_predict` · `memory_feedback`
+`memory_cloud_backup` · `memory_cloud_restore` · `memory_cloud_backup_api` · `memory_export` · `memory_adaptive` · `memory_autostore` · `memory_auto_extract` · `memory_health` · `memory_insights` · `memory_predict` · `memory_feedback`
+
+### Budget & Revision (2)
+`memory_budget` · `memory_revision`
+
+### Git & Persistence (2)
+`memory_git_notes` · `memory_git`
 
 ---
 
@@ -165,7 +177,8 @@ Full configuration guide: [docs/CONFIG.md](docs/CONFIG.md)
 
 | Version | Date | Highlights |
 |---------|------|-----------|
-| v3.x | 2026-03-29 | 28 unified tools, pluggable architecture, CONFIG.md |
+| v3.7.0 | 2026-03-30 | 97 tools: +session_state, +transcript_manager, +git_notes, +revision_manager, +budget, +cognitive_scheduler, +lanes_manager, +cloud_backup_api |
+| v3.6.1 | 2026-03-29 | 89 tools: 28 unified tools, pluggable architecture, CONFIG.md |
 | v2.7.0 | 2026-03-28 | Web UI Dashboard, Identity memory type |
 | v2.6.0 | 2026-03-28 | Phase 3: plugin interface, QMD backend, git, cloud |
 | v2.4.0 | 2026-03-27 | 86 tools, episode/graph/proactive/recommend |
