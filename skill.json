@@ -1,7 +1,7 @@
 {
   "name": "unified-memory",
-  "version": "3.8.7",
-  "description": "AI Agent Memory System v3.8.7 - Phase 1 v4.0: StorageGateway + Incremental BM25",
+  "version": "3.8.8",
+  "description": "AI Agent Memory System v3.8.8 - Phase 2 v4.0: Hybrid BM25+Vector RRF Search",
   "author": "mouxangithub",
   "license": "MIT",
   "homepage": "https://github.com/mouxangithub/unified-memory",
