@@ -1,4 +1,4 @@
-# Changelog
+# Changelog (v3.8.6)
 <!-- zh -->
 > 统一记忆系统完整版本历史 | Consolidated Version History
 

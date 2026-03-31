@@ -1,6 +1,6 @@
 {
   "name": "unified-memory",
-  "version": "3.8.4",
+  "version": "3.8.6",
   "type": "module",
   "description": "🧠 Unified Memory System v2.0 - AI Agent专用记忆系统，多层级、持久化、主动式记忆",
   "main": "src/index.js",
@@ -17,8 +17,14 @@
     "postinstall": "node -e \"const v=process.version.match(/^v(\\d+)/)[1]; if(v<22){console.error('⚠️  Node.js 22+ required, current '+process.version);process.exit(1);} console.log('✅ Node.js', process.version)\""
   },
   "keywords": [
-    "memory", "ai-agent", "bm25", "vector-search",
-    "hybrid-search", "ollama", "mcp", "unified-memory"
+    "memory",
+    "ai-agent",
+    "bm25",
+    "vector-search",
+    "hybrid-search",
+    "ollama",
+    "mcp",
+    "unified-memory"
   ],
   "author": "mouxangithub",
   "license": "MIT",
