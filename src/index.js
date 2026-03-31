@@ -740,6 +740,77 @@ server.registerTool('memory_v4_rate_limit_status', {
   }
 });
 
+// ============ Phase 7: HTTP REST API (via child process) ============
+
+server.registerTool('memory_v4_http_start', {
+  description: '[v4.0 Phase 7] Start the HTTP REST API server on a port. External clients can call REST endpoints without MCP.',
+  inputSchema: z.object({
+    port: z.number().optional().default(3099).describe('HTTP port (default 3099)'),
+    host: z.string().optional().default('0.0.0.0').describe('Bind host (default 0.0.0.0)'),
+  }),
+}, async ({ port = 3099, host = '0.0.0.0' }) => {
+  try {
+    const { spawn } = await import('child_process');
+    const { join, dirname } = await import('path');
+    const { fileURLToPath } = await import('url');
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const serverPath = join(__dirname, 'v4', 'http_server.js');
+
+    // Check if already running
+    const existing = process.env.MEMORY_HTTP_PORT;
+    if (existing) {
+      return { content: [{ type: 'text', text: JSON.stringify({ v4: true, phase: 7, status: 'already_running', port: parseInt(existing) }) }];
+    }
+
+    const child = spawn('node', [serverPath, String(port)], {
+      detached: true,
+      stdio: 'ignore',
+      env: { ...process.env, MEMORY_HTTP_PORT: String(port), MEMORY_HTTP_HOST: host },
+    });
+    child.unref();
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          v4: true, phase: 7,
+          status: 'started',
+          port,
+          host,
+          baseUrl: 'http://' + host + ':' + port + '/api/v4/',
+          endpoints: {
+            health: 'GET /api/v4/health',
+            memories: 'GET|POST /api/v4/memories',
+            memoryById: 'GET|DELETE /api/v4/memories/:id',
+            search: 'GET /api/v4/search?q=&topK=',
+            teams: 'GET|POST /api/v4/teams',
+            stats: 'GET /api/v4/stats',
+            wal: 'GET /api/v4/wal?limit=&since=',
+          },
+        }),
+      }],
+    };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `http start error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_v4_http_stop', {
+  description: '[v4.0 Phase 7] Stop the HTTP REST API server.',
+  inputSchema: z.object({}),
+}, async () => {
+  try {
+    const port = process.env.MEMORY_HTTP_PORT;
+    if (port) {
+      const { execSync } = await import('child_process');
+      execSync('pkill -f "http_server.js.*' + port + '"', { stdio: 'ignore' });
+    }
+    return { content: [{ type: 'text', text: JSON.stringify({ v4: true, phase: 7, status: 'stopped' }) }] };
+  } catch {
+    return { content: [{ type: 'text', text: JSON.stringify({ v4: true, phase: 7, status: 'stopped' }) }] };
+  }
+});
+
 // ============ Phase 5: Evidence TTL + Revision Limits ============
 
 server.registerTool('memory_v4_evidence_stats', {

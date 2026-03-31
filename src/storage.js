@@ -11,6 +11,17 @@ import {
   getCurrentAgentId,
 } from './scope.js';
 
+// v4 StorageGateway proxy (unified backend for sqlite mode)
+let _v4Gw = null;
+async function getV4Gw() {
+  if (!_v4Gw) {
+    const { StorageGateway } = await import('./v4/storage-gateway.js');
+    _v4Gw = new StorageGateway();
+    await _v4Gw.init();
+  }
+  return _v4Gw;
+}
+
 // ===== Storage Mode Selection =====
 const STORAGE_MODE = process.env.STORAGE_MODE || 'json';
 
@@ -71,7 +82,24 @@ async function _flushPendingWrite() {
   const memories = _pendingMemories;
   _pendingMemories = null;
   _writeTimer = null;
-  await _doSaveMemories(memories);
+  // Direct write for JSON mode (no debounce timer, immediate flush)
+  const lockPath = config.memoryFile;
+  acquireLockSync(lockPath);
+  try {
+    if (global._walInit) {
+      logWriteOp({ type: 'save', count: memories.length });
+    }
+    const data = JSON.stringify(memories, null, 2);
+    const tmpPath = `${lockPath}.tmp.${process.pid}.${Date.now()}`;
+    await writeFile(tmpPath, data, 'utf8');
+    await rename(tmpPath, lockPath);
+  } catch (err) {
+    console.error('[storage] Write-behind flush failed:', err.message);
+  } finally {
+    try { releaseLockSync(lockPath); } catch { /* ignore */ }
+  }
+  memoryCache.set('all', memories);
+  cacheDirty = false;
 }
 
 /**
@@ -103,23 +131,17 @@ async function _doSaveMemories(memories) {
 /**
  * @returns {Memory[]}
  */
-export function loadMemories() {
+export async function loadMemories() {
   // Clear any pending write-behind writes before reading from disk.
   // If a crash occurred, the pending write is lost and we reload from disk.
   if (_writeTimer) { clearTimeout(_writeTimer); _writeTimer = null; }
   _pendingMemories = null;
   // SQLite backend path
   if (isSqliteMode()) {
-    const backend = _sqliteBackend || null;
-    if (backend) {
-      return backend.readMemories();
-    }
-    // Fallback: try loading JSON
-    if (!existsSync(config.memoryFile)) return [];
-    try {
-      const data = JSON.parse(readFileSync(config.memoryFile, 'utf8'));
-      return Array.isArray(data) ? data : (data.memories || []);
-    } catch { return []; }
+    const gw = await getV4Gw();
+    const mems = await gw.getMemories({ limit: 100000 });
+    memoryCache.set('all', mems);
+    return mems;
   }
 
   // JSON backend (default)
@@ -138,18 +160,12 @@ export function loadMemories() {
  * Save memories to disk (write-behind: queues write and flushes after debounce)
  * @param {Memory[]} memories
  */
-export function saveMemories(memories) {
+export async function saveMemories(memories) {
   // SQLite backend
   if (isSqliteMode()) {
-    const backend = _sqliteBackend || null;
-    if (backend) {
-      backend.writeMemories(memories);
-      memoryCache.set('all', memories);
-      cacheDirty = false;
-      return;
-    }
-    // Fallback to JSON if SQLite unavailable
-    console.warn('[storage] SQLite mode requested but backend unavailable, falling back to JSON');
+    // writeMemory handles WAL internally; no need to call gw multiple times
+    // For bulk save, just return (memories already in DB via addMemory/updateMemory)
+    return;
   }
 
   // Initialize WAL on first call
@@ -192,10 +208,14 @@ export async function flushPendingWrites() {
  * @param {boolean} [opts.applyTeamFilter=true] - Whether to apply current team context
  * @returns {Memory[]}
  */
-export function getAllMemories(opts = {}) {
+export async function getAllMemories(opts = {}) {
+  if (isSqliteMode()) {
+    const gw = await getV4Gw();
+    return gw.getMemories({ ...opts, limit: opts.limit || 10000 });
+  }
   const { scope = 'GLOBAL', applyTeamFilter = false } = opts;
   if (!memoryCache.has('all')) {
-    memoryCache.set('all', loadMemories());
+    memoryCache.set('all', await loadMemories());
   }
   // Normalize: support both 'content' (import format) and 'text' field
   let memories = memoryCache.get('all').map((m) => ({
@@ -226,7 +246,19 @@ export function invalidateCache() {
  * @param {Omit<Memory, 'id' | 'created_at' | 'updated_at' | 'access_count' | 'last_access'>} mem
  * @returns {Memory}
  */
-export function addMemory(mem) {
+export async function addMemory(mem) {
+  if (isSqliteMode()) {
+    const gw = await getV4Gw();
+    return gw.writeMemory({
+      text: mem.text,
+      category: mem.category || 'general',
+      importance: mem.importance || 0.5,
+      scope: mem.scope,
+      scopeId: mem.scopeId,
+      tags: mem.tags,
+    });
+  }
+
   const now = Date.now();
 
   // v3.2: Auto-tag with agent_id if in AGENT scope
@@ -248,21 +280,8 @@ export function addMemory(mem) {
     last_access: now,
   };
 
-  // SQLite backend
-  if (isSqliteMode()) {
-    const backend = _sqliteBackend || null;
-    if (backend) {
-      backend.appendMemory(newMem);
-      memoryCache.set('all', getAllMemories()); // refresh cache
-      getVectorMem().then(vm => {
-        if (vm) vm.upsert({ id: newMem.id, text: newMem.text, category: newMem.category, scope: newMem.scope, importance: newMem.importance, created_at: newMem.created_at, ...(agentId ? { agent_id: agentId } : {}) }).catch(() => {});
-      }).catch(() => {});
-      return newMem;
-    }
-  }
-
   // JSON backend
-  const memories = getAllMemories();
+  const memories = await getAllMemories();
   memories.push(newMem);
 
   // WAL: log individual add op before save (crash recovery = replay add)
@@ -270,7 +289,7 @@ export function addMemory(mem) {
     logWriteOp({ type: 'add', memory: newMem });
   }
 
-  saveMemories(memories);
+  await saveMemories(memories);
 
   // Sync to LanceDB vector store (fire-and-forget, non-blocking)
   getVectorMem().then(vm => {
@@ -293,20 +312,14 @@ export function addMemory(mem) {
  * @param {string} id
  * @returns {boolean}
  */
-export function deleteMemory(id) {
-  // SQLite backend
+export async function deleteMemory(id) {
   if (isSqliteMode()) {
-    const backend = _sqliteBackend || null;
-    if (backend) {
-      const deleted = backend.deleteMemoryById(id);
-      if (deleted) memoryCache.set('all', getAllMemories());
-      getVectorMem().then(vm => { if (vm) vm.delete(id).catch(() => {}); }).catch(() => {});
-      return deleted;
-    }
+    const gw = await getV4Gw();
+    return gw.deleteMemory(id);
   }
 
   // JSON backend
-  const memories = getAllMemories();
+  const memories = await getAllMemories();
   const idx = memories.findIndex((m) => m.id === id);
   if (idx === -1) return false;
   memories.splice(idx, 1);
@@ -316,7 +329,7 @@ export function deleteMemory(id) {
     logWriteOp({ type: 'delete', memory_id: id });
   }
 
-  saveMemories(memories);
+  await saveMemories(memories);
 
   // Sync delete to LanceDB vector store
   getVectorMem().then(vm => {
@@ -384,12 +397,12 @@ function hashTextForCache(text) {
  * @param {string} id
  * @returns {Memory|undefined}
  */
-export function getMemory(id) {
+export async function getMemory(id) {
   if (isSqliteMode()) {
-    const backend = _sqliteBackend || null;
-    if (backend) return backend.getMemoryById(id) || undefined;
+    const gw = await getV4Gw();
+    return gw.getMemory(id);
   }
-  const memories = getAllMemories();
+  const memories = await getAllMemories();
   return memories.find((m) => m.id === id);
 }
 
@@ -397,22 +410,28 @@ export function getMemory(id) {
  * Update access stats
  * @param {string} id
  */
-export function updateMemory(updatedMem) {
+export async function updateMemory(updatedMem) {
   if (isSqliteMode()) {
-    const backend = _sqliteBackend || null;
-    if (backend) {
-      const oldMem = backend.getMemoryById(updatedMem.id);
-      const updated = backend.updateMemoryById(updatedMem.id, updatedMem);
-      if (updated) createMemoryVersion(updatedMem.id, { ...oldMem, ...updatedMem }, oldMem, 'update');
-      return updated;
-    }
+    const gw = await getV4Gw();
+    const existing = await gw.getMemory(updatedMem.id);
+    if (!existing) return false;
+    // StorageGateway.writeMemory acts as upsert
+    return gw.writeMemory({
+      text: updatedMem.text ?? existing.text,
+      category: updatedMem.category ?? existing.category,
+      importance: updatedMem.importance ?? existing.importance,
+      scope: updatedMem.scope ?? existing.scope_type,
+      scopeId: updatedMem.scopeId ?? existing.scope_id,
+      tags: updatedMem.tags ?? existing.tags,
+      id: updatedMem.id,
+    });
   }
-  const memories = getAllMemories();
+  const memories = await getAllMemories();
   const idx = memories.findIndex((m) => m.id === updatedMem.id);
   if (idx === -1) return false;
   const oldMemory = { ...memories[idx] }; // 保存旧版本用于创建 diff
   memories[idx] = { ...memories[idx], ...updatedMem };
-  saveMemories(memories);
+  await saveMemories(memories);
   // v2.7.0: 每次更新自动创建版本记录
   createMemoryVersion(updatedMem.id, memories[idx], oldMemory, 'update');
 
