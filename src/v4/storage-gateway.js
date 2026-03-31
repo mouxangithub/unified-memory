@@ -532,9 +532,24 @@ export class StorageGateway {
 
   // ── evidence ───────────────────────────────────────────────────────────
 
+  // ── Evidence with TTL trim (Phase 5) ──────────────────────────────────
+
+  /** Evidence TTL: 90 days */
+  static get EVIDENCE_TTL_MS() { return 90 * 24 * 60 * 60 * 1000; }
+
+  /** Max revisions per memory: 50 */
+  static get MAX_REVISIONS_PER_MEMORY() { return 50; }
+
   async addEvidence(memoryId, evidence) {
     const id = `ev_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const now = Date.now();
+
+    // Phase 5: TTL trim — O(log n + k) via B-tree
+    const cutoff = now - StorageGateway.EVIDENCE_TTL_MS;
+    const trimResult = this.db.prepare(
+      'DELETE FROM evidence WHERE memory_id = ? AND timestamp < ?'
+    ).run(memoryId, cutoff);
+
     this.db.prepare(`
       INSERT INTO evidence (id, memory_id, type, source_id, context, confidence, timestamp, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -542,6 +557,19 @@ export class StorageGateway {
       evidence.context || null, evidence.confidence ?? 1.0,
       evidence.timestamp || now, now);
     return { id };
+  }
+
+  /**
+   * Phase 5: Trim ALL evidence older than TTL (called periodically or on health check).
+   * Uses B-tree index on (timestamp) — O(log n + k).
+   */
+  async trimEvidence() {
+    const now = Date.now();
+    const cutoff = now - StorageGateway.EVIDENCE_TTL_MS;
+    const result = this.db.prepare(
+      'DELETE FROM evidence WHERE timestamp < ?'
+    ).run(cutoff);
+    return { deleted: result.changes, cutoffMs: cutoff };
   }
 
   async getEvidence(memoryId) {
@@ -566,6 +594,16 @@ export class StorageGateway {
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(id, memoryId, typeof content === 'string' ? content : JSON.stringify(content),
       changeType, versionNum, now);
+
+    // Phase 5: Prune old revisions — keep only MAX_REVISIONS_PER_MEMORY newest
+    // Uses B-tree index on (memory_id, version_num DESC) — O(log n)
+    this.db.prepare(`
+      DELETE FROM revisions WHERE memory_id = ? AND version_num <= (
+        SELECT version_num FROM revisions WHERE memory_id = ?
+        ORDER BY version_num DESC LIMIT 1 OFFSET ?
+      )
+    `).run(memoryId, memoryId, StorageGateway.MAX_REVISIONS_PER_MEMORY - 1);
+
     return { id, version: versionNum };
   }
 
@@ -685,6 +723,114 @@ export class StorageGateway {
   }
 
   // ── stats ──────────────────────────────────────────────────────────────
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PHASE 5: Evidence TTL + Revision Limit (already in addEvidence/addRevision)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Phase 5: Get evidence stats and TTL status.
+   */
+  async getEvidenceStats() {
+    const total = this.db.prepare('SELECT COUNT(*) as c FROM evidence').get().c;
+    const oldest = this.db.prepare('SELECT MIN(timestamp) as t FROM evidence').get();
+    const newest = this.db.prepare('SELECT MAX(timestamp) as t FROM evidence').get();
+    const byType = this.db.prepare(
+      'SELECT type, COUNT(*) as c FROM evidence GROUP BY type ORDER BY c DESC'
+    ).all();
+    return {
+      total,
+      oldest: oldest.t,
+      newest: newest.t,
+      ttlDays: StorageGateway.EVIDENCE_TTL_MS / (24 * 60 * 60 * 1000),
+      byType,
+    };
+  }
+
+  /**
+   * Phase 5: Get revision stats.
+   */
+  async getRevisionStats() {
+    const total = this.db.prepare('SELECT COUNT(*) as c FROM revisions').get().c;
+    const memories = this.db.prepare(
+      'SELECT COUNT(DISTINCT memory_id) as c FROM revisions'
+    ).get().c;
+    const avgVersions = memories > 0 ? Math.round(total / memories * 10) / 10 : 0;
+    return { total, memories, avgVersions, maxPerMemory: StorageGateway.MAX_REVISIONS_PER_MEMORY };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PHASE 6: WAL Operations (replay, export, import, truncate)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Phase 6: Export WAL entries as JSONL for backup/audit.
+   */
+  async exportWal(options = {}) {
+    const { since, limit = 10000, status } = options;
+    let sql = 'SELECT * FROM wal_entries WHERE 1=1';
+    const params = [];
+    if (since) { sql += ' AND created_at >= ?'; params.push(since); }
+    if (status) { sql += ' AND status = ?'; params.push(status); }
+    sql += ' ORDER BY created_at ASC LIMIT ?';
+    params.push(limit);
+
+    const rows = this.db.prepare(sql).all(...params);
+    return rows.map(r => ({ ...r, payload: JSON.parse(r.payload) }));
+  }
+
+  /**
+   * Phase 6: Import WAL entries from JSONL backup.
+   */
+  async importWal(entries) {
+    const insert = this.db.prepare(`
+      INSERT OR IGNORE INTO wal_entries
+        (lsn, operation, table_name, record_id, payload, checksum, agent_id, team_space, status, created_at)
+      VALUES (@lsn, @operation, @table_name, @record_id, @payload, @checksum, @agent_id, @team_space, @status, @created_at)
+    `);
+
+    let imported = 0;
+    this.db.transaction(() => {
+      for (const entry of entries) {
+        try {
+          insert.run({
+            ...entry,
+            payload: typeof entry.payload === 'string' ? entry.payload : JSON.stringify(entry.payload),
+          });
+          imported++;
+        } catch {}
+      }
+    })();
+    return { imported, total: entries.length };
+  }
+
+  /**
+   * Phase 6: Truncate WAL (keep committed entries, remove rolled-back).
+   */
+  async truncateWal() {
+    const result = this.db.prepare(
+      "DELETE FROM wal_entries WHERE status != 'COMMITTED'"
+    ).run();
+    return { truncated: result.changes };
+  }
+
+  /**
+   * Phase 6: WAL status summary.
+   */
+  async getWalStatus() {
+    const total = this.db.prepare('SELECT COUNT(*) as c FROM wal_entries').get().c;
+    const pending = this.db.prepare(
+      "SELECT COUNT(*) as c FROM wal_entries WHERE status = 'PENDING'"
+    ).get().c;
+    const committed = this.db.prepare(
+      "SELECT COUNT(*) as c FROM wal_entries WHERE status = 'COMMITTED'"
+    ).get().c;
+    const oldest = this.db.prepare(
+      'SELECT MIN(created_at) as t FROM wal_entries WHERE status = ?'
+    ).get('COMMITTED');
+
+    return { total, pending, committed, oldestTs: oldest.t };
+  }
 
   async stats() {
     const db = this.db;

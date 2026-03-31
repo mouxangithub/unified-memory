@@ -740,6 +740,91 @@ server.registerTool('memory_v4_rate_limit_status', {
   }
 });
 
+// ============ Phase 5: Evidence TTL + Revision Limits ============
+
+server.registerTool('memory_v4_evidence_stats', {
+  description: '[v4.0 Phase 5] Get evidence chain statistics including TTL status.',
+  inputSchema: z.object({}),
+}, async () => {
+  try {
+    const gw = await getV4Gateway();
+    const stats = await gw.getEvidenceStats();
+    return { content: [{ type: 'text', text: JSON.stringify({ v4: true, phase: 5, evidence: stats }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `evidence stats error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_v4_trim_evidence', {
+  description: '[v4.0 Phase 5] Manually trigger evidence TTL trim (90-day cutoff). Uses B-tree index — O(log n + k).',
+  inputSchema: z.object({}),
+}, async () => {
+  try {
+    const gw = await getV4Gateway();
+    const result = await gw.trimEvidence();
+    return { content: [{ type: 'text', text: JSON.stringify({ v4: true, phase: 5, trim: result }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `trim evidence error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_v4_revision_stats', {
+  description: '[v4.0 Phase 5] Get version history statistics.',
+  inputSchema: z.object({}),
+}, async () => {
+  try {
+    const gw = await getV4Gateway();
+    const stats = await gw.getRevisionStats();
+    return { content: [{ type: 'text', text: JSON.stringify({ v4: true, phase: 5, revisions: stats }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `revision stats error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ Phase 6: WAL Operations ============
+
+server.registerTool('memory_v4_wal_status', {
+  description: '[v4.0 Phase 6] Get WAL status (total, pending, committed, oldest).',
+  inputSchema: z.object({}),
+}, async () => {
+  try {
+    const gw = await getV4Gateway();
+    const status = await gw.getWalStatus();
+    return { content: [{ type: 'text', text: JSON.stringify({ v4: true, phase: 6, wal: status }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `wal status error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_v4_wal_export', {
+  description: '[v4.0 Phase 6] Export WAL entries as JSONL for backup/audit.',
+  inputSchema: z.object({
+    since: z.number().optional().describe('Unix ms timestamp to export from'),
+    limit: z.number().optional().default(1000),
+  }),
+}, async ({ since, limit = 1000 }) => {
+  try {
+    const gw = await getV4Gateway();
+    const entries = await gw.exportWal({ since, limit });
+    return { content: [{ type: 'text', text: JSON.stringify({ v4: true, phase: 6, count: entries.length, entries }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `wal export error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_v4_wal_truncate', {
+  description: '[v4.0 Phase 6] Remove non-committed WAL entries (cleanup after crash recovery).',
+  inputSchema: z.object({}),
+}, async () => {
+  try {
+    const gw = await getV4Gateway();
+    const result = await gw.truncateWal();
+    return { content: [{ type: 'text', text: JSON.stringify({ v4: true, phase: 6, truncate: result }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `wal truncate error: ${err.message}` }], isError: true };
+  }
+});
+
 // ============ PIN Tools (v3.4) ============
 
 server.registerTool('memory_pin', {
