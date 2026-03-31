@@ -11,6 +11,8 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories } from '../storage.js';
+
 
 const HOME = process.env.HOME || '/root';
 const WORKSPACE = join(HOME, '.openclaw', 'workspace');
@@ -90,15 +92,6 @@ function saveConfig(config) {
 // ============================================================
 // Data Loading
 // ============================================================
-
-function loadMemories() {
-  if (existsSync(MEMORIES_FILE)) {
-    try {
-      return JSON.parse(readFileSync(MEMORIES_FILE, 'utf-8'));
-    } catch { /* ignore */ }
-  }
-  return [];
-}
 
 function loadAccessHistory() {
   if (existsSync(ACCESS_FILE)) {
@@ -263,7 +256,7 @@ function getProjectBasedPredictions(projects) {
 
 function predictToday() {
   const config = loadConfig();
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const accessHistory = loadAccessHistory();
   const now = new Date();
 
@@ -307,7 +300,7 @@ function predictToday() {
 }
 
 function trainPatterns() {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const accessHistory = loadAccessHistory();
 
   const timePatterns = analyzeTimePatterns();
@@ -430,7 +423,7 @@ export function cmdPredict(command, args) {
 export async function enhancedPredictRecall(context, options = {}) {
   const { topK = 5, includeTTL = true } = options;
 
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const now = Date.now();
   const DAY_MS = 24 * 3600 * 1000;
 
@@ -510,7 +503,7 @@ export async function enhancedPredictRecall(context, options = {}) {
  * @param {number} topK - Number of related memories to predict
  */
 export function predictRelatedOnAccess(memoryId, topK = 3) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const target = memories.find(m => m.id === memoryId);
   if (!target) return [];
 
@@ -571,7 +564,7 @@ export function predictRelatedOnAccess(memoryId, topK = 3) {
  * @param {number} topK - Number of high-value memories to return
  */
 export function predictHighValueMemories(topK = 5) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const now = Date.now();
   const DAY_MS = 24 * 3600 * 1000;
 

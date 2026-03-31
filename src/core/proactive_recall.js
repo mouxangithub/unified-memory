@@ -4,16 +4,11 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories } from '../storage.js';
+
 
 const WORKSPACE = join(process.env.HOME || '/root', '.openclaw', 'workspace');
 const MEMORY_DIR = join(WORKSPACE, 'memory');
-
-function loadMemories() {
-  const file = join(MEMORY_DIR, 'memories.json');
-  if (!existsSync(file)) return [];
-  try { return JSON.parse(readFileSync(file, 'utf-8')); }
-  catch { return []; }
-}
 
 const CONTEXT_TRIGGERS = {
   project: ['项目', '开发', '代码', 'git', 'project', 'code'],
@@ -22,7 +17,7 @@ const CONTEXT_TRIGGERS = {
 };
 
 export function predictRecall(context) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const contextLower = context.toLowerCase();
   const predictions = [];
   

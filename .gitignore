@@ -2,3 +2,6 @@ core
 *.core
 node_modules/
 wal/
+transcripts/
+memory/
+*.log

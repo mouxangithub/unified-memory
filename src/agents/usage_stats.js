@@ -4,19 +4,14 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories } from '../storage.js';
+
 
 const WORKSPACE = join(process.env.HOME || '/root', '.openclaw', 'workspace');
 const MEMORY_DIR = join(WORKSPACE, 'memory');
 
-function loadMemories() {
-  const file = join(MEMORY_DIR, 'memories.json');
-  if (!existsSync(file)) return [];
-  try { return JSON.parse(readFileSync(file, 'utf-8')); }
-  catch { return []; }
-}
-
 export function generateStats() {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const byCategory = {}, byImportance = { high: 0, medium: 0, low: 0 };
   const tagCounts = {};
   let totalImportance = 0, totalConfidence = 0;

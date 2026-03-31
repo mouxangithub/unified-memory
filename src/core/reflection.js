@@ -4,16 +4,11 @@
 
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories } from '../storage.js';
+
 
 const WORKSPACE = join(process.env.HOME || '/root', '.openclaw', 'workspace');
 const MEMORY_DIR = join(WORKSPACE, 'memory');
-
-function loadMemories() {
-  const file = join(MEMORY_DIR, 'memories.json');
-  if (!existsSync(file)) return [];
-  try { return JSON.parse(readFileSync(file, 'utf-8')); }
-  catch { return []; }
-}
 
 export function reflect(memory) {
   const insights = [];
@@ -30,7 +25,7 @@ export function reflect(memory) {
 }
 
 export function runReflectionCycle() {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   for (const mem of memories) {
     mem.reflection_count = (mem.reflection_count || 0) + 1;
     mem.last_reflected = new Date().toISOString();
@@ -46,7 +41,7 @@ export function runReflectionCycle() {
 }
 
 export function printReflectionReport() {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const results = memories.slice(0, 5).map(reflect);
   console.log('\n🪞 Memory Reflection Report\n');
   console.log(`  Total Memories: ${memories.length}`);

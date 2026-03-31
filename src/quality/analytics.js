@@ -4,22 +4,15 @@
 
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories } from '../storage.js';
+
 
 const WORKSPACE = join(process.env.HOME || '/root', '.openclaw', 'workspace');
 const MEMORY_DIR = join(WORKSPACE, 'memory');
 const ANALYTICS_DIR = join(MEMORY_DIR, 'analytics');
 
-function loadMemories() {
-  const file = join(MEMORY_DIR, 'memories.json');
-  if (!existsSync(file)) return [];
-  try {
-    const data = readFileSync(file, 'utf-8');
-    return JSON.parse(data);
-  } catch { return []; }
-}
-
 export function generateAnalytics() {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   
   const byCategory = {};
   const byDate = {};

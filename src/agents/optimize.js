@@ -4,24 +4,15 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories, saveMemories } from '../storage.js';
 
 const WORKSPACE = join(process.env.HOME || '/root', '.openclaw', 'workspace');
 const MEMORY_DIR = join(WORKSPACE, 'memory');
 
-function loadMemories() {
-  const file = join(MEMORY_DIR, 'memories.json');
-  if (!existsSync(file)) return [];
-  try { return JSON.parse(readFileSync(file, 'utf-8')); }
-  catch { return []; }
-}
-
-function saveMemories(memories) {
-  mkdirSync(MEMORY_DIR, { recursive: true });
-  writeFileSync(join(MEMORY_DIR, 'memories.json'), JSON.stringify(memories, null, 2), 'utf-8');
-}
+// NOTE: loadMemories and saveMemories now delegated to ../storage.js
 
 export function deduplicate() {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const seen = new Set();
   const before = memories.length;
   const unique = memories.filter(mem => {

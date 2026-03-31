@@ -4,16 +4,11 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories } from '../storage.js';
+
 
 const WORKSPACE = join(process.env.HOME || '/root', '.openclaw', 'workspace');
 const MEMORY_DIR = join(WORKSPACE, 'memory');
-
-function loadMemories() {
-  const file = join(MEMORY_DIR, 'memories.json');
-  if (!existsSync(file)) return [];
-  try { return JSON.parse(readFileSync(file, 'utf-8')); }
-  catch { return []; }
-}
 
 function evaluateContent(memory) {
   const text = memory.text || '';
@@ -65,7 +60,7 @@ export function evaluateMemory(memory) {
 }
 
 export function evaluateAll() {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const scored = memories.map(evaluateMemory);
   
   const distribution = { excellent: 0, good: 0, fair: 0, poor: 0 };

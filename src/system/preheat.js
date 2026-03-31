@@ -4,22 +4,17 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories } from '../storage.js';
+
 
 const WORKSPACE = join(process.env.HOME || '/root', '.openclaw', 'workspace');
 const MEMORY_DIR = join(WORKSPACE, 'memory');
 const PREHEAT_DIR = join(MEMORY_DIR, 'preheat');
 
-function loadMemories() {
-  const file = join(MEMORY_DIR, 'memories.json');
-  if (!existsSync(file)) return [];
-  try { return JSON.parse(readFileSync(file, 'utf-8')); }
-  catch { return []; }
-}
-
 export function classifyMemories(config = {}) {
   const hotThreshold = config.hotThreshold ?? 10;
   const warmThreshold = config.warmThreshold ?? 3;
-  const memories = loadMemories();
+  const memories = getAllMemories();
   
   const hot = [], warm = [], cold = [];
   

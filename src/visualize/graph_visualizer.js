@@ -4,20 +4,15 @@
 
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories } from '../storage.js';
+
 
 const WORKSPACE = join(process.env.HOME || '/root', '.openclaw', 'workspace');
 const MEMORY_DIR = join(WORKSPACE, 'memory');
 const VISUAL_DIR = MEMORY_DIR;
 
-function loadMemories() {
-  const file = join(MEMORY_DIR, 'memories.json');
-  if (!existsSync(file)) return [];
-  try { return JSON.parse(readFileSync(file, 'utf-8')); }
-  catch { return []; }
-}
-
 export function buildGraph(memories) {
-  const data = memories || loadMemories();
+  const data = memories || getAllMemories();
   const nodes = [], edges = [];
   const nodeIds = new Set();
   

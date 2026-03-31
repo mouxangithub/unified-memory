@@ -4,24 +4,14 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories, saveMemories } from '../storage.js';
+
 
 const WORKSPACE = join(process.env.HOME || '/root', '.openclaw', 'workspace');
 const MEMORY_DIR = join(WORKSPACE, 'memory');
 
-function loadMemories() {
-  const file = join(MEMORY_DIR, 'memories.json');
-  if (!existsSync(file)) return [];
-  try { return JSON.parse(readFileSync(file, 'utf-8')); }
-  catch { return []; }
-}
-
-function saveMemories(memories) {
-  mkdirSync(MEMORY_DIR, { recursive: true });
-  writeFileSync(join(MEMORY_DIR, 'memories.json'), JSON.stringify(memories, null, 2), 'utf-8');
-}
-
 export async function store(memory) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const now = new Date().toISOString();
   const mem = {
     id: memory.id || `mem_${Date.now()}`,
@@ -44,12 +34,12 @@ export async function store(memory) {
 }
 
 export async function get(id) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   return memories.find(m => m.id === id) || null;
 }
 
 export async function remove(id) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const idx = memories.findIndex(m => m.id === id);
   if (idx === -1) return false;
   memories.splice(idx, 1);
@@ -58,17 +48,17 @@ export async function remove(id) {
 }
 
 export async function search(query, limit = 10) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const q = query.toLowerCase();
   return memories.filter(m => (m.text || '').toLowerCase().includes(q) || (m.tags || []).some(t => t.toLowerCase().includes(q))).slice(0, limit);
 }
 
 export async function getAll(limit = 100) {
-  return loadMemories().slice(0, limit);
+  return getAllMemories().slice(0, limit);
 }
 
 export async function count() {
-  return loadMemories().length;
+  return getAllMemories().length;
 }
 
 if (require.main === module) {

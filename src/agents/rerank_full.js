@@ -5,6 +5,8 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories } from '../storage.js';
+
 
 const WORKSPACE = join(process.env.HOME || '/root', '.openclaw', 'workspace');
 const MEMORY_DIR = join(WORKSPACE, 'memory');
@@ -21,15 +23,6 @@ const DEFAULT_CONFIG = {
 /**
  * Load memories
  */
-function loadMemories() {
-  const file = join(MEMORY_DIR, 'memories.json');
-  if (!existsSync(file)) return [];
-  try {
-    return JSON.parse(readFileSync(file, 'utf-8'));
-  } catch {
-    return [];
-  }
-}
 
 /**
  * Simple text scoring for reranking
@@ -113,7 +106,7 @@ export function rerank(query, results, config) {
  * Search and rerank
  */
 export function searchAndRerank(query, options = {}) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const q = query.toLowerCase();
   
   // Initial search

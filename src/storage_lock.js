@@ -55,10 +55,10 @@ function initPidLock() {
   // If we can't get it, another process is running
   const flockResult = execSync(
     `flock -x -n "${STORAGE_LOCK_FILE}" -c "echo $$" 2>/dev/null`,
-    { stdio: 'ignore', timeout: 5 }
+    { stdio: 'pipe', timeout: 5 }
   );
   
-  if (flockResult.status === 0) {
+  if (flockResult?.status === 0) {
     // We got the lock - another process was holding it, we're the duplicate
     try {
       execSync(`flock -x -w 1 "${STORAGE_LOCK_FILE}" -c "echo locked"`, { stdio: 'ignore', timeout: 2 });

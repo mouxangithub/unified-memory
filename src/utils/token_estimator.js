@@ -82,8 +82,8 @@ export function estimateTokens(text) {
   // Other unicode: conservative estimate
   const otherTokens = Math.ceil(other / 2.0);
 
-  const total = asciiTokens + chineseTokens + codeTokens + punctTokens + wsTokens + otherTokens;
-  return Math.max(1, total);
+  const totalTokens = asciiTokens + chineseTokens + codeTokens + punctTokens + wsTokens + otherTokens;
+  return Math.max(1, totalTokens);
 }
 
 /**

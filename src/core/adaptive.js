@@ -4,23 +4,13 @@
 
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories, saveMemories } from '../storage.js';
+
 
 const WORKSPACE = join(process.env.HOME || '/root', '.openclaw', 'workspace');
 const MEMORY_DIR = join(WORKSPACE, 'memory');
 
 const DEFAULT_CONFIG = { learningRate: 0.1, decayThreshold: 0.05, boostThreshold: 0.2, minImportance: 0.1, maxImportance: 0.95 };
-
-function loadMemories() {
-  const file = join(MEMORY_DIR, 'memories.json');
-  if (!existsSync(file)) return [];
-  try { return JSON.parse(readFileSync(file, 'utf-8')); }
-  catch { return []; }
-}
-
-function saveMemories(memories) {
-  mkdirSync(MEMORY_DIR, { recursive: true });
-  writeFileSync(join(MEMORY_DIR, 'memories.json'), JSON.stringify(memories, null, 2), 'utf-8');
-}
 
 export function adaptMemory(memory, recentAccesses) {
   const oldImportance = memory.importance ?? 0.5;
@@ -43,7 +33,7 @@ export function adaptMemory(memory, recentAccesses) {
 }
 
 export function autoTune() {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   let adapted = 0;
   
   for (const mem of memories) {
@@ -61,7 +51,7 @@ export function autoTune() {
 }
 
 export function printAdaptationReport() {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   let boosted = 0, decayed = 0, stable = 0;
   let totalImportance = 0;
   

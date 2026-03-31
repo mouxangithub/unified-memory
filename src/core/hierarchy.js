@@ -4,23 +4,13 @@
 
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories, saveMemories } from '../storage.js';
+
 
 const WORKSPACE = join(process.env.HOME || '/root', '.openclaw', 'workspace');
 const MEMORY_DIR = join(WORKSPACE, 'memory');
 
 const TIERS = { L1_hot: { minAccess: 10, minImportance: 0.7 }, L2_warm: { minAccess: 3, minImportance: 0.4 }, L3_cold: { default: true } };
-
-function loadMemories() {
-  const file = join(MEMORY_DIR, 'memories.json');
-  if (!existsSync(file)) return [];
-  try { return JSON.parse(readFileSync(file, 'utf-8')); }
-  catch { return []; }
-}
-
-function saveMemories(memories) {
-  mkdirSync(MEMORY_DIR, { recursive: true });
-  writeFileSync(join(MEMORY_DIR, 'memories.json'), JSON.stringify(memories, null, 2), 'utf-8');
-}
 
 export function getTier(memory) {
   const accessCount = memory.access_count ?? 0;
@@ -31,7 +21,7 @@ export function getTier(memory) {
 }
 
 export function getTierStats() {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const stats = { L1_hot: { count: 0, totalImportance: 0, totalAccess: 0 }, L2_warm: { count: 0, totalImportance: 0, totalAccess: 0 }, L3_cold: { count: 0, totalImportance: 0, totalAccess: 0 } };
   
   for (const mem of memories) {
@@ -51,7 +41,7 @@ export function getTierStats() {
 
 export function printHierarchyReport() {
   const stats = getTierStats();
-  const memories = loadMemories();
+  const memories = getAllMemories();
   
   console.log('\n🗂️  Memory Hierarchy Report\n');
   console.log(`  Total Memories: ${memories.length}\n`);

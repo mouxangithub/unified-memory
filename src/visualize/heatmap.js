@@ -4,20 +4,15 @@
 
 import { readFileSync, writeSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories } from '../storage.js';
+
 
 const WORKSPACE = join(process.env.HOME || '/root', '.openclaw', 'workspace');
 const MEMORY_DIR = join(WORKSPACE, 'memory');
 const HEATMAP_DIR = join(MEMORY_DIR, 'heatmaps');
 
-function loadMemories() {
-  const file = join(MEMORY_DIR, 'memories.json');
-  if (!existsSync(file)) return [];
-  try { return JSON.parse(readFileSync(file, 'utf-8')); }
-  catch { return []; }
-}
-
 export function calculateHeatmap() {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const entries = memories.map(mem => {
     const accessCount = mem.access_count || 0;
     const importance = mem.importance || 0.5;

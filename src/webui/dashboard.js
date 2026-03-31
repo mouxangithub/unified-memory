@@ -18,6 +18,7 @@ import { dirname, join } from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { createRequire } from 'module';
 import { homedir } from 'os';
+import { getAllMemories, saveMemories } from '../storage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -40,21 +41,7 @@ const PORT = parseInt(process.argv.find(a => a.startsWith('--port='))?.split('='
 // ============================================================
 // Data Loading Helpers
 // ============================================================
-
-function loadMemories() {
-  try {
-    if (!existsSync(MEMORY_FILE)) return [];
-    const data = JSON.parse(readFileSync(MEMORY_FILE, 'utf-8'));
-    return Array.isArray(data) ? data : (data.memories || []);
-  } catch { return []; }
-}
-
-function saveMemories(memories) {
-  try {
-    mkdirSync(path.dirname(MEMORY_FILE), { recursive: true });
-    writeFileSync(MEMORY_FILE, JSON.stringify(memories, null, 2), 'utf-8');
-  } catch (e) { /* ignore */ }
-}
+// saveMemories now delegated to ../storage.js
 
 // ============================================================
 // Metrics Computation
@@ -70,7 +57,7 @@ function getStats() {
     return _metricsCache;
   }
 
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const byCategory = {};
   const byScope = { AGENT: 0, USER: 0, TEAM: 0, GLOBAL: 0, unknown: 0 };
   const byTier = { HOT: 0, WARM: 0, COLD: 0 };
@@ -194,7 +181,7 @@ async function getHealth() {
         sizeMB: (stat.size / 1024 / 1024).toFixed(2),
         path: MEMORY_FILE,
       };
-      health.memory = { status: 'ok', count: loadMemories().length };
+      health.memory = { status: 'ok', count: getAllMemories().length };
     } else {
       health.memoryFile = { status: 'not_found', path: MEMORY_FILE };
       health.memory = { status: 'empty', count: 0 };
@@ -584,7 +571,7 @@ init();
 // ============================================================
 
 function doCleanup(days = 30) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
   const before = memories.length;
   const filtered = memories.filter(m => {
@@ -646,13 +633,13 @@ async function handleRequest(req, res) {
   }
 
   if (url === '/api/memories' && req.method === 'GET') {
-    const memories = loadMemories();
+    const memories = getAllMemories();
     res.end(JSON.stringify(memories));
     return;
   }
 
   if (url === '/api/export' && req.method === 'GET') {
-    const memories = loadMemories();
+    const memories = getAllMemories();
     res.writeHead(200, {
       'Content-Type': 'application/json',
       'Content-Disposition': `attachment; filename="memories_${new Date().toISOString().slice(0,10)}.json"`

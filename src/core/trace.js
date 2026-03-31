@@ -11,6 +11,8 @@
 
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories } from '../storage.js';
+
 
 const HOME = process.env.HOME || '/root';
 const WORKSPACE = join(HOME, '.openclaw', 'workspace');
@@ -21,21 +23,6 @@ const TRACE_FILE = join(MEMORY_DIR, 'decision_traces.json');
 // ============================================================
 // Utilities
 // ============================================================
-
-/**
- * Load all memories from file
- * @returns {Array<object>}
- */
-export function loadMemories() {
-  if (existsSync(MEMORIES_FILE)) {
-    try {
-      return JSON.parse(readFileSync(MEMORIES_FILE, 'utf-8'));
-    } catch {
-      // ignore
-    }
-  }
-  return [];
-}
 
 /**
  * Load traces from file
@@ -129,7 +116,7 @@ export function findRelatedMemories(memories, mem) {
  * @returns {object}
  */
 export function traceMemory(memId) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const traces = loadTraces();
 
   const mem = findMemoryById(memories, memId);
@@ -183,7 +170,7 @@ export function traceMemory(memId) {
  * @returns {Array<object>}
  */
 export function showTimeline(limit = 10) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
 
   // Filter decision category memories
   const decisions = memories
@@ -267,7 +254,7 @@ export function cmdTrace(memId, args = {}) {
 }
 
 export default {
-  loadMemories,
+  getAllMemories,
   loadTraces,
   saveTraces,
   findMemoryById,

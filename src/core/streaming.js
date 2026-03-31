@@ -4,19 +4,14 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories } from '../storage.js';
+
 
 const WORKSPACE = join(process.env.HOME || '/root', '.openclaw', 'workspace');
 const MEMORY_DIR = join(WORKSPACE, 'memory');
 
-function loadMemories() {
-  const file = join(MEMORY_DIR, 'memories.json');
-  if (!existsSync(file)) return [];
-  try { return JSON.parse(readFileSync(file, 'utf-8')); }
-  catch { return []; }
-}
-
 export async function* streamMemories(batchSize = 10) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   for (let i = 0; i < memories.length; i += batchSize) {
     yield memories.slice(i, i + batchSize);
     await new Promise(resolve => setTimeout(resolve, 1));
@@ -24,7 +19,7 @@ export async function* streamMemories(batchSize = 10) {
 }
 
 export async function* streamByCategory(category, batchSize = 10) {
-  const allMemories = loadMemories();
+  const allMemories = getAllMemories();
   const filtered = allMemories.filter(m => m.category === category);
   for (let i = 0; i < filtered.length; i += batchSize) {
     yield filtered.slice(i, i + batchSize);
@@ -33,7 +28,7 @@ export async function* streamByCategory(category, batchSize = 10) {
 }
 
 export async function* streamSearch(query, batchSize = 10) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const q = query.toLowerCase();
   const filtered = memories.filter(m => (m.text || '').toLowerCase().includes(q));
   for (let i = 0; i < filtered.length; i += batchSize) {

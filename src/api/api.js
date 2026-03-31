@@ -4,27 +4,19 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { getAllMemories, saveMemories } from '../storage.js';
+
 
 const WORKSPACE = join(process.env.HOME || '/root', '.openclaw', 'workspace');
 const MEMORY_DIR = join(WORKSPACE, 'memory');
 const MEMORIES_FILE = join(MEMORY_DIR, 'memories.json');
-
-function loadMemories() {
-  if (!existsSync(MEMORIES_FILE)) return [];
-  try { return JSON.parse(readFileSync(MEMORIES_FILE, 'utf-8')); }
-  catch { return []; }
-}
-
-function saveMemories(memories) {
-  writeFileSync(MEMORIES_FILE, JSON.stringify(memories, null, 2), 'utf-8');
-}
 
 function generateId() {
   return `mem_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 }
 
 export function getMemories(filters) {
-  let memories = loadMemories();
+  let memories = getAllMemories();
   if (filters?.category) memories = memories.filter(m => m.category === filters.category);
   if (filters?.minImportance !== undefined) memories = memories.filter(m => m.importance >= filters.minImportance);
   memories.sort((a, b) => (b.importance || 0.5) - (a.importance || 0.5));
@@ -33,12 +25,12 @@ export function getMemories(filters) {
 }
 
 export function getMemory(id) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   return memories.find(m => m.id === id) || null;
 }
 
 export function createMemory(data) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const now = new Date().toISOString();
   const memory = {
     id: generateId(),
@@ -59,7 +51,7 @@ export function createMemory(data) {
 }
 
 export function updateMemory(id, data) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const idx = memories.findIndex(m => m.id === id);
   if (idx === -1) return null;
   memories[idx] = { ...memories[idx], ...data, id, updated_at: new Date().toISOString() };
@@ -68,7 +60,7 @@ export function updateMemory(id, data) {
 }
 
 export function deleteMemory(id) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const idx = memories.findIndex(m => m.id === id);
   if (idx === -1) return false;
   memories.splice(idx, 1);
@@ -77,7 +69,7 @@ export function deleteMemory(id) {
 }
 
 export function searchMemories(query, limit = 10) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const q = query.toLowerCase();
   const results = memories.filter(m => 
     m.text.toLowerCase().includes(q) || (m.tags && m.tags.some(t => t.toLowerCase().includes(q)))
@@ -86,7 +78,7 @@ export function searchMemories(query, limit = 10) {
 }
 
 export function recordAccess(id) {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const idx = memories.findIndex(m => m.id === id);
   if (idx !== -1) {
     memories[idx].access_count = (memories[idx].access_count || 0) + 1;
@@ -96,7 +88,7 @@ export function recordAccess(id) {
 }
 
 export function printStats() {
-  const memories = loadMemories();
+  const memories = getAllMemories();
   const byCategory = {};
   const byTier = { hot: 0, warm: 0, cold: 0 };
   let totalImportance = 0;
@@ -160,10 +152,10 @@ export function createApiServer(port = 37888) {
         const data = body ? JSON.parse(body) : {};
         response = { success: true, data: createMemory(data) };
       } else if (path === '/api/stats' && method === 'GET') {
-        const memories = loadMemories();
+        const memories = getAllMemories();
         response = { success: true, data: { total: memories.length, byCategory: {} } };
       } else if (path === '/api/health' && method === 'GET') {
-        const memories = loadMemories();
+        const memories = getAllMemories();
         response = { success: true, data: { score: memories.length > 0 ? 85 : 50, total: memories.length } };
       } else {
         response = { success: false, error: 'Not found' };
