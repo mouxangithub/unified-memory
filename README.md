@@ -1,4 +1,6 @@
-# 🧠 Unified Memory v3.8.x
+---priority: critical
+title: Unified Memory v4.0.0
+---
 
 > AI Agent Memory System — Multi-layered, Persistent, Proactive
 
@@ -26,7 +28,7 @@
 
 ---
 
-## Overview
+## Overview (v4.0.0)
 
 Unified Memory is the most feature-rich memory system MCP server for OpenClaw agents. It provides persistent context, hybrid search (BM25 + Vector + RRF), Weibull decay, WAL-based crash recovery, evidence chains, transcript-first architecture, lane memory, token budget enforcement, and deep scope isolation — all in pure Node.js ESM with zero Python dependencies.
 

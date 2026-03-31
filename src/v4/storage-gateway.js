@@ -510,7 +510,7 @@ export class StorageGateway {
     }
 
     // Get all non-deleted memories for scoring
-    const rows = this.db.prepare(`SELECT id, text, category, importance FROM memories WHERE ${scopeCondition}`).all(...params);
+    const rows = this.db.prepare(`SELECT id, text, category, importance, scope_type, scope_id FROM memories WHERE ${scopeCondition}`).all(...params);
     if (rows.length === 0) return [];
 
     const topK = options.topK || 10;
@@ -540,13 +540,19 @@ export class StorageGateway {
   /** Max revisions per memory: 50 */
   static get MAX_REVISIONS_PER_MEMORY() { return 50; }
 
+  /** Global trim runs every N addEvidence calls */
+  static get TRIM_EVERY_N_CALLS() { return 50; }
+
+  /** Counter for global trim triggers */
+  _evidenceTrimCounter = 0;
+
   async addEvidence(memoryId, evidence) {
     const id = `ev_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const now = Date.now();
 
-    // Phase 5: TTL trim — O(log n + k) via B-tree
+    // Phase 5: Per-memory TTL trim — O(log n + k) via B-tree index
     const cutoff = now - StorageGateway.EVIDENCE_TTL_MS;
-    const trimResult = this.db.prepare(
+    this.db.prepare(
       'DELETE FROM evidence WHERE memory_id = ? AND timestamp < ?'
     ).run(memoryId, cutoff);
 
@@ -556,6 +562,14 @@ export class StorageGateway {
     `).run(id, memoryId, evidence.type || 'manual', evidence.source_id || null,
       evidence.context || null, evidence.confidence ?? 1.0,
       evidence.timestamp || now, now);
+
+    // Phase 5: Global trim every N calls (lightweight, O(log n + k))
+    this._evidenceTrimCounter++;
+    if (this._evidenceTrimCounter >= StorageGateway.TRIM_EVERY_N_CALLS) {
+      this._evidenceTrimCounter = 0;
+      this.db.prepare('DELETE FROM evidence WHERE timestamp < ?').run(cutoff);
+    }
+
     return { id };
   }
 

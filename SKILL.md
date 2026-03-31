@@ -118,6 +118,8 @@ All v4 tools: `mcporter call unified-memory <tool-name> '<json-args>'`
 | `memory_v4_get_team` | Get team config + memory count |
 | `memory_v4_delete_team` | Delete team (memories preserved) |
 | `memory_v4_team_store` | Store memory in team space (auto-creates team) |
+| `memory_v4_team_search` | **Strict team isolation** — only team memories, never leaks to USER/GLOBAL scope |
+| `memory_v4_team_search` | **Strict team isolation search** — only team memories, never leaks to USER/GLOBAL scope |
 
 ### v4.0 Phase 4: Distributed Rate Limiting
 
@@ -166,6 +168,7 @@ All v4 tools: `mcporter call unified-memory <tool-name> '<json-args>'`
 | `memory_v4_get_team` | 获取团队配置 + 记忆数 |
 | `memory_v4_delete_team` | 删除团队（记忆保留） |
 | `memory_v4_team_store` | 在团队空间中存储记忆（自动创建团队） |
+| `memory_v4_team_search` | **严格团队隔离搜索** — 仅搜团队内记忆，绝不泄露到 USER/GLOBAL |
 
 ### v4.0 Phase 4: 分布式限流
 

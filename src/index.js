@@ -825,6 +825,234 @@ server.registerTool('memory_v4_wal_truncate', {
   }
 });
 
+/**
+ * Helper: get vector search results from Ollama.
+ * Returns array of {id, score, text, category, ...} or empty array on failure.
+ */
+async function vectorSearch(query, topK) {
+  try {
+    const { default: ollama } = await import('ollama');
+    const host = process.env.OLLAMA_HOST || 'http://localhost:11434';
+    const model = process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text';
+
+    const embResp = await fetch(`${host}/api/embeddings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, prompt: query }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!embResp.ok) return [];
+    const { embedding } = await embResp.json();
+
+    // Search LanceDB if available
+    const { VectorMemory } = await import('./vector_lancedb.js').catch(() => ({}));
+    if (VectorMemory) {
+      const vm = new VectorMemory();
+      await vm.initialize().catch(() => {});
+      const results = await vm.search(embedding, topK).catch(() => []);
+      return results.map(r => ({
+        id: r.id,
+        score: r.score ?? 0,
+        text: r.memory?.text ?? r.text ?? '',
+        category: r.memory?.category ?? r.category ?? '',
+        importance: r.memory?.importance ?? r.importance ?? 0.5,
+        scope: r.memory?.scope ?? r.scope ?? 'USER',
+      }));
+    }
+    return [];
+  } catch { return []; }
+}
+
+// Phase 3: Team-scoped search (strict isolation — does NOT leak to USER/GLOBAL)
+server.registerTool('memory_v4_team_search', {
+  description: '[v4.0 Phase 3] Search memories within a specific team space ONLY. Strict isolation — team memories never leak to USER scope.',
+  inputSchema: z.object({
+    teamId: z.string().describe('Team identifier (e.g., dev_team)'),
+    query: z.string().describe('Search query'),
+    topK: z.number().optional().default(5),
+    mode: z.enum(['bm25', 'hybrid']).optional().default('hybrid'),
+    bm25Weight: z.number().optional().default(0.5),
+  }),
+}, async ({ teamId, query, topK = 5, mode = 'hybrid', bm25Weight = 0.5 }) => {
+  try {
+    const gw = await getV4Gateway();
+
+    if (mode === 'bm25') {
+      const results = await gw.searchMemories(query, { topK, scopeType: 'TEAM', scopeId: teamId });
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            v4: true, phase: 3, engine: 'bm25',
+            teamId, mode: 'bm25', count: results.length,
+            results: results.map(r => ({
+              id: r.id, text: r.text, category: r.category,
+              importance: r.importance, score: r.score,
+            })),
+          }, null, 2),
+        }],
+      };
+    }
+
+    // Hybrid: BM25 + Vector
+    const [bm25Results, vectorResults] = await Promise.all([
+      gw.searchMemories(query, { topK: topK * 4, scopeType: 'TEAM', scopeId: teamId }),
+      vectorSearch(query, topK * 4).catch(() => []),
+    ]);
+
+    const bm25Max = Math.max(1, ...bm25Results.map(r => r.score || 0));
+    const vectorMax = Math.max(1, ...vectorResults.map(r => r.score || 0));
+    const k = 60;
+    const fused = new Map();
+
+    for (let i = 0; i < bm25Results.length; i++) {
+      const r = bm25Results[i];
+      const normScore = (r.score || 0) / bm25Max;
+      const w = (1 / (k + i + 1)) * normScore * bm25Weight;
+      fused.set(r.id, { ...r, fusionScore: w, bm25Rank: i, vectorRank: null, vectorScore: null });
+    }
+
+    for (let i = 0; i < vectorResults.length; i++) {
+      const r = vectorResults[i];
+      const rawScore = r.score || 0;
+      const normScore = rawScore / vectorMax;
+      const w = (1 / (k + i + 1)) * normScore * (1 - bm25Weight);
+      if (fused.has(r.id)) {
+        fused.get(r.id).fusionScore += w;
+        fused.get(r.id).vectorScore = Math.round(rawScore * 1000) / 1000;
+        fused.get(r.id).vectorRank = i;
+      } else {
+        fused.set(r.id, {
+          id: r.id, text: r.text, category: r.category, importance: r.importance,
+          scope: `TEAM:${teamId}`, bm25Score: null,
+          vectorScore: Math.round(rawScore * 1000) / 1000,
+          fusionScore: w, bm25Rank: null, vectorRank: i,
+        });
+      }
+    }
+
+    const results = Array.from(fused.values())
+      .sort((a, b) => b.fusionScore - a.fusionScore)
+      .slice(0, topK)
+      .map(r => ({
+        id: r.id, text: r.text, category: r.category, importance: r.importance,
+        fusionScore: Math.round(r.fusionScore * 1000) / 1000,
+        bm25Score: r.bm25Score,
+        vectorScore: r.vectorScore,
+      }));
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          v4: true, phase: 3, engine: 'hybrid',
+          teamId, mode: 'hybrid', count: results.length, results,
+        }, null, 2),
+      }],
+    };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `team search error: ${err.message}` }], isError: true };
+  }
+});
+
+/**
+ * Helper: get vector search results from Ollama.
+ * Returns array of {id, score, text, category, ...} or empty array on failure.
+ */
+
+
+// Phase 3: Team-scoped search (strict isolation — does NOT leak to USER/GLOBAL)
+server.registerTool('memory_v4_team_search', {
+  description: '[v4.0 Phase 3] Search memories within a specific team space ONLY. Strict isolation — team memories never leak to USER scope.',
+  inputSchema: z.object({
+    teamId: z.string().describe('Team identifier (e.g., dev_team)'),
+    query: z.string().describe('Search query'),
+    topK: z.number().optional().default(5),
+    mode: z.enum(['bm25', 'hybrid']).optional().default('hybrid'),
+    bm25Weight: z.number().optional().default(0.5),
+  }),
+}, async ({ teamId, query, topK = 5, mode = 'hybrid', bm25Weight = 0.5 }) => {
+  try {
+    const gw = await getV4Gateway();
+
+    if (mode === 'bm25') {
+      const results = await gw.searchMemories(query, { topK, scopeType: 'TEAM', scopeId: teamId });
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            v4: true, phase: 3, engine: 'bm25',
+            teamId, mode: 'bm25', count: results.length,
+            results: results.map(r => ({
+              id: r.id, text: r.text, category: r.category,
+              importance: r.importance, score: r.score,
+            })),
+          }, null, 2),
+        }],
+      };
+    }
+
+    // Hybrid: BM25 + Vector
+    const [bm25Results, vectorResults] = await Promise.all([
+      gw.searchMemories(query, { topK: topK * 4, scopeType: 'TEAM', scopeId: teamId }),
+      vectorSearch(query, topK * 4).catch(() => []),
+    ]);
+
+    const bm25Max = Math.max(1, ...bm25Results.map(r => r.score || 0));
+    const vectorMax = Math.max(1, ...vectorResults.map(r => r.score || 0));
+    const k = 60;
+    const fused = new Map();
+
+    for (let i = 0; i < bm25Results.length; i++) {
+      const r = bm25Results[i];
+      const normScore = (r.score || 0) / bm25Max;
+      const w = (1 / (k + i + 1)) * normScore * bm25Weight;
+      fused.set(r.id, { ...r, fusionScore: w, bm25Rank: i, vectorRank: null, vectorScore: null });
+    }
+
+    for (let i = 0; i < vectorResults.length; i++) {
+      const r = vectorResults[i];
+      const rawScore = r.score || 0;
+      const normScore = rawScore / vectorMax;
+      const w = (1 / (k + i + 1)) * normScore * (1 - bm25Weight);
+      if (fused.has(r.id)) {
+        fused.get(r.id).fusionScore += w;
+        fused.get(r.id).vectorScore = Math.round(rawScore * 1000) / 1000;
+        fused.get(r.id).vectorRank = i;
+      } else {
+        fused.set(r.id, {
+          id: r.id, text: r.text, category: r.category, importance: r.importance,
+          scope: `TEAM:${teamId}`, bm25Score: null,
+          vectorScore: Math.round(rawScore * 1000) / 1000,
+          fusionScore: w, bm25Rank: null, vectorRank: i,
+        });
+      }
+    }
+
+    const results = Array.from(fused.values())
+      .sort((a, b) => b.fusionScore - a.fusionScore)
+      .slice(0, topK)
+      .map(r => ({
+        id: r.id, text: r.text, category: r.category, importance: r.importance,
+        fusionScore: Math.round(r.fusionScore * 1000) / 1000,
+        bm25Score: r.bm25Score,
+        vectorScore: r.vectorScore,
+      }));
+
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          v4: true, phase: 3, engine: 'hybrid',
+          teamId, mode: 'hybrid', count: results.length, results,
+        }, null, 2),
+      }],
+    };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `team search error: ${err.message}` }], isError: true };
+  }
+});
+
 // ============ PIN Tools (v3.4) ============
 
 server.registerTool('memory_pin', {

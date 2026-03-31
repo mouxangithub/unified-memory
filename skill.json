@@ -1,7 +1,7 @@
 {
   "name": "unified-memory",
-  "version": "3.8.11",
-  "description": "AI Agent Memory v3.8.11 - v4.0 Phase 7: Documentation Update",
+  "version": "4.0.0",
+  "description": "Unified Memory v4.0.0 - SQLite-first StorageGateway, Incremental BM25, Hybrid Search, Multi-Tenant Teams, Distributed Rate Limiting, Evidence TTL, WAL Operations",
   "author": "mouxangithub",
   "license": "MIT",
   "homepage": "https://github.com/mouxangithub/unified-memory",
