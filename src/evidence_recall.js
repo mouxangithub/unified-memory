@@ -44,6 +44,27 @@ export class EvidenceDrivenRecall {
   constructor() {
     this.evidenceIndex = new Map(); // memory_id -> evidence list
     this.sourceIndex = new Map();   // source_id -> memory_ids
+    // Auto-rebuild index from evidence_recall.json on startup
+    this._rebuildIndex();
+  }
+
+  /**
+   * Rebuild indexes from evidence_recall.json (called automatically on startup)
+   */
+  _rebuildIndex() {
+    if (!existsSync(EVIDENCE_RECALL_FILE)) return;
+    try {
+      const data = JSON.parse(readFileSync(EVIDENCE_RECALL_FILE, 'utf-8'));
+      if (!data || typeof data !== 'object') return;
+      for (const [memoryId, evidenceList] of Object.entries(data)) {
+        if (Array.isArray(evidenceList)) {
+          this.indexEvidence(memoryId, evidenceList);
+        }
+      }
+      console.log(`[EvidenceDrivenRecall] Index rebuilt: ${this.evidenceIndex.size} memories indexed`);
+    } catch (err) {
+      console.warn(`[EvidenceDrivenRecall] Failed to rebuild index: ${err.message}`);
+    }
   }
 
   /**

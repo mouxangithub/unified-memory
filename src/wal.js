@@ -146,6 +146,10 @@ export function walWrite(entry) {
 
 /**
  * Replay WAL entries for crash recovery
+ * NOTE: walTruncate() should only be called AFTER this function returns AND
+ * the caller has confirmed the replay results are committed (e.g., saved to storage).
+ * The WAL is NOT truncated automatically here to ensure replay can be re-run
+ * if the process crashes before the main storage write is confirmed.
  */
 export function walReplay(callback) {
   if (!existsSync(WAL_FILE)) {
@@ -170,7 +174,7 @@ export function walReplay(callback) {
         continue;
       }
 
-      // Execute callback
+      // Execute callback (caller is responsible for committing result before truncating)
       callback(entry);
       replayed++;
     } catch (err) {

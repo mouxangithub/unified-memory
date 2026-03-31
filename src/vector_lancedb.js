@@ -17,6 +17,7 @@ import { connect } from '@lancedb/lancedb';
 import { dirname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { fileURLToPath } from 'url';
+import { embedCache } from './embed_cache.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const VECTOR_DB_DIR = join(process.env.HOME || '/root', '.unified-memory', 'vector.lance');
@@ -24,11 +25,17 @@ const TABLE_NAME = 'memories';
 const DIMENSIONS = 768;
 
 // ── Embedding via config-active provider ──────────────────────
+// P2-3: Check text-hash embedding cache before calling Ollama
 async function getEmbeddingFromProvider(text) {
+  // P2-3: check text-hash cache first
+  const cached = embedCache.get(text);
+  if (cached) return cached;
+
   const { config } = await import('./config.js');
   const p = config.activeEmbedProvider;
   if (!p) return null; // VECTOR_ENGINE=none
 
+  let embedding = null;
   try {
     const res = await fetch(`${p.baseURL}/api/embed`, {
       method: 'POST',
@@ -38,7 +45,12 @@ async function getEmbeddingFromProvider(text) {
     });
     if (!res.ok) return null;
     const data = await res.json();
-    return data.embeddings?.[0] || data.embedding || null;
+    embedding = data.embeddings?.[0] || data.embedding || null;
+    if (embedding) {
+      // P2-3: store in text-hash cache for future lookups
+      try { embedCache.set(text, embedding); } catch (_) { /* cache full, non-fatal */ }
+    }
+    return embedding;
   } catch (e) {
     console.warn(`[vector_lancedb] Embed error (${p.name}):`, e.message);
     return null;

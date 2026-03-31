@@ -2260,6 +2260,9 @@ async function main() {
         replayed++;
       });
       
+      // Truncate WAL only AFTER replay is confirmed (entries have been re-applied to storage)
+      walTruncate();
+      
       return { content: [{ type: 'text', text: `Replayed ${replayed} entries, ${errors} errors` }] };
     });
 

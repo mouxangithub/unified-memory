@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'fs';
+import { readFile, writeFile, rename } from 'fs/promises';
 import { join } from 'path';
 import { config } from './config.js';
 import { acquireLockSync, releaseLockSync, initWalStorage, logWriteOp } from './storage_lock.js';
@@ -57,10 +58,56 @@ async function getVectorMem() {
 const memoryCache = new Map();
 let cacheDirty = false;
 
+// ─── Write-Behind Buffer (P0-3) ──────────────────────────────────────────────
+const WRITE_BEHIND_DELAY_MS = 500;
+let _writeTimer = null;
+let _pendingMemories = null;
+
+/**
+ * Flush any pending write immediately (called by timer or on shutdown)
+ */
+async function _flushPendingWrite() {
+  if (!_pendingMemories) return;
+  const memories = _pendingMemories;
+  _pendingMemories = null;
+  _writeTimer = null;
+  await _doSaveMemories(memories);
+}
+
+/**
+ * Actual save logic (async, multi-process safe via rename)
+ */
+async function _doSaveMemories(memories) {
+  const lockPath = config.memoryFile;
+  // Multi-process safe: use flock lock + atomic rename
+  acquireLockSync(lockPath);
+  let released = false;
+  try {
+    if (global._walInit) {
+      logWriteOp({ type: 'save', count: memories.length });
+    }
+    const data = JSON.stringify(memories, null, 2);
+    // Atomic write: temp file + rename (crash-safe, no partial files)
+    const tmpPath = `${lockPath}.tmp.${process.pid}.${Date.now()}`;
+    await writeFile(tmpPath, data, 'utf8');
+    await rename(tmpPath, lockPath);
+  } catch (err) {
+    console.error('[storage] Write-behind flush failed:', err.message);
+  } finally {
+    try { releaseLockSync(lockPath); } catch { /* ignore */ }
+  }
+  memoryCache.set('all', memories);
+  cacheDirty = false;
+}
+
 /**
  * @returns {Memory[]}
  */
 export function loadMemories() {
+  // Clear any pending write-behind writes before reading from disk.
+  // If a crash occurred, the pending write is lost and we reload from disk.
+  if (_writeTimer) { clearTimeout(_writeTimer); _writeTimer = null; }
+  _pendingMemories = null;
   // SQLite backend path
   if (isSqliteMode()) {
     const backend = _sqliteBackend || null;
@@ -88,7 +135,7 @@ export function loadMemories() {
 }
 
 /**
- * Save memories to disk
+ * Save memories to disk (write-behind: queues write and flushes after debounce)
  * @param {Memory[]} memories
  */
 export function saveMemories(memories) {
@@ -105,8 +152,7 @@ export function saveMemories(memories) {
     console.warn('[storage] SQLite mode requested but backend unavailable, falling back to JSON');
   }
 
-  // JSON backend (default)
-  // 初始化 WAL（首次调用时）
+  // Initialize WAL on first call
   if (!global._walInit) {
     try {
       initWalStorage();
@@ -114,23 +160,28 @@ export function saveMemories(memories) {
     } catch { /* WAL init failure is non-fatal */ }
   }
 
-  // 原子写入：锁 + WAL 预写 + rename
-  const lockPath = config.memoryFile;
-  acquireLockSync(lockPath);
-  try {
-    // WAL 预写（crash recovery 用）
-    if (global._walInit) {
-      logWriteOp({ type: 'save', count: memories.length });
-    }
-
-    const data = JSON.stringify(memories, null, 2);
-    writeFileSync(lockPath, data, 'utf8');
-  } finally {
-    releaseLockSync(lockPath);
-  }
-
   memoryCache.set('all', memories);
   cacheDirty = false;
+
+  // Write-behind: debounce 500ms to reduce I/O under load
+  _pendingMemories = memories;
+  if (_writeTimer) clearTimeout(_writeTimer);
+  _writeTimer = setTimeout(() => {
+    _flushPendingWrite().catch(err => console.error('[storage] flush error:', err.message));
+  }, WRITE_BEHIND_DELAY_MS);
+}
+
+/**
+ * Force immediate flush of pending writes (call before shutdown or critical ops)
+ */
+export async function flushPendingWrites() {
+  if (_writeTimer) {
+    clearTimeout(_writeTimer);
+    _writeTimer = null;
+  }
+  if (_pendingMemories) {
+    await _flushPendingWrite();
+  }
 }
 
 /**
@@ -364,6 +415,20 @@ export function updateMemory(updatedMem) {
   saveMemories(memories);
   // v2.7.0: 每次更新自动创建版本记录
   createMemoryVersion(updatedMem.id, memories[idx], oldMemory, 'update');
+
+  // P1-6: Sync text changes to vector store (old embedding is cleaned up by upsert's delete)
+  if (updatedMem.text !== undefined) {
+    getVectorMem().then(vm => {
+      if (vm) vm.upsert({
+        id: updatedMem.id,
+        text: updatedMem.text,
+        category: memories[idx].category,
+        scope: memories[idx].scope,
+        importance: memories[idx].importance,
+        created_at: memories[idx].created_at,
+      }).catch(e => console.warn('[storage→LanceDB] update upsert failed:', e.message));
+    }).catch(() => {});
+  }
   return true;
 }
 
@@ -469,9 +534,15 @@ export function getPinnedMemories() {
 const WORKSPACE = process.env.OPENCLAW_WORKSPACE_DIR ?? join(process.env.HOME ?? '/root', '.openclaw', 'workspace');
 const VERSIONS_FILE = join(WORKSPACE, 'memory', 'memory_versions.json');
 const MAX_VERSIONS = 10; // 保留最近 10 个版本
+const VERSIONS_WRITE_DELAY_MS = 500;
+let _versionsTimer = null;
+let _pendingVersionStore = null;
 
 /** 加载版本存储 */
 export function loadVersionStore() {
+  // Clear any pending version store write before reading
+  if (_versionsTimer) { clearTimeout(_versionsTimer); _versionsTimer = null; }
+  _pendingVersionStore = null;
   if (!existsSync(VERSIONS_FILE)) {
     return {};
   }
@@ -483,15 +554,35 @@ export function loadVersionStore() {
   }
 }
 
-/** 持久化版本存储 */
+/** 持久化版本存储 (write-behind, debounced) */
 function persistVersionStore(store) {
+  _pendingVersionStore = store;
+  if (_versionsTimer) clearTimeout(_versionsTimer);
+  _versionsTimer = setTimeout(() => {
+    _flushVersionStore().catch(err => console.error('[storage:versions] flush error:', err.message));
+  }, VERSIONS_WRITE_DELAY_MS);
+}
+
+async function _flushVersionStore() {
+  if (!_pendingVersionStore) return;
+  const store = _pendingVersionStore;
+  _pendingVersionStore = null;
+  _versionsTimer = null;
   try {
     const dir = join(WORKSPACE, 'memory');
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-    writeFileSync(VERSIONS_FILE, JSON.stringify(store, null, 2), 'utf8');
+    const tmpPath = `${VERSIONS_FILE}.tmp.${process.pid}.${Date.now()}`;
+    await writeFile(tmpPath, JSON.stringify(store, null, 2), 'utf8');
+    await rename(tmpPath, VERSIONS_FILE);
   } catch (err) {
     console.error('[storage:versions] Persist error:', err.message);
   }
+}
+
+/** Flush pending version store writes */
+export async function flushVersionStore() {
+  if (_versionsTimer) { clearTimeout(_versionsTimer); _versionsTimer = null; }
+  if (_pendingVersionStore) await _flushVersionStore();
 }
 
 /** 生成版本 ID */

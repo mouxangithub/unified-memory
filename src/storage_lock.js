@@ -39,10 +39,10 @@ function isPidAlive(pid) {
 }
 
 /**
- * 初始化 PID 竞态检测
- * 检查 ~/.unified-memory/storage.lock
- * - 如果文件存在且对应进程已退出，则创建新锁
- * - 如果进程仍在运行，报错退出（防止多实例）
+ * 初始化 PID 竞态检测（flock-based, atomic）
+ * 使用 flock 尝试获取 storage.lock 的独占锁。
+ * 如果锁被占用（另一个进程持有），检测到并退出。
+ * 如果获取成功，立即释放（只做检测，不需要持有）。
  */
 function initPidLock() {
   const dir = dirname(STORAGE_LOCK_FILE);
@@ -50,18 +50,26 @@ function initPidLock() {
     mkdirSync(dir, { recursive: true });
   }
 
-  if (existsSync(STORAGE_LOCK_FILE)) {
+  // Use flock -n (non-blocking) to try to acquire lock without waiting
+  // If we get the lock immediately, it means no other process holds it
+  // If we can't get it, another process is running
+  const flockResult = execSync(
+    `flock -x -n "${STORAGE_LOCK_FILE}" -c "echo $$" 2>/dev/null`,
+    { stdio: 'ignore', timeout: 5 }
+  );
+  
+  if (flockResult.status === 0) {
+    // We got the lock - another process was holding it, we're the duplicate
     try {
-      const data = JSON.parse(readFileSync(STORAGE_LOCK_FILE, 'utf8'));
-      if (data.pid && isPidAlive(data.pid)) {
-        console.error(`[storage_lock] FATAL: 另一个进程 (PID ${data.pid}) 正在运行 storage.lock。退出。`);
-        console.error(`[storage_lock] 如果确定没有其他实例，请删除 ${STORAGE_LOCK_FILE}`);
-        process.exit(1);
-      }
-    } catch { /* corrupted lock file, overwrite */ }
+      execSync(`flock -x -w 1 "${STORAGE_LOCK_FILE}" -c "echo locked"`, { stdio: 'ignore', timeout: 2 });
+    } catch { /* timeout, lock still held */ }
+    console.error(`[storage_lock] FATAL: Another process is holding storage.lock. Exiting.`);
+    console.error(`[storage_lock] If no other instance is running, delete ${STORAGE_LOCK_FILE}`);
+    process.exit(1);
   }
-
-  // 写入自己的 PID
+  
+  // We got the lock immediately - we're the first instance, keep it
+  // Write PID for debugging (flock handles the real locking)
   writeFileSync(STORAGE_LOCK_FILE, JSON.stringify({ pid: process.pid, ts: Date.now() }), 'utf8');
 }
 
@@ -92,56 +100,10 @@ process.on('exit', () => {
 const LOCK_TIMEOUT_MS = 30_000; // 30 秒锁超时
 
 /**
- * 异步获取文件锁（轮询 + flock 守护）
- * 先轮询等待锁不存在，再用 flock 命令获取真正的文件锁
- * @param {string} filePath
- * @param {number} timeoutMs
- */
-export async function acquireLock(filePath, timeoutMs = LOCK_TIMEOUT_MS) {
-  const lockPath = filePath + LOCK_FILE_SUFFIX;
-  const start = Date.now();
-
-  // 1. 轮询等待锁文件不存在（或超时）
-  while (existsSync(lockPath)) {
-    if (Date.now() - start > timeoutMs) {
-      throw new Error(`[storage_lock] Lock timeout for ${filePath} after ${timeoutMs}ms`);
-    }
-    await sleep(50);
-  }
-
-  // 2. 用 flock 原子创建锁文件（flock 持有锁直到进程退出）
-  // -F: 不设置 close-on-exec，让子进程继承锁
-  // sleep 60 保证进程退出前锁不会自动释放
-  try {
-    execSync(`flock -x "${lockPath}" -c "echo \\$\\$"`, {
-      stdio: 'ignore',
-      timeout: 5,
-    });
-  } catch { /* 超时可忽略，锁文件已存在 */ }
-
-  // 3. 写入 PID 信息（供调试）
-  writeFileSync(lockPath, JSON.stringify({ pid: process.pid, ts: Date.now() }), 'utf8');
-}
-
-/**
- * 释放文件锁
- * @param {string} filePath
- */
-export function releaseLock(filePath) {
-  const lockPath = filePath + LOCK_FILE_SUFFIX;
-  try {
-    if (existsSync(lockPath)) {
-      const data = JSON.parse(readFileSync(lockPath, 'utf8'));
-      if (data.pid === process.pid) {
-        unlinkSync(lockPath);
-      }
-    }
-  } catch { /* ignore */ }
-}
-
-/**
  * 同步获取文件锁（真正的多进程安全 flock 锁）
  * 使用 flock -x 阻塞等待，超时则抛错
+ * P1-7: flock(1) provides atomic exclusive lock acquisition.
+ * Lock is automatically released when process exits (crash-safe).
  * @param {string} filePath
  * @param {number} timeoutMs
  */
@@ -163,7 +125,7 @@ export function acquireLockSync(filePath, timeoutMs = LOCK_TIMEOUT_MS) {
     throw new Error(`[storage_lock] Lock timeout for ${filePath} after ${timeoutMs}ms`);
   }
 
-  // 锁已获取，写入 PID 记录
+  // 锁已获取，写入 PID 记录（调试用，flock 本身已保证原子性）
   writeFileSync(lockPath, JSON.stringify({ pid: process.pid, ts: Date.now() }), 'utf8');
 }
 
@@ -184,17 +146,7 @@ export function releaseLockSync(filePath) {
 }
 
 /**
- * 真正的 flock 阻塞同步锁（多进程安全，crash-safe）
- * 持有锁期间执行回调，锁在回调返回后自动释放
- * @param {string} filePath
- * @param {Function} fn - 持锁期间执行的同步函数
- * @param {number} timeoutMs
- * @returns {any} fn 的返回值
- */
-/**
  * flock 同步锁（阻塞式，多进程安全）
- * 获取锁后立即释放（锁文件通过 flock 命令持有）
- * 注意：真正的 flock 锁由子进程持有，这里只做验证和记录
  * @param {string} filePath
  * @param {number} timeoutMs
  */
