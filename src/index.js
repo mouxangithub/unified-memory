@@ -147,6 +147,18 @@ const server = new McpServer(
   { capabilities: { tools: {} } }
 );
 
+// ============ v4.0 Storage Gateway ============
+
+let _v4Gateway = null;
+async function getV4Gateway() {
+  if (!_v4Gateway) {
+    const { StorageGateway } = await import('./v4/storage-gateway.js');
+    _v4Gateway = new StorageGateway();
+    await _v4Gateway.init();
+  }
+  return _v4Gateway;
+}
+
 // ============ Core Search Tools ============
 
 server.registerTool('memory_search', {
@@ -356,6 +368,107 @@ server.registerTool('memory_delete', {
     return { content: [{ type: 'text', text: JSON.stringify({ success }) }] };
   } catch (err) {
     return { content: [{ type: 'text', text: `Delete error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ v4.0 Tools (Phase 1: StorageGateway + Incremental BM25) ============
+// v4.0 tools use the new StorageGateway with persistent SQLite schema.
+// These are additive to v3 tools and can be used alongside existing ones.
+
+server.registerTool('memory_v4_stats', {
+  description: '[v4.0] Get storage gateway statistics. Use this for debugging Phase 1 StorageGateway.',
+  inputSchema: z.object({}),
+}, async () => {
+  try {
+    const gw = await getV4Gateway();
+    const stats = await gw.stats();
+    return {
+      content: [{ type: 'text', text: JSON.stringify({ v4: true, ...stats }, null, 2) }],
+    };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `v4 stats error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_v4_search', {
+  description: '[v4.0] Search memories using v4.0 StorageGateway with incremental BM25 (no full rebuild). Additive to memory_search.',
+  inputSchema: z.object({
+    query: z.string().describe('Search query'),
+    topK: z.number().optional().default(5).describe('Number of results'),
+    scope: z.string().optional().describe('Scope filter: USER, TEAM, AGENT, GLOBAL'),
+  }),
+}, async ({ query, topK = 5, scope }) => {
+  try {
+    const gw = await getV4Gateway();
+    const results = await gw.searchMemories(query, { topK, scope });
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          v4: true,
+          engine: 'incremental_bm25',
+          count: results.length,
+          results: results.map(r => ({
+            id: r.id,
+            text: r.text,
+            category: r.category,
+            importance: r.importance,
+            score: r.score,
+            scope: r.scope,
+          })),
+        }, null, 2),
+      }],
+    };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `v4 search error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_v4_store', {
+  description: '[v4.0] Store a memory via v4.0 StorageGateway (WAL + incremental index in one transaction).',
+  inputSchema: z.object({
+    text: z.string().describe('Memory text content'),
+    category: z.string().optional().default('general'),
+    importance: z.number().optional().default(0.5),
+    scope: z.string().optional().default('USER'),
+    tags: z.array(z.string()).optional(),
+  }),
+}, async ({ text, category = 'general', importance = 0.5, scope = 'USER', tags = [] }) => {
+  try {
+    const gw = await getV4Gateway();
+    const mem = await gw.writeMemory({ text, category, importance, scope, tags });
+    return {
+      content: [{ type: 'text', text: JSON.stringify({ v4: true, id: mem.id, success: true }) }],
+    };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `v4 store error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_v4_list', {
+  description: '[v4.0] List memories via v4.0 StorageGateway with B-tree scope filtering.',
+  inputSchema: z.object({
+    scope: z.string().optional().describe('Scope filter: USER, TEAM, AGENT, GLOBAL'),
+    category: z.string().optional(),
+    tier: z.string().optional(),
+    limit: z.number().optional().default(50),
+  }),
+}, async ({ scope, category, tier, limit = 50 }) => {
+  try {
+    const gw = await getV4Gateway();
+    const memories = await gw.getMemories({ scope, category, tier, limit });
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          v4: true,
+          count: memories.length,
+          memories: memories.map(m => ({ id: m.id, text: m.text, category: m.category, importance: m.importance, scope: m.scope })),
+        }, null, 2),
+      }],
+    };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `v4 list error: ${err.message}` }], isError: true };
   }
 });
 
