@@ -87,7 +87,115 @@ When any of these keywords or commands appear in a user message, this skill acti
 
 ---
 
+## v4.0 Tools (17 tools) / v4.0 工具 (17个)
+
+> **v4.0 is the recommended path** for all new development. Built on SQLite-first StorageGateway with incremental indexes, multi-tenant team spaces, and distributed rate limiting.
+> v4.0 新存储后端，基于 SQLite + 增量索引，推荐所有新开发使用。
+
+All v4 tools: `mcporter call unified-memory <tool-name> '<json-args>'`
+
+### v4.0 Phase 1: StorageGateway Foundation
+
+| Tool | Description |
+|------|-------------|
+| `memory_v4_stats` | StorageGateway statistics (memory count, evidence, revisions, WAL) |
+| `memory_v4_search` | Incremental BM25 search (no full rebuild on new documents) |
+| `memory_v4_store` | WAL + incremental index in single SQLite transaction |
+| `memory_v4_list` | B-tree scope-filtered memory listing |
+
+### v4.0 Phase 2: Hybrid Search
+
+| Tool | Description |
+|------|-------------|
+| `memory_v4_hybrid_search` | BM25 + Ollama vector RRF fusion with normalized scores |
+
+### v4.0 Phase 3: Multi-Tenant Team Spaces
+
+| Tool | Description |
+|------|-------------|
+| `memory_v4_create_team` | Create a team space |
+| `memory_v4_list_teams` | List all teams |
+| `memory_v4_get_team` | Get team config + memory count |
+| `memory_v4_delete_team` | Delete team (memories preserved) |
+| `memory_v4_team_store` | Store memory in team space (auto-creates team) |
+
+### v4.0 Phase 4: Distributed Rate Limiting
+
+| Tool | Description |
+|------|-------------|
+| `memory_v4_rate_limit_status` | Check current rate limit (write/read/search) |
+
+### v4.0 Phase 5: Evidence TTL + Revision Limits
+
+| Tool | Description |
+|------|-------------|
+| `memory_v4_evidence_stats` | Evidence chain stats (TTL 90-day) |
+| `memory_v4_trim_evidence` | Manually trigger TTL trim |
+| `memory_v4_revision_stats` | Revision history stats (max 50/memory) |
+
+### v4.0 Phase 6: WAL Operations
+
+| Tool | Description |
+|------|-------------|
+| `memory_v4_wal_status` | WAL status (total/pending/committed) |
+| `memory_v4_wal_export` | Export WAL as JSONL |
+| `memory_v4_wal_truncate` | Remove non-committed WAL entries |
+
+<!-- zh -->
+### v4.0 Phase 1: StorageGateway 基础
+
+| 工具 | 说明 |
+|------|------|
+| `memory_v4_stats` | 存储网关统计（记忆数、evidence、版本、WAL） |
+| `memory_v4_search` | 增量 BM25 搜索（新文档无需全量重建） |
+| `memory_v4_store` | WAL + 增量索引单 SQLite 事务 |
+| `memory_v4_list` | B-tree 范围过滤列表 |
+
+### v4.0 Phase 2: 混合搜索
+
+| 工具 | 说明 |
+|------|------|
+| `memory_v4_hybrid_search` | BM25 + Ollama 向量 RRF 融合，归一化分数 |
+
+### v4.0 Phase 3: 多租户团队空间
+
+| 工具 | 说明 |
+|------|------|
+| `memory_v4_create_team` | 创建团队空间 |
+| `memory_v4_list_teams` | 列出所有团队 |
+| `memory_v4_get_team` | 获取团队配置 + 记忆数 |
+| `memory_v4_delete_team` | 删除团队（记忆保留） |
+| `memory_v4_team_store` | 在团队空间中存储记忆（自动创建团队） |
+
+### v4.0 Phase 4: 分布式限流
+
+| 工具 | 说明 |
+|------|------|
+| `memory_v4_rate_limit_status` | 查看当前限流状态（写/读/搜索） |
+
+### v4.0 Phase 5: Evidence TTL + 版本限制
+
+| 工具 | 说明 |
+|------|------|
+| `memory_v4_evidence_stats` | Evidence 链统计（TTL 90天） |
+| `memory_v4_trim_evidence` | 手动触发 TTL 清理 |
+| `memory_v4_revision_stats` | 版本历史统计（最多50条/记忆） |
+
+### v4.0 Phase 6: WAL 操作
+
+| 工具 | 说明 |
+|------|------|
+| `memory_v4_wal_status` | WAL 状态（总数/pending/committed） |
+| `memory_v4_wal_export` | JSONL 导出 WAL |
+| `memory_v4_wal_truncate` | 删除未提交的 WAL 条目 |
+-->
+
+---
+
 ## MCP Tools (79 tools) / MCP 工具 (79个)
+
+> ⚠️ **Legacy v3 tools** — 79 tools from the v3.x series. For new development, use **v4.0 tools** above.
+> v3 工具 — 遗留工具集。新开发请使用上方 v4.0 工具。
 
 All tools are called via `mcporter call unified-memory <tool-name> <args>`.
 

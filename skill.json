@@ -1,7 +1,7 @@
 {
   "name": "unified-memory",
-  "version": "3.8.10",
-  "description": "AI Agent Memory v3.8.10 - Phase 5+6: Evidence TTL + WAL Operations",
+  "version": "3.8.11",
+  "description": "AI Agent Memory v3.8.11 - v4.0 Phase 7: Documentation Update",
   "author": "mouxangithub",
   "license": "MIT",
   "homepage": "https://github.com/mouxangithub/unified-memory",

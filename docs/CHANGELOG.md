@@ -1,4 +1,71 @@
-# Changelog (v3.8.6)
+# Changelog (v3.8.10)
+<!-- zh -->
+> 统一记忆系统完整版本历史 | Consolidated Version History
+
+All notable changes to unified-memory are documented here.
+
+---
+
+## v3.8.10 (2026-03-31) — Phase 5+6: Evidence TTL + WAL Operations
+
+### Phase 5: Evidence TTL + Revision Limits
+- `addEvidence`: auto-trims TTL on each write (90-day B-tree, O(log n + k))
+- `addRevision`: auto-prunes old versions (max 50 per memory)
+- `trimEvidence`: manual TTL trim trigger
+- `getEvidenceStats` / `getRevisionStats`: stats endpoints
+
+### Phase 6: WAL Operations
+- `getWalStatus`: total/pending/committed WAL entries
+- `exportWal`: JSONL export for backup/audit
+- `importWal`: JSONL import
+- `truncateWal`: remove non-committed entries
+
+---
+
+## v3.8.9 (2026-03-31) — Phase 3+4: Team Spaces + Rate Limiting
+
+### Phase 3: Multi-Tenant Team Spaces
+- `memory_v4_create_team` / `list_teams` / `get_team` / `delete_team`
+- `memory_v4_team_store`: store in team space, auto-creates team
+- Team-scoped memory isolation (B-tree indexed)
+
+### Phase 4: Distributed Rate Limiting
+- SQLite atomic counter rate_limits table
+- Per-scope limits: write=30/min, read=100/min, search=50/min
+- `memory_v4_rate_limit_status`: check current usage
+
+---
+
+## v3.8.8 (2026-03-31) — Phase 2: Hybrid Search
+
+### Hybrid Search (BM25 + Vector RRF)
+- `memory_v4_hybrid_search`: normalized score fusion
+  - BM25: incremental index (no full rebuild)
+  - Vector: Ollama embeddings
+  - RRF k=60, per-engine rank → fused score
+  - Returns `bm25Count`, `vectorCount`, `fusionCount` per result
+  - Per-result engine attribution (bm25/vector/both)
+
+---
+
+## v3.8.7 (2026-03-31) — Phase 1: StorageGateway Foundation
+
+### v4.0 Storage Gateway (SQLite-first)
+- **New**: `src/v4/storage-schema.js` — 8 tables (memories, evidence, revisions, scopes, wal_entries, rate_limits, bm25_index, vector_meta)
+- **New**: `src/v4/storage-gateway.js` — StorageGateway class
+  - `getMemories()`: B-tree scope filter, O(log n)
+  - `writeMemory()`: WAL + incremental BM25 in single transaction
+  - `searchMemories()`: incremental BM25 (no full rebuild)
+  - `addEvidence()` / `getEvidence()`
+  - `addRevision()` / `getRevisions()`
+  - `stats()`: comprehensive statistics
+
+### v4.0 Tools (additive, non-breaking)
+- `memory_v4_stats`, `memory_v4_search`, `memory_v4_store`, `memory_v4_list`
+
+---
+
+## v3.8.0 (2026-03-30) — WAL · Evidence · Auto-Organize
 <!-- zh -->
 > 统一记忆系统完整版本历史 | Consolidated Version History
 
