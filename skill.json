@@ -1,7 +1,7 @@
 {
   "name": "unified-memory",
-  "version": "3.8.6",
-  "description": "AI Agent Memory System - Node.js ESM with 79 MCP tools, BM25+Vector hybrid search, Weibull decay, WAL protocol, Scope isolation, Evidence chains, auto-extract, proactive recall. Powered by LanceDB + Ollama.",
+  "version": "3.8.7",
+  "description": "AI Agent Memory System v3.8.7 - Phase 1 v4.0: StorageGateway + Incremental BM25",
   "author": "mouxangithub",
   "license": "MIT",
   "homepage": "https://github.com/mouxangithub/unified-memory",
