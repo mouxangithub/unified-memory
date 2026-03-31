@@ -1,7 +1,7 @@
 {
   "name": "unified-memory",
-  "version": "3.8.8",
-  "description": "AI Agent Memory System v3.8.8 - Phase 2 v4.0: Hybrid BM25+Vector RRF Search",
+  "version": "3.8.9",
+  "description": "AI Agent Memory System v3.8.9 - Phase 3+4 v4.0: Team Spaces + Rate Limiting",
   "author": "mouxangithub",
   "license": "MIT",
   "homepage": "https://github.com/mouxangithub/unified-memory",

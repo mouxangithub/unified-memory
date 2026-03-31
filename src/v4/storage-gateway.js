@@ -294,28 +294,6 @@ function nextLsn() {
   return `${Date.now()}_${++_lsnSeq}`;
 }
 
-// ─── Rate limiter ───────────────────────────────────────────────────────────
-
-function checkRateLimitSync(db, key, maxCalls) {
-  const windowStart = Math.floor(Date.now() / 1000 / RATE_LIMIT_WINDOW) * RATE_LIMIT_WINDOW;
-  const fullKey = `${key}:${windowStart}`;
-
-  const row = db.prepare('SELECT count FROM rate_limits WHERE key = ? AND window_start = ?').get(fullKey, windowStart);
-  const count = row?.count || 0;
-
-  if (count >= maxCalls) {
-    return { allowed: false, retryAfter: RATE_LIMIT_WINDOW - Math.floor((Date.now() / 1000) % RATE_LIMIT_WINDOW) };
-  }
-
-  db.prepare(`
-    INSERT INTO rate_limits (key, window_start, count, ttl_seconds)
-    VALUES (?, ?, 1, ?)
-    ON CONFLICT(key, window_start) DO UPDATE SET count = count + 1
-  `).run(fullKey, windowStart, RATE_LIMIT_WINDOW * 2);
-
-  return { allowed: true, remaining: maxCalls - count - 1 };
-}
-
 // ─── StorageGateway ─────────────────────────────────────────────────────────
 
 export class StorageGateway {
@@ -361,7 +339,8 @@ export class StorageGateway {
    * @returns {Promise<object[]>}
    */
   async getMemories(filter = {}) {
-    const { allowed } = checkRateLimitSync(this.db, 'read:all', RATE_LIMIT_MAX_READ);
+    const scopeKey = filter.scopeId ? `${filter.scopeType || 'USER'}:${filter.scopeId}` : 'default';
+    const { allowed } = this.checkRateLimit(`read:${scopeKey}`, RATE_LIMIT_MAX_READ, 60);
     if (!allowed) {
       throw new Error('[storage-gateway] Rate limit exceeded for reads');
     }
@@ -408,9 +387,10 @@ export class StorageGateway {
    * @param {{ operation?: string }} options
    */
   async writeMemory(mem, options = {}) {
-    const { allowed, retryAfter } = checkRateLimitSync(this.db, 'write', RATE_LIMIT_MAX_WRITE);
+    const scopeKey = mem.scopeId ? `${mem.scope || 'USER'}:${mem.scopeId}` : 'default';
+    const { allowed, retryAfterSec } = this.checkRateLimit(`write:${scopeKey}`, RATE_LIMIT_MAX_WRITE, 60);
     if (!allowed) {
-      throw new Error(`[storage-gateway] Rate limit exceeded. Retry after ${retryAfter}s`);
+      throw new Error(`[storage-gateway] Rate limit exceeded. Retry after ${Math.ceil(retryAfterSec)}s`);
     }
 
     const op = options.operation || (mem.id ? 'UPDATE' : 'INSERT');
@@ -508,7 +488,8 @@ export class StorageGateway {
    * @returns {Promise<object[]>}
    */
   async searchMemories(query, options = {}) {
-    const { allowed } = checkRateLimitSync(this.db, 'search', RATE_LIMIT_MAX_SEARCH);
+    const scopeKey = options.scopeId ? `${options.scopeType || 'USER'}:${options.scopeId}` : 'default';
+    const { allowed } = this.checkRateLimit(`search:${scopeKey}`, RATE_LIMIT_MAX_SEARCH, 60);
     if (!allowed) {
       throw new Error('[storage-gateway] Rate limit exceeded for search');
     }
@@ -593,6 +574,114 @@ export class StorageGateway {
       'SELECT * FROM revisions WHERE memory_id = ? ORDER BY version_num DESC'
     ).all(memoryId);
     return rows;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PHASE 3: Multi-Tenant Team Spaces
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Create a team scope (called automatically when first team memory is stored)
+   */
+  async createTeam(teamId, name, config = {}) {
+    const now = Date.now();
+    this.db.prepare(`
+      INSERT OR REPLACE INTO scopes (scope_id, scope_type, name, config, created_at, updated_at)
+      VALUES (?, 'TEAM', ?, ?, ?, ?)
+    `).run(`team:${teamId}`, name || `Team ${teamId}`, JSON.stringify(config), now, now);
+    return { scopeId: `team:${teamId}`, name, config };
+  }
+
+  /**
+   * Get team configuration
+   */
+  async getTeam(teamId) {
+    const row = this.db.prepare("SELECT * FROM scopes WHERE scope_id = ?").get(`team:${teamId}`);
+    if (!row) return null;
+    return {
+      scopeId: row.scope_id,
+      name: row.name,
+      config: parseJSON(row.config, {}),
+      createdAt: row.created_at,
+    };
+  }
+
+  /**
+   * List all teams
+   */
+  async listTeams() {
+    const rows = this.db.prepare("SELECT * FROM scopes WHERE scope_type = 'TEAM' ORDER BY created_at DESC").all();
+    return rows.map(r => ({
+      scopeId: r.scope_id,
+      name: r.name,
+      config: parseJSON(r.config, {}),
+      createdAt: r.created_at,
+    }));
+  }
+
+  /**
+   * Delete a team (soft — only removes team scope, memories remain)
+   */
+  async deleteTeam(teamId) {
+    const result = this.db.prepare("DELETE FROM scopes WHERE scope_id = ?").run(`team:${teamId}`);
+    return result.changes > 0;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PHASE 4: Distributed Rate Limiting (SQLite atomic counters)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Check and increment rate limit for a key.
+   * Uses SQLite atomic upsert — safe for concurrent access.
+   * @param {string} key - e.g. 'write:team:123' or 'search:user:ou_xxx'
+   * @param {number} limit - max calls per window
+   * @param {number} windowSec - window size in seconds
+   * @returns {{allowed: boolean, remaining: number, resetAt: number}}
+   */
+  checkRateLimit(key, limit = 30, windowSec = 60) {
+    const windowStart = Math.floor(Date.now() / 1000 / windowSec) * windowSec;
+    const fullKey = `${key}:${windowStart}`;
+
+    // Atomic read + increment
+    const row = this.db.prepare(
+      'SELECT count FROM rate_limits WHERE key = ? AND window_start = ?'
+    ).get(fullKey, windowStart);
+    const count = row?.count || 0;
+
+    if (count >= limit) {
+      const resetAt = windowStart + windowSec;
+      return { allowed: false, remaining: 0, resetAt, retryAfterSec: windowSec - ((Date.now() / 1000) % windowSec) };
+    }
+
+    this.db.prepare(`
+      INSERT INTO rate_limits (key, window_start, count, ttl_seconds)
+      VALUES (?, ?, 1, ?)
+      ON CONFLICT(key, window_start) DO UPDATE SET count = count + 1
+    `).run(fullKey, windowStart, windowSec * 2);
+
+    return { allowed: true, remaining: limit - count - 1, resetAt: windowStart + windowSec };
+  }
+
+  /**
+   * Get rate limit status for a key
+   */
+  getRateLimitStatus(key, limit = 30, windowSec = 60) {
+    const windowStart = Math.floor(Date.now() / 1000 / windowSec) * windowSec;
+    const fullKey = `${key}:${windowStart}`;
+    const row = this.db.prepare(
+      'SELECT count FROM rate_limits WHERE key = ? AND window_start = ?'
+    ).get(fullKey, windowStart);
+    const count = row?.count || 0;
+    return {
+      key,
+      limit,
+      windowSec,
+      current: count,
+      remaining: Math.max(0, limit - count),
+      resetAt: windowStart + windowSec,
+      windowStart,
+    };
   }
 
   // ── stats ──────────────────────────────────────────────────────────────

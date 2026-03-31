@@ -619,6 +619,127 @@ server.registerTool('memory_v4_hybrid_search', {
   }
 });
 
+// ============ Phase 3: Multi-Tenant Team Spaces ============
+
+server.registerTool('memory_v4_create_team', {
+  description: '[v4.0 Phase 3] Create a team space for multi-tenant memory isolation.',
+  inputSchema: z.object({
+    teamId: z.string().describe('Unique team identifier (e.g., team_123)'),
+    name: z.string().optional().describe('Team display name'),
+    config: z.object({
+      rateLimit: z.number().optional().default(100).describe('Max writes per minute'),
+      maxMemories: z.number().optional().describe('Max memories per team'),
+    }).optional(),
+  }),
+}, async ({ teamId, name, config = {} }) => {
+  try {
+    const gw = await getV4Gateway();
+    const team = await gw.createTeam(teamId, name, config);
+    return { content: [{ type: 'text', text: JSON.stringify({ v4: true, phase: 3, team, success: true }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `create team error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_v4_list_teams', {
+  description: '[v4.0 Phase 3] List all team spaces.',
+  inputSchema: z.object({}),
+}, async () => {
+  try {
+    const gw = await getV4Gateway();
+    const teams = await gw.listTeams();
+    return { content: [{ type: 'text', text: JSON.stringify({ v4: true, phase: 3, teams }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `list teams error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_v4_get_team', {
+  description: '[v4.0 Phase 3] Get team configuration and stats.',
+  inputSchema: z.object({
+    teamId: z.string().describe('Team identifier'),
+  }),
+}, async ({ teamId }) => {
+  try {
+    const gw = await getV4Gateway();
+    const team = await gw.getTeam(teamId);
+    if (!team) return { content: [{ type: 'text', text: `Team ${teamId} not found` }], isError: true };
+
+    // Get team memory count
+    const mems = await gw.getMemories({ scopeType: 'TEAM', scopeId: teamId, limit: 10000 });
+    return {
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          v4: true,
+          phase: 3,
+          team,
+          memoryCount: mems.length,
+        }, null, 2),
+      }],
+    };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `get team error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_v4_delete_team', {
+  description: '[v4.0 Phase 3] Delete a team space (memories preserved, scope removed).',
+  inputSchema: z.object({
+    teamId: z.string().describe('Team identifier'),
+  }),
+}, async ({ teamId }) => {
+  try {
+    const gw = await getV4Gateway();
+    const deleted = await gw.deleteTeam(teamId);
+    return { content: [{ type: 'text', text: JSON.stringify({ v4: true, phase: 3, teamId, deleted }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `delete team error: ${err.message}` }], isError: true };
+  }
+});
+
+server.registerTool('memory_v4_team_store', {
+  description: '[v4.0 Phase 3] Store a memory in a team space (automatically creates team if not exists).',
+  inputSchema: z.object({
+    teamId: z.string().describe('Team identifier'),
+    text: z.string().describe('Memory text'),
+    category: z.string().optional().default('general'),
+    importance: z.number().optional().default(0.5),
+    tags: z.array(z.string()).optional(),
+  }),
+}, async ({ teamId, text, category = 'general', importance = 0.5, tags = [] }) => {
+  try {
+    const gw = await getV4Gateway();
+    // Ensure team exists
+    await gw.createTeam(teamId, `Team ${teamId}`);
+    const mem = await gw.writeMemory({ text, category, importance, scope: `TEAM:${teamId}`, scopeId: teamId, tags });
+    return { content: [{ type: 'text', text: JSON.stringify({ v4: true, phase: 3, teamId, memory: { id: mem.id, success: true } }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `team store error: ${err.message}` }], isError: true };
+  }
+});
+
+// ============ Phase 4: Distributed Rate Limiting ============
+
+server.registerTool('memory_v4_rate_limit_status', {
+  description: '[v4.0 Phase 4] Check current rate limit status for a scope.',
+  inputSchema: z.object({
+    scopeType: z.string().optional().default('USER').describe('Scope type: USER, TEAM, AGENT'),
+    scopeId: z.string().optional().describe('Scope ID (team_id or agent_id)'),
+    operation: z.string().optional().default('write').describe('Operation: write, read, search'),
+  }),
+}, async ({ scopeType = 'USER', scopeId, operation = 'write' }) => {
+  try {
+    const gw = await getV4Gateway();
+    const key = scopeId ? `${operation}:${scopeType}:${scopeId}` : `${operation}:default`;
+    const limits = { write: 30, read: 100, search: 50 };
+    const status = gw.getRateLimitStatus(key, limits[operation] || 30, 60);
+    return { content: [{ type: 'text', text: JSON.stringify({ v4: true, phase: 4, rateLimit: status }) }] };
+  } catch (err) {
+    return { content: [{ type: 'text', text: `rate limit status error: ${err.message}` }], isError: true };
+  }
+});
+
 // ============ PIN Tools (v3.4) ============
 
 server.registerTool('memory_pin', {
