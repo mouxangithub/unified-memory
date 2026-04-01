@@ -208,6 +208,9 @@ export async function flushPendingWrites() {
  * @param {boolean} [opts.applyTeamFilter=true] - Whether to apply current team context
  * @returns {Memory[]}
  */
+// Normalized memory cache (survives across calls)
+let _normalizedCache = null;
+
 export async function getAllMemories(opts = {}) {
   if (isSqliteMode()) {
     const gw = await getV4Gw();
@@ -216,14 +219,18 @@ export async function getAllMemories(opts = {}) {
   const { scope = 'GLOBAL', applyTeamFilter = false } = opts;
   if (!memoryCache.has('all')) {
     memoryCache.set('all', await loadMemories());
+    _normalizedCache = null; // reset normalized cache on reload
   }
   // Normalize: support both 'content' (import format) and 'text' field
-  let memories = memoryCache.get('all').map((m) => ({
-    ...m,
-    text: m.text || m.content || '',
-    // Normalize timestamp fields (JSON import uses 'timestamp', our schema uses 'created_at')
-    created_at: m.created_at || (m.timestamp ? new Date(m.timestamp).getTime() : Date.now()),
-  }));
+  // Cache normalized result to avoid re-mapping on every call
+  if (!_normalizedCache) {
+    _normalizedCache = memoryCache.get('all').map((m) => ({
+      ...m,
+      text: m.text || m.content || '',
+      created_at: m.created_at || (m.timestamp ? new Date(m.timestamp).getTime() : Date.now()),
+    }));
+  }
+  let memories = _normalizedCache;
 
   // Apply team+scope filtering when requested
   if (applyTeamFilter) {
@@ -232,6 +239,11 @@ export async function getAllMemories(opts = {}) {
   }
 
   return memories;
+}
+
+// Sync access to raw (non-normalized) memories - for internal use only
+export function getAllMemoriesRaw() {
+  return memoryCache.get('all') || [];
 }
 
 /**
@@ -349,7 +361,7 @@ export async function deleteMemory(id) {
  * @returns {boolean}
  */
 export function forget(memoryId) {
-  const memories = getAllMemories();
+  const memories = getAllMemoriesRaw();
   const mem = memories.find((m) => m.id === memoryId);
   if (!mem) return false;
 
@@ -459,7 +471,7 @@ export function touchMemory(id) {
       return;
     }
   }
-  const memories = getAllMemories();
+  const memories = getAllMemoriesRaw();
   const mem = memories.find((m) => m.id === id);
   if (mem) {
     mem.access_count = (mem.access_count || 0) + 1;
@@ -489,11 +501,11 @@ export function pinMemory(id, reason = '') {
     const backend = _sqliteBackend || null;
     if (backend) {
       const pinned = backend.pinMemoryById(id, reason);
-      if (pinned) memoryCache.set('all', getAllMemories());
+      if (pinned) { getAllMemories().then(data => { memoryCache.set('all', data); _normalizedCache = null; }); }
       return pinned;
     }
   }
-  const memories = getAllMemories();
+  const memories = getAllMemoriesRaw();
   const mem = memories.find(m => m.id === id);
   if (!mem) return false;
   mem.pinned = true;
@@ -516,11 +528,11 @@ export function unpinMemory(id) {
     const backend = _sqliteBackend || null;
     if (backend) {
       const unpinned = backend.unpinMemoryById(id);
-      if (unpinned) memoryCache.set('all', getAllMemories());
+      if (unpinned) { getAllMemories().then(data => { memoryCache.set('all', data); _normalizedCache = null; }); }
       return unpinned;
     }
   }
-  const memories = getAllMemories();
+  const memories = getAllMemoriesRaw();
   const mem = memories.find(m => m.id === id);
   if (!mem) return false;
   mem.pinned = false;
@@ -542,7 +554,7 @@ export function getPinnedMemories() {
     const backend = _sqliteBackend || null;
     if (backend) return backend.getPinnedMemories();
   }
-  return getAllMemories().filter(m => m.pinned);
+  return getAllMemoriesRaw().filter(m => m.pinned);
 }
 
 // ============================================================
@@ -720,7 +732,7 @@ export function getMemoryVersion(memoryId, versionId) {
  * @returns {{ success: boolean, restoredTo?: object, error?: string }}
  */
 export function restoreMemoryVersion(memoryId, versionId) {
-  const memories = getAllMemories();
+  const memories = getAllMemoriesRaw();
   const memIdx = memories.findIndex((m) => m.id === memoryId);
   if (memIdx === -1) {
     return { success: false, error: `Memory ${memoryId} not found` };

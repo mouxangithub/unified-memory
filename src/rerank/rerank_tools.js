@@ -28,7 +28,7 @@ export async function memory_rerank({ query, memoryIds, topK = 5 }) {
     return { reranked: [], original_order: [] };
   }
 
-  const allMemories = getAllMemories();
+  const allMemories = await getAllMemories();
   const candidates = allMemories.filter((m) => memoryIds.includes(m.id));
 
   if (candidates.length === 0) {
@@ -70,7 +70,7 @@ export async function memory_search_reranked({ query, topK = 10, useRerank = tru
       initialResults = Array.isArray(raw) ? raw : (raw?.results || []);
     } else {
       // Last fallback: simple text match from all memories
-      const allMemories = getAllMemories();
+      const allMemories = await getAllMemories();
       initialResults = allMemories
         .filter((m) => {
           const text = (m.text || '').toLowerCase();
@@ -82,7 +82,7 @@ export async function memory_search_reranked({ query, topK = 10, useRerank = tru
     }
   } catch (err) {
     console.warn(`[RerankTools] Search failed: ${err.message}, falling back to all memories`);
-    const allMemories = getAllMemories();
+    const allMemories = await getAllMemories();
     initialResults = allMemories.slice(0, topK * 3).map((m) => ({ memory: m, score: 0.5, text: m.text }));
   }
 

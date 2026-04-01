@@ -172,7 +172,7 @@ export class VectorMemory {
     // Sync embedding back to JSON so health check sees it (fixes dual-storage consistency bug)
     try {
       const { getAllMemories, updateMemory } = await import('./storage.js');
-      const memories = getAllMemories();
+      const memories = await getAllMemories();
       const mem = memories.find(m => m.id === id);
       if (mem) updateMemory({ id, embedding: vecB64 });
     } catch { /* non-fatal: JSON may be locked or in use */ }

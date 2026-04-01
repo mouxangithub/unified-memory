@@ -43,7 +43,7 @@ import { assignTiers, partitionByTier, redistributeTiers, compressColdTier, auto
 import { memoryTierStatusTool, memoryTierMigrateTool, memoryTierCompressTool } from './tier_tools.js';
 import { shouldSkipRetrieval } from './adaptive.js';
 import { buildBM25Index, bm25Search } from './bm25.js';
-import { getEmbedding, vectorSearch } from './vector_lancedb.js';
+import { getEmbedding } from './vector_lancedb.js';
 import { mmrSelect, mmrSelectWithEmbedding } from './mmr.js';
 import { LlmReranker, keywordRerank } from './rerank.js';
 import { CrossEncoderRerank, rerankResults } from './tools/rerank.js';
@@ -301,7 +301,7 @@ server.registerTool('memory_list', {
   inputSchema: z.object({}),
 }, async () => {
   try {
-    const memories = getAllMemories();
+    const memories = await getAllMemories();
     return {
       content: [{
         type: 'text',
@@ -759,7 +759,7 @@ server.registerTool('memory_v4_http_start', {
     // Check if already running
     const existing = process.env.MEMORY_HTTP_PORT;
     if (existing) {
-      return { content: [{ type: 'text', text: JSON.stringify({ v4: true, phase: 7, status: 'already_running', port: parseInt(existing) }) }];
+      return { content: [{ type: 'text', text: JSON.stringify({ v4: true, phase: 7, status: 'already_running', port: parseInt(existing) }) }] };
     }
 
     const child = spawn('node', [serverPath, String(port)], {
@@ -1033,96 +1033,6 @@ server.registerTool('memory_v4_team_search', {
 
 
 // Phase 3: Team-scoped search (strict isolation — does NOT leak to USER/GLOBAL)
-server.registerTool('memory_v4_team_search', {
-  description: '[v4.0 Phase 3] Search memories within a specific team space ONLY. Strict isolation — team memories never leak to USER scope.',
-  inputSchema: z.object({
-    teamId: z.string().describe('Team identifier (e.g., dev_team)'),
-    query: z.string().describe('Search query'),
-    topK: z.number().optional().default(5),
-    mode: z.enum(['bm25', 'hybrid']).optional().default('hybrid'),
-    bm25Weight: z.number().optional().default(0.5),
-  }),
-}, async ({ teamId, query, topK = 5, mode = 'hybrid', bm25Weight = 0.5 }) => {
-  try {
-    const gw = await getV4Gateway();
-
-    if (mode === 'bm25') {
-      const results = await gw.searchMemories(query, { topK, scopeType: 'TEAM', scopeId: teamId });
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            v4: true, phase: 3, engine: 'bm25',
-            teamId, mode: 'bm25', count: results.length,
-            results: results.map(r => ({
-              id: r.id, text: r.text, category: r.category,
-              importance: r.importance, score: r.score,
-            })),
-          }, null, 2),
-        }],
-      };
-    }
-
-    // Hybrid: BM25 + Vector
-    const [bm25Results, vectorResults] = await Promise.all([
-      gw.searchMemories(query, { topK: topK * 4, scopeType: 'TEAM', scopeId: teamId }),
-      vectorSearch(query, topK * 4).catch(() => []),
-    ]);
-
-    const bm25Max = Math.max(1, ...bm25Results.map(r => r.score || 0));
-    const vectorMax = Math.max(1, ...vectorResults.map(r => r.score || 0));
-    const k = 60;
-    const fused = new Map();
-
-    for (let i = 0; i < bm25Results.length; i++) {
-      const r = bm25Results[i];
-      const normScore = (r.score || 0) / bm25Max;
-      const w = (1 / (k + i + 1)) * normScore * bm25Weight;
-      fused.set(r.id, { ...r, fusionScore: w, bm25Rank: i, vectorRank: null, vectorScore: null });
-    }
-
-    for (let i = 0; i < vectorResults.length; i++) {
-      const r = vectorResults[i];
-      const rawScore = r.score || 0;
-      const normScore = rawScore / vectorMax;
-      const w = (1 / (k + i + 1)) * normScore * (1 - bm25Weight);
-      if (fused.has(r.id)) {
-        fused.get(r.id).fusionScore += w;
-        fused.get(r.id).vectorScore = Math.round(rawScore * 1000) / 1000;
-        fused.get(r.id).vectorRank = i;
-      } else {
-        fused.set(r.id, {
-          id: r.id, text: r.text, category: r.category, importance: r.importance,
-          scope: `TEAM:${teamId}`, bm25Score: null,
-          vectorScore: Math.round(rawScore * 1000) / 1000,
-          fusionScore: w, bm25Rank: null, vectorRank: i,
-        });
-      }
-    }
-
-    const results = Array.from(fused.values())
-      .sort((a, b) => b.fusionScore - a.fusionScore)
-      .slice(0, topK)
-      .map(r => ({
-        id: r.id, text: r.text, category: r.category, importance: r.importance,
-        fusionScore: Math.round(r.fusionScore * 1000) / 1000,
-        bm25Score: r.bm25Score,
-        vectorScore: r.vectorScore,
-      }));
-
-    return {
-      content: [{
-        type: 'text',
-        text: JSON.stringify({
-          v4: true, phase: 3, engine: 'hybrid',
-          teamId, mode: 'hybrid', count: results.length, results,
-        }, null, 2),
-      }],
-    };
-  } catch (err) {
-    return { content: [{ type: 'text', text: `team search error: ${err.message}` }], isError: true };
-  }
-});
 
 // ============ PIN Tools (v3.4) ============
 
@@ -1644,7 +1554,7 @@ server.registerTool('memory_stats', {
   inputSchema: z.object({}),
 }, async () => {
   try {
-    const memories = getAllMemories();
+    const memories = await getAllMemories();
     const categories = {};
     const tagCounts = {};
     for (const m of memories) {
@@ -1738,7 +1648,7 @@ server.registerTool('memory_health', {
   inputSchema: z.object({}),
 }, async () => {
   try {
-    const memories = getAllMemories();
+    const memories = await getAllMemories();
     let ollamaOk = false;
     try {
       if (config.ollamaUrl) {
@@ -2456,7 +2366,7 @@ server.registerTool('memory_graph', {
       let textsToProcess = [];
       if (source === 'text' && text) textsToProcess = [{ id: 'inline', text }];
       else if (source === 'memory' && memoryId) { const mem = getMemory(memoryId); if (!mem) return { content: [{ type: 'text', text: 'Memory not found' }], isError: true }; textsToProcess = [mem]; }
-      else { const all = getAllMemories(); textsToProcess = all.map(m => ({ id: m.id, text: m.text })); }
+      else { const all = await getAllMemories(); textsToProcess = all.map(m => ({ id: m.id, text: m.text })); }
       const allEntities = [];
       for (const item of textsToProcess) { if (!item.text?.trim()) continue; try { const entities = await extractEntities(item.text, { useLLM }); for (const e of entities) { const ex = allEntities.find(n => n.name === e.name && n.type === e.type); if (ex) ex.memory_ids.push(item.id); else allEntities.push({ ...e, memory_ids: [item.id] }); } } catch {} }
       for (const e of allEntities) addEntity(e);
@@ -2852,27 +2762,28 @@ function startDashboardServer(port = 3848) {
     try {
       if (url === '/memories' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(getAllMemories()));
+        getAllMemories().then(data => res.end(JSON.stringify(data)));
         return;
       }
       if (url === '/stats') {
-        const all = getAllMemories();
-        const byCategory = {};
-        const byTier = { HOT: 0, WARM: 0, COLD: 0 };
-        const byScope = {};
-        all.forEach(m => {
-          byCategory[m.category || 'unknown'] = (byCategory[m.category || 'unknown'] || 0) + 1;
-          if (m.tier) byTier[m.tier] = (byTier[m.tier] || 0) + 1;
-          if (m.scope) byScope[m.scope] = (byScope[m.scope] || 0) + 1;
+        getAllMemories().then(all => {
+          const byCategory = {};
+          const byTier = { HOT: 0, WARM: 0, COLD: 0 };
+          const byScope = {};
+          all.forEach(m => {
+            byCategory[m.category || 'unknown'] = (byCategory[m.category || 'unknown'] || 0) + 1;
+            if (m.tier) byTier[m.tier] = (byTier[m.tier] || 0) + 1;
+            if (m.scope) byScope[m.scope] = (byScope[m.scope] || 0) + 1;
+          });
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            total: all.length,
+            byCategory,
+            byTier,
+            byScope,
+            memoryCount: all.length
+          }));
         });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          total: all.length,
-          byCategory,
-          byTier,
-          byScope,
-          memoryCount: all.length
-        }));
         return;
       }
       const deleteMatch = url.match(/^\/memories\/([^/?]+)/);

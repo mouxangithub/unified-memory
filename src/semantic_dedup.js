@@ -14,7 +14,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { getEmbeddingCached } from './vector.js';
-import { getAllMemories } from './storage.js';
+import { getAllMemories, getAllMemoriesRaw } from './storage.js';
 import { config } from './config.js';
 
 // ─── Configurable thresholds ────────────────────────────────────────────────
@@ -119,7 +119,7 @@ export async function findDuplicateCandidates(newMemory, opts = {}) {
     return [];
   }
 
-  const existingMemories = getAllMemories().filter(m => m.id !== newMemory.id);
+  const existingMemories = (await getAllMemories()).filter(m => m.id !== newMemory.id);
   if (existingMemories.length === 0) return [];
 
   // Embed the new memory once
@@ -194,7 +194,7 @@ export function getMergeStrategy(similarity) {
 export async function findAllDuplicatePairs(opts = {}) {
   const { threshold = DEFAULT_SIMILARITY_THRESHOLD, maxPairs = 100 } = opts;
 
-  const memories = getAllMemories();
+  const memories = getAllMemoriesRaw();
   if (memories.length < 2) {
     return { pairs: [], stats: { total: 0, pairsFound: 0 } };
   }

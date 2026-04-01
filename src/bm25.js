@@ -5,7 +5,7 @@
  * v3.2: 支持 scope 过滤 + index 缓存
  */
 
-import { getAllMemories } from './storage.js';
+import { getAllMemories, getAllMemoriesRaw } from './storage.js';
 
 // BM25 parameters
 const B = 0.75;  // field length normalization
@@ -89,12 +89,12 @@ function bm25Score(query, text, index, options = {}) {
  */
 export function buildBM25Index(scope = null) {
   // Check cache (valid for same scope + same memory count)
-  const memCount = getAllMemories().length;
+  const memCount = getAllMemoriesRaw().length;
   if (_cachedIndex && _cachedScope === scope && _cachedMemCount === memCount) {
     return _cachedIndex;
   }
 
-  const memories = getAllMemories().filter(m => !scope || m.scope === scope || !m.scope);
+  const memories = getAllMemoriesRaw().filter(m => !scope || m.scope === scope || !m.scope);
   const invertedIndex = new Map();
   const docLengths = new Map();
   const idfCache = new Map();
@@ -136,7 +136,7 @@ export function bm25Search(query, topK = 10, scope = null) {
   if (!query) return [];
   
   // Get memories filtered by scope
-  const allMemories = getAllMemories();
+  const allMemories = getAllMemoriesRaw();
   const memories = scope ? allMemories.filter(m => m.scope === scope || (!m.scope && scope === 'USER')) : allMemories;
   if (memories.length === 0) return [];
 
