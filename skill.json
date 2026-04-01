@@ -1,6 +1,6 @@
 {
   "name": "unified-memory",
-  "version": "4.0.4",
+  "version": "4.0.6",
   "description": "Unified Memory v4.0.0 - SQLite-first StorageGateway, Incremental BM25, Hybrid Search, Multi-Tenant Teams, Distributed Rate Limiting, Evidence TTL, WAL Operations",
   "author": "mouxangithub",
   "license": "MIT",
