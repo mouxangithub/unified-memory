@@ -2,6 +2,14 @@
 title: Unified Memory v4.0.0
 ---
 
+<!-- Language Toggle / 语言切换 -->
+[English](./README.md) · **[中文](./README_CN.md)** · [日本語](./README_JA.md)
+
+<!-- Documentation Navigation / 文档导航 -->
+📚 **Docs**: [Overview](#overview) · [Features](#features) · [Architecture](#architecture) · [Installation](#installation) · [API](#152-mcp-tools-organized-by-category) · [Examples](#quick-start) · [Index](#-complete-documentation-index)
+
+---
+
 > AI Agent Memory System — Multi-layered, Persistent, Proactive
 
 **Author**: 程序员小刘 (@mouxangithub)  
@@ -623,35 +631,58 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
-## Documentation Index
+## 📚 Complete Documentation Index
 
-### Main Documentation
+> 🌍 **Language**: [English](./README.md) · **[中文](./README_CN.md)** · [日本語](./README_JA.md)
 
-| File | Description |
-|------|-------------|
-| [README.md](README.md) | **This file** — Bilingual main documentation |
-| [SKILL.md](SKILL.md) | Technical deep-dive (English) |
-| [SKILL_CN.md](SKILL_CN.md) | Technical deep-dive (中文) |
-| [README_CN.md](README_CN.md) | Legacy Chinese README |
-| [README.zh-CN.md](README.zh-CN.md) | Legacy zh-CN README |
-
-### Release Notes
+### 📖 Main Documentation | 主文档
 
 | File | Description |
 |------|-------------|
-| [docs/v3.8.0-release-notes.md](docs/v3.8.0-release-notes.md) | v3.8.0 — WAL + Evidence Chain + Auto Organization |
-| [docs/v3.8.1-release-notes.md](docs/v3.8.1-release-notes.md) | v3.8.1 — Transcript-First Architecture |
-| [docs/v3.8.2-release-notes.md](docs/v3.8.2-release-notes.md) | v3.8.2 — Revision Lifecycle |
-| [docs/v3.8.3-release-notes.md](docs/v3.8.3-release-notes.md) | v3.8.3 — Lane Memory |
-| [docs/v3.8.4-release-notes.md](docs/v3.8.4-release-notes.md) | v3.8.4 — Token Budget + Evidence Recall |
+| [README.md](./README.md) | **This file** — Bilingual main documentation (英汉双语主文档) |
+| [README_CN.md](./README_CN.md) | 中文主文档 — Complete Chinese documentation |
+| [README.zh-CN.md](./README.zh-CN.md) | Legacy Chinese README (旧版中文自述) |
+| [SKILL.md](./SKILL.md) | Technical deep-dive (English) |
 
-### Additional Docs
+### 🗂️ docs/en/ — English Technical Docs
 
 | File | Description |
 |------|-------------|
-| [docs/competitive-analysis.md](docs/competitive-analysis.md) | Feature comparison with competing memory systems |
-| [docs/CONFIG.md](docs/CONFIG.md) | Detailed configuration guide |
+| [docs/en/README.md](./docs/en/README.md) | Technical overview |
+| [docs/en/HOOK_INTEGRATION.md](./docs/en/HOOK_INTEGRATION.md) | Hook integration guide |
+| [docs/en/MCP_INTEGRATION.md](./docs/en/MCP_INTEGRATION.md) | MCP integration guide |
+| [docs/en/INTEGRATION_COMPARISON.md](./docs/en/INTEGRATION_COMPARISON.md) | Integration comparison |
+
+### 🗂️ docs/zh/ — 中文技术文档
+
+| 文件 | 说明 |
+|------|------|
+| [docs/zh/README.md](./docs/zh/README.md) | 技术概述 |
+| [docs/zh/HOOK_INTEGRATION.md](./docs/zh/HOOK_INTEGRATION.md) | Hook 集成指南 |
+| [docs/zh/MCP_INTEGRATION.md](./docs/zh/MCP_INTEGRATION.md) | MCP 集成指南 |
+| [docs/zh/INTEGRATION_COMPARISON.md](./docs/zh/INTEGRATION_COMPARISON.md) | 集成对比 |
+
+### 📋 docs/ — General Documents | 通用文档
+
+| File | Description |
+|------|-------------|
+| [docs/index.md](./docs/index.md) | **Documentation hub** — All docs index (总索引) |
+| [docs/CONFIG.md](./docs/CONFIG.md) | Detailed configuration guide |
+| [docs/competitive-analysis.md](./docs/competitive-analysis.md) | Feature comparison |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Architecture deep-dive |
+| [docs/v4.0-ARCHITECTURE.md](./docs/v4.0-ARCHITECTURE.md) | v4.0 architecture |
+| [docs/CHANGELOG.md](./docs/CHANGELOG.md) | Full changelog |
+| [docs/v3.8.0-release-notes.md](./docs/v3.8.0-release-notes.md) | v3.8.0 release notes |
+| [docs/v3.8.1-release-notes.md](./docs/v3.8.1-release-notes.md) | v3.8.1 release notes |
+| [docs/v3.8.2-release-notes.md](./docs/v3.8.2-release-notes.md) | v3.8.2 release notes |
+| [docs/v3.8.3-release-notes.md](./docs/v3.8.3-release-notes.md) | v3.8.3 release notes |
+| [docs/v3.8.4-release-notes.md](./docs/v3.8.4-release-notes.md) | v3.8.4 release notes |
+
+### 🚀 Quick Access | 快速访问
+
+- [README_QUICK_START.md](./README_QUICK_START.md) — Quick start guide (快速入门)
+- [docs/index.md](./docs/index.md) — 📚 **All docs index** (总索引页)
 
 ---
 
-*Last updated: 2026-03-31 | v3.8.4 | 152 MCP Tools | Pure Node.js ESM*
+*Last updated: 2026-04-01 | v3.8.4 | 152 MCP Tools | Pure Node.js ESM*

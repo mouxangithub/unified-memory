@@ -1,3 +1,12 @@
+---
+title: Unified Memory — Quick Start Guide
+---
+
+<!-- Language Toggle -->
+[English](./README.md) · **[中文](./README_CN.md)** · [日本語](./README_JA.md)
+
+---
+
 # 🚀 Quick Start | 快速入门
 
 > **English** | [中文](#中文快速入门) | [日本語](./README_JA.md)
@@ -113,14 +122,25 @@ node src/webui/dashboard.js
 
 ---
 
-## 🔗 Other Documentation | 其他文档
+## 🔗 Documentation Index | 文档索引
 
-| Document | Description |
-|----------|-------------|
-| [README.md](./README.md) | Full English documentation |
-| [README_CN.md](./README_CN.md) | 完整中文文档 |
-| [SKILL.md](./SKILL.md) | OpenClaw Skill specification |
-| [docs/](./docs/) | Additional docs & API reference |
+> 🌍 [English](./README.md) · **[中文](./README_CN.md)** · [日本語](./README_JA.md)
+
+| Document | Language | Description |
+|----------|----------|-------------|
+| [README.md](./README.md) | 🇺🇸 | Main documentation (English) |
+| [README_CN.md](./README_CN.md) | 🇨🇳 | 主文档（中文） |
+| [SKILL.md](./SKILL.md) | 🇺🇸 | Technical deep-dive (English) |
+| [docs/index.md](./docs/index.md) | 🌍 | **📚 All docs index** — 全部文档索引 |
+| [docs/en/](./docs/en/) | 🇺🇸 | English technical docs |
+| [docs/zh/](./docs/zh/) | 🇨🇳 | 中文技术文档 |
+| [docs/CONFIG.md](./docs/CONFIG.md) | 🌍 | Configuration guide |
+
+**Jump to specific docs:**
+- [docs/en/HOOK_INTEGRATION.md](./docs/en/HOOK_INTEGRATION.md) — Hook integration
+- [docs/zh/HOOK_INTEGRATION.md](./docs/zh/HOOK_INTEGRATION.md) — Hook 集成指南
+- [docs/en/MCP_INTEGRATION.md](./docs/en/MCP_INTEGRATION.md) — MCP integration
+- [docs/zh/MCP_INTEGRATION.md](./docs/zh/MCP_INTEGRATION.md) — MCP 集成指南
 
 ---
 

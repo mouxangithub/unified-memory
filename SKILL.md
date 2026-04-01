@@ -531,6 +531,30 @@ Full architecture details: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 
 ---
 
+## New Bilingual Documentation System / 新的双语文档系统
+
+> ⚠️ **The new docs/ folder is the authoritative source for Hook + MCP integration guides.** The links below supersede older inline documentation.
+
+### English / 英文文档
+
+| Document | Description |
+|----------|-------------|
+| [docs/en/README.md](./docs/en/README.md) | Overview, quick start, architecture, FAQ |
+| [docs/en/HOOK_INTEGRATION.md](./docs/en/HOOK_INTEGRATION.md) | Hook mechanism, before_prompt_build, agent_end, performance |
+| [docs/en/MCP_INTEGRATION.md](./docs/en/MCP_INTEGRATION.md) | MCP tools, manual usage, configuration examples |
+| [docs/en/INTEGRATION_COMPARISON.md](./docs/en/INTEGRATION_COMPARISON.md) | Hook+MCP vs MCP-only vs Hook-only comparison |
+
+### 中文文档
+
+| 文档 | 说明 |
+|------|------|
+| [docs/zh/README.md](./docs/zh/README.md) | 概述、快速开始、架构、常见问题 |
+| [docs/zh/HOOK_INTEGRATION.md](./docs/zh/HOOK_INTEGRATION.md) | Hook 机制、before_prompt_build、agent_end、性能分析 |
+| [docs/zh/MCP_INTEGRATION.md](./docs/zh/MCP_INTEGRATION.md) | MCP 工具、手动调用、配置示例 |
+| [docs/zh/INTEGRATION_COMPARISON.md](./docs/zh/INTEGRATION_COMPARISON.md) | Hook+MCP vs 仅MCP vs 仅Hook 对比分析 |
+
+---
+
 ## Related Documentation / 相关文档
 
 | Document | Description |
@@ -540,6 +564,7 @@ Full architecture details: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 | [docs/competitive-analysis.md](./docs/competitive-analysis.md) | Competitive analysis |
 | [docs/CHANGELOG.md](./docs/CHANGELOG.md) | Version history and changelog |
 | [SKILL_CN.md](./SKILL_CN.md) | Legacy Chinese SKILL (superseded by this file) |
+| [HOOK.md](./HOOK.md) | Hook lifecycle and configuration reference |
 
 ---
 
