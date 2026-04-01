@@ -323,7 +323,7 @@ export async function searchBm25(query, options = {}) {
   if (!intent) return [];
 
   const { topK = 10, scope = 'global' } = options;
-  const allMemories = loadMemories();
+  const allMemories = await loadMemories();
   const scopeOrder = getScopeOrder(scope);
   let memories = [];
   for (const s of scopeOrder) {

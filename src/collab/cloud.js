@@ -9,7 +9,7 @@
  * Ported from memory_cloud.py
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, createWriteStream, createReadStream } from 'fs';
+import fs, { existsSync, readFileSync, writeFileSync, mkdirSync, createWriteStream, createReadStream } from 'fs';
 import { join, dirname } from 'path';
 import { createHash, randomBytes } from 'crypto';
 
@@ -78,9 +78,7 @@ class LocalProvider {
 
   upload(localPath, remotePath) {
     try {
-      const fs = require('fs');
-      const path = require('path');
-      const backupPath = this.config.config.backup_path || join(WORKSPACE, 'memory_backup');
+                  const backupPath = this.config.config.backup_path || join(WORKSPACE, 'memory_backup');
       const remoteFull = join(backupPath, remotePath);
       mkdirSync(dirname(remoteFull), { recursive: true });
       fs.copyFileSync(localPath, remoteFull);
@@ -92,9 +90,7 @@ class LocalProvider {
 
   download(remotePath, localPath) {
     try {
-      const fs = require('fs');
-      const path = require('path');
-      const backupPath = this.config.config.backup_path || join(WORKSPACE, 'memory_backup');
+                  const backupPath = this.config.config.backup_path || join(WORKSPACE, 'memory_backup');
       const remoteFull = join(backupPath, remotePath);
       mkdirSync(dirname(localPath), { recursive: true });
       fs.copyFileSync(remoteFull, localPath);
@@ -106,9 +102,7 @@ class LocalProvider {
 
   listFiles(remoteDir) {
     try {
-      const fs = require('fs');
-      const path = require('path');
-      const backupPath = this.config.config.backup_path || join(WORKSPACE, 'memory_backup');
+                  const backupPath = this.config.config.backup_path || join(WORKSPACE, 'memory_backup');
       const remoteFull = join(backupPath, remoteDir);
       if (!existsSync(remoteFull)) return [];
       const entries = fs.readdirSync(remoteFull, { withFileTypes: true });
@@ -129,9 +123,7 @@ class LocalProvider {
 
   delete(remotePath) {
     try {
-      const fs = require('fs');
-      const path = require('path');
-      const backupPath = this.config.config.backup_path || join(WORKSPACE, 'memory_backup');
+                  const backupPath = this.config.config.backup_path || join(WORKSPACE, 'memory_backup');
       const remoteFull = join(backupPath, remotePath);
       fs.unlinkSync(remoteFull);
       return true;
@@ -212,7 +204,6 @@ class WebDAVProvider {
         }
       });
       if (response.ok) {
-        const { writeFileSync } = require('fs');
         const buffer = await response.arrayBuffer();
         writeFileSync(localPath, Buffer.from(buffer));
         return true;
@@ -247,14 +238,12 @@ export class MemoryBackup {
     // Copy memories.json
     const memoryFile = join(MEMORY_DIR, 'memories.json');
     if (existsSync(memoryFile)) {
-      const fs = require('fs');
-      fs.copyFileSync(memoryFile, join(backupPath, 'memories.json'));
+            fs.copyFileSync(memoryFile, join(backupPath, 'memories.json'));
     }
 
     // Copy vector DB if exists
     if (existsSync(VECTOR_DB_DIR)) {
-      const fs = require('fs');
-      this._copyDir(VECTOR_DB_DIR, join(backupPath, 'vector'));
+            this._copyDir(VECTOR_DB_DIR, join(backupPath, 'vector'));
     }
 
     // Create manifest
@@ -271,8 +260,7 @@ export class MemoryBackup {
       : backupPath;
 
     if (storageType === 'local') {
-      const fs = require('fs');
-      this._copyDir(backupPath, finalPath);
+            this._copyDir(backupPath, finalPath);
       const tempDir = join(MEMORY_DIR, 'temp_backup');
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
@@ -287,14 +275,14 @@ export class MemoryBackup {
 
   _copyDir(src, dst) {
     mkdirSync(dst, { recursive: true });
-    const entries = require('fs').readdirSync(src, { withFileTypes: true });
+    const entries = fs.readdirSync(src, { withFileTypes: true });
     for (const entry of entries) {
       const srcPath = join(src, entry.name);
       const dstPath = join(dst, entry.name);
       if (entry.isDirectory()) {
         this._copyDir(srcPath, dstPath);
       } else {
-        require('fs').copyFileSync(srcPath, dstPath);
+        fs.copyFileSync(srcPath, dstPath);
       }
     }
   }
@@ -304,7 +292,7 @@ export class MemoryBackup {
     if (storageType === 'local') {
       const backupPath = this.config.config.backup_path || join(WORKSPACE, 'memory_backup');
       if (!existsSync(backupPath)) return [];
-      const entries = require('fs').readdirSync(backupPath, { withFileTypes: true });
+      const entries = fs.readdirSync(backupPath, { withFileTypes: true });
       return entries
         .filter(e => e.isDirectory() && e.name.startsWith('backup_'))
         .map(e => ({
@@ -322,8 +310,7 @@ export class MemoryBackup {
       return { success: false, error: '备份不存在' };
     }
 
-    const fs = require('fs');
-
+    
     // Restore memories.json
     const memBackup = join(backupPath, 'memories.json');
     if (existsSync(memBackup)) {

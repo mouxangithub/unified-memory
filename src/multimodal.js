@@ -96,7 +96,7 @@ export async function memoryVisualSearchTool({ query, topK = 5 }) {
     }
 
     // First get all visual/audio memories
-    const allMemories = getAllMemories();
+    const allMemories = await getAllMemories();
     const mediaMemories = allMemories.filter(
       m => m.category === 'visual' || m.category === 'audio' || m.category === 'document'
     );

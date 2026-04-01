@@ -47,7 +47,7 @@ const refreshStats = {
  * @returns {Promise<object>} - Summary of what was done
  */
 export async function checkAndReconsolidate(maxItems = MAX_PER_RUN) {
-  const memories = loadMemories();
+  const memories = await loadMemories();
   if (!memories || memories.length === 0) {
     return { refreshed: 0, skipped: 0, errors: [], message: 'No memories found' };
   }

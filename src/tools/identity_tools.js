@@ -187,9 +187,9 @@ export function memoryIdentityUpdateTool({ extractions }) {
  * Tool: memory_identity_get
  * Get a summary of the user's identity profile from stored identity memories
  */
-export function memoryIdentityGetTool({ type } = {}) {
+export async function memoryIdentityGetTool({ type } = {}) {
   try {
-    const allMemories = getAllMemories();
+    const allMemories = await getAllMemories();
 
     // Identity-related categories
     const identityCategories = ['identity', 'preference', 'habit', 'requirement', 'skill', 'goal'];
