@@ -1101,7 +1101,7 @@ server.registerTool('memory_export', {
   try {
     return await exportMemories(args);
   } catch (err) {
-    log.error(`Export failed: ${err.message}`);
+    structuredLog.error(`Export failed: ${err.message}`);
     return { content: [{ type: 'text', text: `Export error: ${err.message}` }], isError: true };
   }
 });
@@ -1116,7 +1116,7 @@ server.registerTool('memory_dedup', {
   try {
     return await dedupMemories({ threshold, dryRun });
   } catch (err) {
-    log.error(`Dedup failed: ${err.message}`);
+    structuredLog.error(`Dedup failed: ${err.message}`);
     return { content: [{ type: 'text', text: `Dedup error: ${err.message}` }], isError: true };
   }
 });
@@ -1130,7 +1130,7 @@ server.registerTool('memory_decay', {
   try {
     return await decayMemories({ apply });
   } catch (err) {
-    log.error(`Decay failed: ${err.message}`);
+    structuredLog.error(`Decay failed: ${err.message}`);
     return { content: [{ type: 'text', text: `Decay error: ${err.message}` }], isError: true };
   }
 });
@@ -1144,7 +1144,7 @@ server.registerTool('memory_qa', {
   try {
     return await askQuestion({ question });
   } catch (err) {
-    log.error(`QA failed: ${err.message}`);
+    structuredLog.error(`QA failed: ${err.message}`);
     return { content: [{ type: 'text', text: `QA error: ${err.message}` }], isError: true };
   }
 });
@@ -1242,7 +1242,7 @@ server.registerTool('memory_lessons', {
   try {
     return memoryLessonsTool(args);
   } catch (err) {
-    log.error(`Lesson system error: ${err.message}`);
+    structuredLog.error(`Lesson system error: ${err.message}`);
     return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
   }
 });
@@ -1278,7 +1278,7 @@ server.registerTool('memory_autostore', {
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log.error(`Autostore error: ${err.message}`);
+    structuredLog.error(`Autostore error: ${err.message}`);
     return { content: [{ type: 'text', text: `Autostore error: ${err.message}` }], isError: true };
   }
 });
@@ -1343,7 +1343,7 @@ server.registerTool('memory_concurrent_search', {
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log.error(`Concurrent search error: ${err.message}`);
+    structuredLog.error(`Concurrent search error: ${err.message}`);
     return { content: [{ type: 'text', text: `Concurrent search error: ${err.message}` }], isError: true };
   }
 });
@@ -1384,7 +1384,7 @@ server.registerTool('memory_recommend', {
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log.error(`Recommend error: ${err.message}`);
+    structuredLog.error(`Recommend error: ${err.message}`);
     return { content: [{ type: 'text', text: `Recommend error: ${err.message}` }], isError: true };
   }
 });
@@ -1422,7 +1422,7 @@ server.registerTool('memory_inference', {
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log.error(`Inference error: ${err.message}`);
+    structuredLog.error(`Inference error: ${err.message}`);
     return { content: [{ type: 'text', text: `Inference error: ${err.message}` }], isError: true };
   }
 });
@@ -1457,7 +1457,7 @@ server.registerTool('memory_summary', {
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log.error(`Summary error: ${err.message}`);
+    structuredLog.error(`Summary error: ${err.message}`);
     return { content: [{ type: 'text', text: `Summary error: ${err.message}` }], isError: true };
   }
 });
@@ -1542,7 +1542,7 @@ server.registerTool('memory_templates', {
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log.error(`Templates error: ${err.message}`);
+    structuredLog.error(`Templates error: ${err.message}`);
     return { content: [{ type: 'text', text: `Templates error: ${err.message}` }], isError: true };
   }
 });
@@ -2237,7 +2237,7 @@ server.registerTool('memory_proactive_care', {
     }
     return { content: [{ type: 'text', text: 'Unknown action' }], isError: true };
   } catch (err) {
-    log.error(`Proactive care error: ${err.message}`);
+    structuredLog.error(`Proactive care error: ${err.message}`);
     return { content: [{ type: 'text', text: `Proactive care error: ${err.message}` }], isError: true };
   }
 });
@@ -2276,7 +2276,7 @@ server.registerTool('memory_proactive_recall', {
       }]
     };
   } catch (err) {
-    log.error(`Proactive recall error: ${err.message}`);
+    structuredLog.error(`Proactive recall error: ${err.message}`);
     return { content: [{ type: 'text', text: `Proactive recall error: ${err.message}` }], isError: true };
   }
 });

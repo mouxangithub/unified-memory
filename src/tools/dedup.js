@@ -7,7 +7,7 @@ import { getAllMemories, saveMemories } from '../storage.js';
 import { simpleHash, levenshteinDistance } from '../utils/text.js';
 
 export async function dedupMemories({ threshold = 0.85, dryRun = true }) {
-  const memories = getAllMemories();
+  const memories = await getAllMemories();
   
   if (memories.length < 2) {
     return {

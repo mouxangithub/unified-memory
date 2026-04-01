@@ -51,7 +51,7 @@ function calculateDecay(mem, currentTime) {
 }
 
 export async function decayMemories({ apply = false } = {}) {
-  const memories = getAllMemories();
+  const memories = await getAllMemories();
   const currentTime = Date.now();
   
   const decayed = memories.map(mem => calculateDecay(mem, currentTime));

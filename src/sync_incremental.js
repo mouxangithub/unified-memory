@@ -282,7 +282,7 @@ export async function syncPush({ providerType = 'local', providerConfig = {}, sc
 
     // Attach memory data for upsert entries
     const { getAllMemories } = await import('./storage.js');
-    const memories = getAllMemories();
+    const memories = await getAllMemories();
     const memoryMap = new Map(memories.map(m => [m.id, m]));
 
     const delta = {
@@ -355,7 +355,7 @@ export async function syncPull({ providerType = 'local', providerConfig = {}, re
 
     // Load current local memories and sync log
     const { getAllMemories, saveMemories } = await import('./storage.js');
-    let localMemories = getAllMemories();
+    let localMemories = await getAllMemories();
     const localMap = new Map(localMemories.map(m => [m.id, m]));
     let merged = 0;
     let conflicts = 0;

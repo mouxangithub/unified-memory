@@ -244,7 +244,7 @@ export async function memoryCompose({
     : recentMessages.map(m => typeof m.content === 'string' ? m.content : '').join(' ').slice(0, 100);
 
   // 3. Load all memories
-  const allMemories = getAllMemories();
+  const allMemories = await getAllMemories();
 
   // 4. Select memories within remaining token budget
   // Reserve some tokens for the context header
