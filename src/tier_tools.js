@@ -19,9 +19,10 @@ const DAY_MS = 86400000;
 /**
  * memory_tier_status - View tier statistics
  */
-export function memoryTierStatusTool() {
+export async function memoryTierStatusTool() {
   try {
-    const memories = getAllMemories();
+    const memories = await getAllMemories();
+    console.error(`[DEBUG] memories=${memories?.length}, type=${typeof memories}`);
     const stats = getTierStats(memories);
     const tiers = partitionByTier(memories);
 
@@ -82,9 +83,9 @@ export function memoryTierStatusTool() {
 /**
  * memory_tier_migrate - Manually trigger tier migration
  */
-export function memoryTierMigrateTool({ apply = false } = {}) {
+export async function memoryTierMigrateTool({ apply = false } = {}) {
   try {
-    const memories = getAllMemories();
+    const memories = await getAllMemories();
     const beforeStats = getTierStats(memories);
 
     // Get migration recommendations
@@ -131,9 +132,9 @@ export function memoryTierMigrateTool({ apply = false } = {}) {
 /**
  * memory_tier_compress - Compress COLD tier storage
  */
-export function memoryTierCompressTool({ apply = false } = {}) {
+export async function memoryTierCompressTool({ apply = false } = {}) {
   try {
-    const memories = getAllMemories();
+    const memories = await getAllMemories();
     const tiers = partitionByTier(memories);
     const coldMemories = tiers.COLD || [];
 

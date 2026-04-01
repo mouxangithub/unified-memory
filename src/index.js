@@ -2017,10 +2017,10 @@ server.registerTool('memory_tier', {
   }),
 }, async ({ action, apply, memories }) => {
   try {
-    if (action === 'status') return memoryTierStatusTool();
-    else if (action === 'migrate') return memoryTierMigrateTool({ apply });
+    if (action === 'status') return await memoryTierStatusTool();
+    else if (action === 'migrate') return await memoryTierMigrateTool({ apply });
     else if (action === 'compress') {
-      if (apply) return memoryTierCompressTool({ apply: true });
+      if (apply) return await memoryTierCompressTool({ apply: true });
       const cold = (memories || []).filter(m => m.tier === 'COLD');
       const result = compressColdTier(cold);
       return { content: [{ type: 'text', text: JSON.stringify({ preview: true, ...result }) }] };
