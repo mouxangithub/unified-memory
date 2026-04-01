@@ -2,6 +2,26 @@
 
 All notable changes to unified-memory are documented here.
 
+## v4.0.6 (2026-04-02)
+
+### 📚 Documentation & Organization
+
+- **SKILL.md**: Added 8 new MCP tools documentation (Phase 7-9)
+  - `memory_cost_stats`, `memory_cost_reset`, `memory_record_embedding`, `memory_record_llm`
+  - `memory_smart_compact`, `memory_merge_similar`, `memory_lifecycle_config`, `memory_detect_sensitive`
+- **IMPROVEMENT_PLAN.md**: Marked all tasks as completed
+- **MEMORY.md**: Recorded v3.8.x version improvements
+- **CHANGELOG.md**: Updated with v3.8.0 version changes
+
+### 🔧 Technical Updates
+
+- Added `src/core/usage_tracker.js` - Cost tracking system
+- Added `src/core/compaction.js` - Smart compression system  
+- Added `src/core/lifecycle.js` - Lifecycle hooks
+- Integration updates in storage.js, fusion.js, vector_lancedb.js
+
+---
+
 ## v3.6.0 (2026-03-29)
 
 ### 🐛 Bug Fixes
