@@ -1,4 +1,4 @@
-# API 文档 — Unified Memory v4.1.0
+# API 文档 — Unified Memory v4.1.2
 
 > 完整的 MCP 工具 API 参考手册
 
@@ -6,12 +6,191 @@
 
 ## 目录
 
+- [本地 Embedding 工具](#本地-embedding-工具)
+- [数据清理器工具](#数据清理器工具)
 - [L2 场景归纳工具](#l2-场景归纳工具)
 - [管线调度工具](#管线调度工具)
 - [存储核心工具](#存储核心工具)
 - [WAL 协议工具](#wal-协议工具)
 - [证据链工具](#证据链工具)
 - [搜索与检索工具](#搜索与检索工具)
+
+---
+
+## 本地 Embedding 工具
+
+### memory_local_embedding_status
+
+获取本地 Embedding 服务状态。
+
+**参数**: 无
+
+**返回值**:
+
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "{\"available\":true,\"model\":\"embeddinggemma-300m\",\"dimensions\":768,\"ready\":true}"
+  }]
+}
+```
+
+**示例**:
+
+```bash
+mcporter call unified-memory memory_local_embedding_status '{}'
+```
+
+---
+
+### memory_local_embedding_warmup
+
+启动模型预热（后台下载和加载）。
+
+**参数**: 无
+
+**返回值**:
+
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "{\"warmingUp\":true,\"model\":\"embeddinggemma-300m\"}"
+  }]
+}
+```
+
+**示例**:
+
+```bash
+mcporter call unified-memory memory_local_embedding_warmup '{}'
+```
+
+---
+
+### memory_local_embedding_embed
+
+使用本地模型获取向量。
+
+**参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `text` | `string` | 是 | 要获取向量的文本 |
+
+**返回值**:
+
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "{\"embedding\":[0.123,...],\"model\":\"embeddinggemma-300m\",\"dimensions\":768}"
+  }]
+}
+```
+
+**示例**:
+
+```bash
+mcporter call unified-memory memory_local_embedding_embed '{
+  "text": "用户偏好简洁风格"
+}'
+```
+
+---
+
+## 数据清理器工具
+
+### memory_cleaner_status
+
+获取数据清理器状态。
+
+**参数**: 无
+
+**返回值**:
+
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "{\"enabled\":false,\"retentionDays\":0,\"lastRun\":null,\"nextScheduledRun\":\"03:00\"}"
+  }]
+}
+```
+
+**示例**:
+
+```bash
+mcporter call unified-memory memory_cleaner_status '{}'
+```
+
+---
+
+### memory_cleaner_config
+
+更新数据清理器配置。
+
+**参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `config` | `object` | 是 | 新的配置对象 |
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `enabled` | `boolean` | `false` | 是否启用自动清理 |
+| `retentionDays` | `number` | `0` | 保留天数，0=禁用 |
+| `cleanTime` | `string` | `"03:00"` | 每日清理时间 |
+| `allowAggressiveCleanup` | `boolean` | `false` | 允许高风险清理 |
+
+**返回值**:
+
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "{\"updated\":true,\"config\":{...}}"
+  }]
+}
+```
+
+**示例**:
+
+```bash
+mcporter call unified-memory memory_cleaner_config '{
+  "config": {
+    "enabled": true,
+    "retentionDays": 30,
+    "cleanTime": "03:00"
+  }
+}'
+```
+
+---
+
+### memory_cleaner_run
+
+手动执行一次数据清理。
+
+**参数**: 无
+
+**返回值**:
+
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "{\"executed\":true,\"deletedCount\":5,\"freedBytes\":102400}"
+  }]
+}
+```
+
+**示例**:
+
+```bash
+mcporter call unified-memory memory_cleaner_run '{}'
+```
 
 ---
 
@@ -597,6 +776,12 @@ MMR (Maximal Marginal Relevance) 重排。
 
 | 工具名 | 类别 | 说明 |
 |--------|------|------|
+| `memory_local_embedding_status` | 本地 Embedding 🆕 | Embedding 状态 |
+| `memory_local_embedding_warmup` | 本地 Embedding 🆕 | 预热模型 |
+| `memory_local_embedding_embed` | 本地 Embedding 🆕 | 获取向量 |
+| `memory_cleaner_status` | 数据清理器 🆕 | 清理器状态 |
+| `memory_cleaner_config` | 数据清理器 🆕 | 清理器配置 |
+| `memory_cleaner_run` | 数据清理器 🆕 | 执行清理 |
 | `memory_scene_induct` | L2 场景归纳 🆕 | 从记忆归纳场景块 |
 | `memory_scene_list` | L2 场景归纳 🆕 | 列出场景块 |
 | `memory_scene_get` | L2 场景归纳 🆕 | 获取场景块详情 |
@@ -626,4 +811,4 @@ MMR (Maximal Marginal Relevance) 重排。
 
 ---
 
-*最后更新: 2026-04-06 | v4.1.0*
+*最后更新: 2026-04-06 | v4.1.2*

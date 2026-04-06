@@ -3,14 +3,14 @@
 标题: Unified Memory v4.1.0
 ---
 
-# 🧠 Unified Memory v4.1.0
+# 🧠 Unified Memory v4.1.2
 
 > 四层渐进式 AI 记忆系统 (L0→L1→L2→L3)
 
 **作者**: 程序员小刘 ([@mouxangithub](https://github.com/mouxangithub))  
 **GitHub**: https://github.com/mouxangithub/unified-memory  
 **安装**: `clawhub install unified-memory`  
-**版本**: 4.1.0 (2026-04-06)
+**版本**: 4.1.2 (2026-04-06)
 
 ---
 
@@ -29,7 +29,23 @@
 
 ## 概述
 
-Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 MCP 服务器。它提供持久化上下文、混合搜索、Weibull 衰减、WAL 协议、四层 Scope 隔离等特性，**全部使用纯 Node.js ESM 实现，零 Python 依赖**。
+Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 MCP 服务器。它提供：
+
+- 🔄 **持久化上下文** — 每次对话建立在上一次会话基础上
+- 🔍 **混合搜索** — BM25 + 向量 + RRF 融合
+- 📈 **Weibull 衰减** — 模拟人类遗忘曲线
+- 💾 **WAL 协议** — 崩溃恢复保障
+- 🏷️ **四层 Scope 隔离** — AGENT / USER / TEAM / GLOBAL
+- 📊 **知识图谱** — 实体关系提取与查询
+- 🔗 **证据链** — 来源追踪与置信度评分
+- 🏊 **泳道记忆** — 多Agent并行隔离
+- 💰 **Token 预算** — 自动压缩与限制
+- 🌐 **中文分词** — @node-rs/jieba 原生集成
+- ⚡ **零配置默认值** — 开箱即用
+- 🤖 **本地 Embedding** — node-llama-cpp + GGUF 完全离线
+- 🧹 **数据清理器** — retentionDays 自动清理旧数据
+
+**零 Python 依赖** — 纯 Node.js ESM 实现
 
 ---
 
@@ -140,6 +156,24 @@ mcporter call unified-memory memory_pipeline_status '{}'
 
 ## 工具列表
 
+### 🆕 v4.1.2 新增工具
+
+#### 本地 Embedding (3个)
+
+| 工具 | 说明 |
+|------|------|
+| `memory_local_embedding_status` | 获取本地 Embedding 服务状态 |
+| `memory_local_embedding_warmup` | 启动模型预热 |
+| `memory_local_embedding_embed` | 使用本地模型获取向量 |
+
+#### 数据清理器 (3个)
+
+| 工具 | 说明 |
+|------|------|
+| `memory_cleaner_status` | 获取数据清理器状态 |
+| `memory_cleaner_config` | 更新数据清理器配置 |
+| `memory_cleaner_run` | 手动执行数据清理 |
+
 ### 🆕 v4.1 新增工具
 
 #### L2 场景归纳 (6个)
@@ -231,16 +265,25 @@ mcporter call unified-memory memory_pipeline_status '{}'
 
 ## 与 memory-tencentdb 对比
 
-| 特性 | Unified Memory v4.1 | memory-tencentdb |
-|------|---------------------|------------------|
+| 特性 | Unified Memory v4.1.2 | memory-tencentdb |
+|------|----------------------|------------------|
 | **语言** | Node.js ESM | Node.js |
 | **中文分词** | @node-rs/jieba ✅ | 未知 |
+| **本地 Embedding** | node-llama-cpp + GGUF ✅ | 未知 |
+| **数据清理器** | retentionDays 自动清理 ✅ | 未知 |
 | **四层管线** | L0→L1→L2→L3 ✅ | ✅ |
 | **自动调度** | Pipeline Scheduler ✅ | ✅ |
 | **Hook 集成** | before_prompt_build, agent_end ✅ | 未知 |
 | **零配置** | 默认值开箱即用 ✅ | 未知 |
 | **Scope 隔离** | AGENT/USER/TEAM/GLOBAL ✅ | 未知 |
 | **混合搜索** | BM25 + Vector + RRF ✅ | ✅ |
+| **WAL 协议** | ✅ | ✅ |
+| **Weibull 衰减** | ✅ | 未知 |
+| **证据链** | ✅ | 未知 |
+| **泳道记忆** | ✅ | 未知 |
+| **Token 预算** | ✅ | 未知 |
+| **知识图谱** | ✅ | 未知 |
+| **v4 工具** | 160+ 工具 | 未知 |
 
 ---
 
@@ -286,4 +329,4 @@ MIT License — 详见 [LICENSE](LICENSE)
 
 ---
 
-*最后更新: 2026-04-06 | v4.1.0 | 四层管线 | 中文分词 | 零配置默认值*
+*最后更新: 2026-04-06 | v4.1.2 | 四层管线 | 本地 Embedding | 数据清理器 | 中文分词 | 零配置默认值*

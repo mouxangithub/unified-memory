@@ -1,13 +1,13 @@
 ---
 priority: critical
-title: Unified Memory v4.1.0
+title: Unified Memory v4.1.2
 ---
 
 <!-- Language Toggle / 语言切换 -->
 [English](./README.md) · **[中文](./README_CN.md)**
 
 <!-- Badge -->
-[![Version](https://img.shields.io/badge/version-4.1.0-blue.svg)](https://github.com/mouxangithub/unified-memory)
+[![Version](https://img.shields.io/badge/version-4.1.2-blue.svg)](https://github.com/mouxangithub/unified-memory)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -19,7 +19,7 @@ title: Unified Memory v4.1.0
 **GitHub**: https://github.com/mouxangithub/unified-memory  
 **安装**: `clawhub install unified-memory`  
 **框架**: OpenClaw Agent | Node.js ESM | MCP stdio | 中文分词  
-**版本**: 4.1.0 (2026-04-06)
+**版本**: 4.1.2 (2026-04-06)
 
 ---
 
@@ -51,6 +51,8 @@ Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 
 - 💰 **Token 预算** — 自动压缩与限制
 - 🌐 **中文分词** — @node-rs/jieba 原生集成
 - ⚡ **零配置默认值** — 开箱即用
+- 🤖 **本地 Embedding** — node-llama-cpp + GGUF 完全离线
+- 🧹 **数据清理器** — retentionDays 自动清理旧数据
 
 **零 Python 依赖** — 纯 Node.js ESM 实现
 
@@ -207,9 +209,27 @@ mcporter call unified-memory memory_pipeline_trigger '{
 
 ## 工具列表
 
+### 🆕 v4.1.2 新增工具
+
+#### 本地 Embedding (3个)
+
+| 工具 | 说明 |
+|------|------|
+| `memory_local_embedding_status` | 获取本地 Embedding 服务状态 |
+| `memory_local_embedding_warmup` | 启动模型预热 |
+| `memory_local_embedding_embed` | 使用本地模型获取向量 |
+
+#### 数据清理器 (3个)
+
+| 工具 | 说明 |
+|------|------|
+| `memory_cleaner_status` | 获取数据清理器状态 |
+| `memory_cleaner_config` | 更新数据清理器配置 |
+| `memory_cleaner_run` | 手动执行数据清理 |
+
 ### 🆕 v4.1 新增工具
 
-#### L2 场景归纳 (8个)
+#### L2 场景归纳 (6个)
 
 | 工具 | 说明 |
 |------|------|
@@ -414,10 +434,12 @@ mcporter call unified-memory memory_pipeline_trigger '{
 
 ## 与 memory-tencentdb 对比
 
-| 特性 | Unified Memory v4.1 | memory-tencentdb |
-|------|---------------------|------------------|
+| 特性 | Unified Memory v4.1.2 | memory-tencentdb |
+|------|----------------------|------------------|
 | **语言** | Node.js ESM | Node.js |
 | **中文分词** | @node-rs/jieba ✅ | 未知 |
+| **本地 Embedding** | node-llama-cpp + GGUF ✅ | 未知 |
+| **数据清理器** | retentionDays 自动清理 ✅ | 未知 |
 | **四层管线** | L0→L1→L2→L3 ✅ | ✅ |
 | **自动调度** | Pipeline Scheduler ✅ | ✅ |
 | **Hook 集成** | before_prompt_build, agent_end ✅ | 未知 |
@@ -430,12 +452,14 @@ mcporter call unified-memory memory_pipeline_trigger '{
 | **泳道记忆** | ✅ | 未知 |
 | **Token 预算** | ✅ | 未知 |
 | **知识图谱** | ✅ | 未知 |
-| **v4 工具** | 152+ 工具 | 未知 |
+| **v4 工具** | 160+ 工具 | 未知 |
 
-**Unified Memory v4.1 优势**:
+**Unified Memory v4.1.2 优势**:
 - 纯 Node.js，无 Python 依赖
 - 原生中文分词支持
-- 更丰富的工具生态 (152+ 工具)
+- 完全离线的本地 Embedding
+- 自动数据清理能力
+- 更丰富的工具生态 (160+ 工具)
 - 完整的 Scope 隔离
 - 零配置默认值
 
@@ -491,4 +515,4 @@ MIT License — 详见 [LICENSE](LICENSE)
 
 ---
 
-*最后更新: 2026-04-06 | v4.1.0 | 四层管线 | 中文分词 | 零配置默认值*
+*最后更新: 2026-04-06 | v4.1.2 | 四层管线 | 本地 Embedding | 数据清理器 | 中文分词 | 零配置默认值*
