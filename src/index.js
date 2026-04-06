@@ -3401,6 +3401,68 @@ function registerCleanerTools(server) {
 
 registerCleanerTools(server);
 
+// ─── v4.1.2: Local Embedding Tools ─────────────────────────────────────────────
+
+import { LocalEmbeddingService, EmbeddingNotReadyError, getLocalEmbedding, initLocalEmbedding, isLocalEmbeddingAvailable } from './local_embedding.js';
+
+function registerLocalEmbeddingTools(server) {
+  server.registerTool('memory_local_embedding_status', {
+    description: '获取本地 Embedding 服务状态',
+    inputSchema: z.object({})
+  }, async () => {
+    const service = getLocalEmbedding(config.localEmbedding || {});
+    const status = service.getStatus();
+    const available = await isLocalEmbeddingAvailable();
+    return { content: [{ type: 'text', text: JSON.stringify({ ...status, available }, null, 2) }] };
+  });
+
+  server.registerTool('memory_local_embedding_warmup', {
+    description: '启动本地 Embedding 模型预热 (后台下载和加载)',
+    inputSchema: z.object({
+      waitForReady: z.boolean().optional().default(false).describe('是否等待就绪'),
+    })
+  }, async ({ waitForReady }) => {
+    const service = getLocalEmbedding(config.localEmbedding || {});
+    service.startWarmup();
+    
+    if (waitForReady) {
+      await service.waitForReady();
+    }
+    
+    return { content: [{ type: 'text', text: JSON.stringify(service.getStatus(), null, 2) }] };
+  });
+
+  server.registerTool('memory_local_embedding_embed', {
+    description: '使用本地 Embedding 模型获取向量',
+    inputSchema: z.object({
+      text: z.string().describe('要嵌入的文本'),
+      waitForReady: z.boolean().optional().default(true).describe('是否等待模型就绪'),
+    })
+  }, async ({ text, waitForReady }) => {
+    const service = getLocalEmbedding(config.localEmbedding || {});
+    
+    if (!service.isReady()) {
+      service.startWarmup();
+      if (waitForReady) {
+        await service.waitForReady();
+      } else {
+        throw new EmbeddingNotReadyError('Local embedding is not ready. Set waitForReady: true to wait.');
+      }
+    }
+    
+    const embedding = await service.embed(text);
+    return { content: [{ type: 'text', text: JSON.stringify({ dimensions: embedding.length, embedding: Array.from(embedding).slice(0, 10) }, null, 2) }] };
+  });
+}
+
+registerLocalEmbeddingTools(server);
+
+// 初始化本地 Embedding
+if (config.localEmbedding?.enabled && config.localEmbedding?.autoWarmup) {
+  const service = getLocalEmbedding(config.localEmbedding);
+  service.startWarmup();
+}
+
 // 初始化清理器
 if (config.cleaner?.enabled) {
   const cleaner = initCleaner({

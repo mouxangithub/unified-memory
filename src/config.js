@@ -145,6 +145,16 @@ const defaultConfig = {
     allowAggressiveCleanup: false,    // 是否允许 1-2 天的高风险清理
   },
 
+  // ─── v4.1.2: 本地 Embedding 配置 (移植自 memory-tencentdb) ───
+  localEmbedding: {
+    enabled: true,                    // 是否启用本地 Embedding
+    preferLocal: true,                // 优先使用本地 Embedding
+    modelPath: '',                    // GGUF 模型路径 (默认: embeddinggemma-300m)
+    modelCacheDir: '',                // 模型缓存目录
+    autoWarmup: true,                 // 是否自动预热
+    waitForReady: false,              // 是否等待就绪 (false = 回退到远程)
+  },
+
   // ─── v4.0: 中文支持配置 ───
   chinese: {
     enabled: true,                    // 是否启用中文优化

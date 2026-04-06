@@ -6,6 +6,51 @@ All notable changes to unified-memory are documented here.
 
 ---
 
+## v4.1.2 (2026-04-06) — 本地 Embedding
+
+> **Breaking Changes**: 无
+> **升级指南**: 直接更新到 v4.1.2，所有 API 向下兼容
+> **新增依赖**: `node-llama-cpp` (可选，用于本地 Embedding)
+
+### 🆕 新增功能
+
+#### 本地 Embedding 服务 (local_embedding.js)
+
+移植自 memory-tencentdb 的 LocalEmbeddingService，使用 node-llama-cpp + GGUF 模型实现完全离线的向量嵌入。
+
+| 工具 | 说明 |
+|------|------|
+| `memory_local_embedding_status` | 获取本地 Embedding 服务状态 |
+| `memory_local_embedding_warmup` | 启动模型预热 (后台下载和加载) |
+| `memory_local_embedding_embed` | 使用本地模型获取向量 |
+
+**特性**:
+- 完全离线，无需任何 API
+- 默认使用 embeddinggemma-300m (300MB, 768 维)
+- 后台预热，不阻塞主线程
+- 自动截断超长文本 (512 字符)
+- L2 归一化输出
+- 智能回退：本地不可用时自动回退到远程 API
+
+**配置**:
+```javascript
+localEmbedding: {
+  enabled: true,          // 是否启用本地 Embedding
+  preferLocal: true,      // 优先使用本地 Embedding
+  modelPath: '',          // GGUF 模型路径 (默认: embeddinggemma-300m)
+  modelCacheDir: '',      // 模型缓存目录
+  autoWarmup: true,       // 是否自动预热
+  waitForReady: false,    // 是否等待就绪 (false = 回退到远程)
+}
+```
+
+**依赖**:
+```bash
+npm install node-llama-cpp  # 可选依赖，仅本地 Embedding 需要
+```
+
+---
+
 ## v4.1.1 (2026-04-06) — 数据清理器
 
 > **Breaking Changes**: 无

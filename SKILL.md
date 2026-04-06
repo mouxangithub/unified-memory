@@ -11,7 +11,7 @@
 | Field | Value |
 |-------|-------|
 | **Name** | `unified-memory` |
-| **Version** | `4.1.1` (see [docs/CHANGELOG.md](./docs/CHANGELOG.md)) |
+| **Version** | `4.1.2` (see [docs/CHANGELOG.md](./docs/CHANGELOG.md)) |
 | **Framework** | OpenClaw Agent · Node.js ESM · MCP stdio |
 | **Node** | `>=18.0.0` |
 | **OpenClaw** | `>=2026.3.0` |
@@ -49,6 +49,9 @@ L3 (用户画像) → profile.js ✅
 | `memory_cleaner_status` | 获取数据清理器状态 |
 | `memory_cleaner_config` | 更新数据清理器配置 |
 | `memory_cleaner_run` | 手动执行一次数据清理 |
+| `memory_local_embedding_status` | 获取本地 Embedding 服务状态 |
+| `memory_local_embedding_warmup` | 启动模型预热 |
+| `memory_local_embedding_embed` | 使用本地模型获取向量 |
 
 ### 🔧 改进功能
 

@@ -1,8 +1,11 @@
 /**
- * Multi-Provider Embeddings - Ollama / OpenAI / Jina / SiliconFlow
+ * Multi-Provider Embeddings - Ollama / OpenAI / Jina / SiliconFlow / Local
  * Auto-fallback on failure. Reads from config.js (env vars or hardcoded)
+ * 
+ * v4.1.2: 新增本地 Embedding 支持 (node-llama-cpp)
  */
 import { config } from './config.js';
+import { LocalEmbeddingService, EmbeddingNotReadyError, getLocalEmbedding, isLocalEmbeddingAvailable } from './local_embedding.js';
 
 const PROVIDERS = {};
 for (const p of (config.embedProviders || [])) {
@@ -220,4 +223,109 @@ export async function embedTexts(texts, provider = 'ollama', onProgress) {
   });
 }
 
-export default { getEmbedding, embedTexts };
+export default { getEmbedding, embedTexts, LocalEmbeddingService, EmbeddingNotReadyError, getLocalEmbedding, isLocalEmbeddingAvailable };
+
+// ─── Local Embedding Support (v4.1.2) ─────────────────────────────────────────
+
+let _localEmbeddingService = null;
+
+/**
+ * 获取本地 Embedding 服务实例
+ * @param {object} config
+ * @returns {LocalEmbeddingService}
+ */
+export function getLocalEmbeddingService(config = {}) {
+  if (!_localEmbeddingService) {
+    _localEmbeddingService = new LocalEmbeddingService(config);
+  }
+  return _localEmbeddingService;
+}
+
+/**
+ * 使用本地 Embedding 获取向量
+ * 自动预热并等待就绪
+ * @param {string} text
+ * @param {object} options
+ * @returns {Promise<Float32Array>}
+ */
+export async function getLocalEmbeddingFor(text, options = {}) {
+  const service = getLocalEmbeddingService(options);
+  
+  // 如果未就绪，启动预热
+  if (!service.isReady()) {
+    service.startWarmup();
+    
+    // 如果用户要求等待就绪
+    if (options.waitForReady) {
+      await service.waitForReady();
+    } else {
+      throw new EmbeddingNotReadyError('Local embedding is warming up. Set waitForReady: true to wait.');
+    }
+  }
+  
+  return service.embed(text);
+}
+
+/**
+ * 使用本地 Embedding 批量获取向量
+ * @param {string[]} texts
+ * @param {object} options
+ * @returns {Promise<Float32Array[]>}
+ */
+export async function getLocalEmbeddingBatch(texts, options = {}) {
+  const service = getLocalEmbeddingService(options);
+  
+  if (!service.isReady()) {
+    service.startWarmup();
+    
+    if (options.waitForReady) {
+      await service.waitForReady();
+    } else {
+      throw new EmbeddingNotReadyError('Local embedding is warming up. Set waitForReady: true to wait.');
+    }
+  }
+  
+  return service.embedBatch(texts);
+}
+
+/**
+ * 智能获取 Embedding: 优先本地，失败则回退到远程 API
+ * @param {string} text
+ * @param {object} options
+ * @returns {Promise<number[]|Float32Array>}
+ */
+export async function getEmbeddingWithFallback(text, options = {}) {
+  const { preferLocal = true, providers = ['ollama', 'openai', 'jina', 'siliconflow'] } = options;
+  
+  // 1. 尝试本地 Embedding
+  if (preferLocal) {
+    try {
+      const available = await isLocalEmbeddingAvailable();
+      if (available) {
+        const service = getLocalEmbeddingService(options);
+        
+        // 如果已就绪，直接使用
+        if (service.isReady()) {
+          return service.embed(text);
+        }
+        
+        // 如果正在初始化，启动预热
+        service.startWarmup();
+        
+        // 如果用户愿意等待
+        if (options.waitForReady) {
+          await service.waitForReady();
+          return service.embed(text);
+        }
+        
+        // 否则回退到远程
+        console.warn('[embed_providers] Local embedding not ready, falling back to remote');
+      }
+    } catch (err) {
+      console.warn(`[embed_providers] Local embedding failed: ${err.message}`);
+    }
+  }
+  
+  // 2. 回退到远程 API
+  return getEmbedding(text, providers);
+}

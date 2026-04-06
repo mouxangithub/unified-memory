@@ -1,6 +1,6 @@
 {
   "name": "unified-memory",
-  "version": "4.1.1",
+  "version": "4.1.2",
   "type": "module",
   "description": "🧠 Unified Memory - 四层渐进式记忆系统 (L0→L1→L2→L3)",
   "main": "src/index.js",
@@ -29,10 +29,14 @@
     "zod": "^3.22.0"
   },
   "peerDependencies": {
-    "mcporter": ">=2026.3.0"
+    "mcporter": ">=2026.3.0",
+    "node-llama-cpp": ">=3.0.0"
   },
   "peerDependenciesMeta": {
     "mcporter": {
+      "optional": true
+    },
+    "node-llama-cpp": {
       "optional": true
     }
   },
