@@ -30,7 +30,7 @@ L1 (记忆提取) → extract.js ✅
       ↓
 L2 (场景归纳) → scene_block.js 🆕
       ↓
-L3 (用户画像) → profile.js ✅
+L3 (用户画像) → profile.js ✅ / persona_generator.js ✅
 ```
 
 ### 🆕 新增工具

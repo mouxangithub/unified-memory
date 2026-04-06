@@ -31,6 +31,7 @@ import { readSceneIndex, syncSceneIndex } from './scene/scene_index.js';
 import { parseSceneBlock, formatSceneBlock } from './scene/scene_format.js';
 // v4.2.0: Persona
 import { PersonaTrigger } from './persona/persona_trigger.js';
+import { PersonaGenerator } from './persona/persona_generator.js';
 // v4.2.0: Prompts
 import { CONFLICT_DETECTION_SYSTEM_PROMPT, formatBatchConflictPrompt } from './prompts/l1_dedup.js';
 import { EXTRACT_MEMORIES_SYSTEM_PROMPT, formatExtractionPrompt } from './prompts/l1_extraction.js';
