@@ -6,6 +6,73 @@ All notable changes to unified-memory are documented here.
 
 ---
 
+## v4.2.0 (2026-04-06) — 整合 memory-tencentdb 核心功能
+
+> **Breaking Changes**: 无
+> **升级指南**: 直接更新到 v4.2.0，所有 API 向下兼容
+
+### 🆕 新增功能
+
+移植自 memory-tencentdb 的核心功能模块，实现完整的四层渐进式记忆管线。
+
+#### Hooks（钩子系统）
+
+| 模块 | 说明 |
+|------|------|
+| `auto_capture.js` | 自动捕获对话消息到 L0，支持向量索引 |
+| `auto_recall.js` | 自动召回相关记忆 + Persona + Scene Navigation |
+
+#### Conversation（对话录制）
+
+| 模块 | 说明 |
+|------|------|
+| `l0_recorder.js` | L0 对话录制器，JSONL 格式，增量捕获 |
+
+#### Record（记录处理）
+
+| 模块 | 说明 |
+|------|------|
+| `l1_dedup.js` | L1 记忆去重，支持向量/FTS5/混合搜索 |
+
+#### Scene（场景系统）
+
+| 模块 | 说明 |
+|------|------|
+| `scene_navigation.js` | 场景导航生成，追加到 persona.md |
+| `scene_index.js` | 场景索引管理 |
+| `scene_format.js` | 场景块格式化/解析 |
+
+#### Persona（用户画像）
+
+| 模块 | 说明 |
+|------|------|
+| `persona_trigger.js` | Persona 生成触发器，5 级优先级判断 |
+
+#### Prompts（提示词模板）
+
+| 模块 | 说明 |
+|------|------|
+| `l1_dedup.js` | L1 冲突检测提示词 |
+| `l1_extraction.js` | L1 记忆提取提示词 |
+| `persona_generation.js` | Persona 生成提示词 |
+| `scene_extraction.js` | 场景归纳提示词 |
+
+#### Tools（工具）
+
+| 模块 | 说明 |
+|------|------|
+| `conversation_search.js` | L0 对话搜索工具，支持混合搜索 |
+| `memory_search.js` | L1 记忆搜索工具，支持混合搜索 |
+
+### 🔧 整合优化
+
+- **L0**: WAL + JSONL 双格式支持
+- **L1**: 提取 + 去重整合
+- **L2**: 场景 + 导航整合
+- **L3**: Persona + 触发器整合
+
+---
+
 ## v4.1.2 (2026-04-06) — 本地 Embedding
 
 > **Breaking Changes**: 无
