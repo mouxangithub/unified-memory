@@ -19,6 +19,26 @@ import { SerialQueue } from './utils/serial_queue.js';
 import { ManagedTimer } from './utils/managed_timer.js';
 import { SessionFilter } from './utils/session_filter.js';
 import { BackupManager } from './utils/backup.js';
+// v4.2.0: Hooks (from memory-tencentdb)
+import { performAutoCapture, performAutoRecall } from './hooks/auto_capture.js';
+// v4.2.0: Conversation
+import { recordConversation } from './conversation/l0_recorder.js';
+// v4.2.0: Record / L1
+import { batchDedup } from './record/l1_dedup.js';
+// v4.2.0: Scene
+import { generateSceneNavigation, stripSceneNavigation } from './scene/scene_navigation.js';
+import { readSceneIndex, syncSceneIndex } from './scene/scene_index.js';
+import { parseSceneBlock, formatSceneBlock } from './scene/scene_format.js';
+// v4.2.0: Persona
+import { PersonaTrigger } from './persona/persona_trigger.js';
+// v4.2.0: Prompts
+import { CONFLICT_DETECTION_SYSTEM_PROMPT, formatBatchConflictPrompt } from './prompts/l1_dedup.js';
+import { EXTRACT_MEMORIES_SYSTEM_PROMPT, formatExtractionPrompt } from './prompts/l1_extraction.js';
+import { buildPersonaPrompt } from './prompts/persona_generation.js';
+import { buildSceneExtractionPrompt } from './prompts/scene_extraction.js';
+// v4.2.0: Tools
+import { executeConversationSearch, formatConversationSearchResponse } from './tools/conversation_search.js';
+import { executeMemorySearch, formatSearchResponse } from './tools/memory_search.js';
 import { extractWords } from './utils/text_utils.js';
 
 import { config, log as configLog } from './config.js';
@@ -3538,4 +3558,32 @@ export {
   SessionFilter,
   BackupManager,
   extractWords,
+  // v4.2.0: Hooks (from memory-tencentdb)
+  performAutoCapture,
+  performAutoRecall,
+  // v4.2.0: Conversation
+  recordConversation,
+  // v4.2.0: Record / L1
+  batchDedup,
+  // v4.2.0: Scene
+  generateSceneNavigation,
+  stripSceneNavigation,
+  readSceneIndex,
+  syncSceneIndex,
+  parseSceneBlock,
+  formatSceneBlock,
+  // v4.2.0: Persona
+  PersonaTrigger,
+  // v4.2.0: Prompts
+  CONFLICT_DETECTION_SYSTEM_PROMPT,
+  formatBatchConflictPrompt,
+  EXTRACT_MEMORIES_SYSTEM_PROMPT,
+  formatExtractionPrompt,
+  buildPersonaPrompt,
+  buildSceneExtractionPrompt,
+  // v4.2.0: Tools
+  executeConversationSearch,
+  formatConversationSearchResponse,
+  executeMemorySearch,
+  formatSearchResponse,
 };
