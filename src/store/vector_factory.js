@@ -67,7 +67,7 @@ export async function getVectorStore(options = {}) {
   // Default: LanceDB backend
   logger.info(`${TAG} Initializing LanceDB Vector Store backend (default)`);
   
-  const { VectorMemory } = await import('./vector_lancedb.js');
+  const { VectorMemory } = await import('../vector_lancedb.js');
   const vm = new VectorMemory();
   await vm.initialize();
   
@@ -105,7 +105,7 @@ export function listBackends() {
 
 // Re-export both store classes for direct access
 export { VectorStore } from './vector_sqlite.js';
-export { VectorMemory } from './vector_lancedb.js';
+export { VectorMemory } from '../vector_lancedb.js';
 
 // Re-export embedding-related utilities
 export { buildFtsQuery, tokenizeForFts, bm25RankToScore } from './vector_sqlite.js';
