@@ -6,6 +6,40 @@ All notable changes to unified-memory are documented here.
 
 ---
 
+## v4.1.1 (2026-04-06) — 数据清理器
+
+> **Breaking Changes**: 无
+> **升级指南**: 直接更新到 v4.1.1，所有 API 向下兼容
+
+### 🆕 新增功能
+
+#### 数据清理器 (memory-cleaner.js)
+
+| 工具 | 说明 |
+|------|------|
+| `memory_cleaner_status` | 获取数据清理器状态 |
+| `memory_cleaner_config` | 更新数据清理器配置 |
+| `memory_cleaner_run` | 手动执行一次数据清理 |
+
+**清理器配置**:
+```javascript
+{
+  enabled: false,                   // 是否启用自动清理
+  retentionDays: 0,                 // 保留天数，0 = 禁用清理
+  cleanTime: '03:00',               // 每日清理时间 (HH:mm)
+  allowAggressiveCleanup: false,    // 是否允许 1-2 天的高风险清理
+}
+```
+
+**特性**:
+- 按 `retentionDays` 保留天数清理 L0/L1 数据
+- 每日定时清理（默认 03:00）
+- 支持向量数据库清理
+- 自然日保留策略
+- 安全限制：retentionDays < 3 需要 `allowAggressiveCleanup: true`
+
+---
+
 ## v4.1.0 (2026-04-06) — 四层管线 · 场景归纳 · 中文分词
 
 > **Breaking Changes**: 无

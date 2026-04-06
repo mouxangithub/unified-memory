@@ -1,6 +1,6 @@
 {
   "name": "unified-memory",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "type": "module",
   "description": "🧠 Unified Memory - 四层渐进式记忆系统 (L0→L1→L2→L3)",
   "main": "src/index.js",

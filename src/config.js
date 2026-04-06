@@ -137,6 +137,14 @@ const defaultConfig = {
     l3TriggerEveryN: 50,              // 每 N 条新记忆触发 L3
   },
 
+  // ─── v4.1: 数据清理配置 (借鉴 memory-tencentdb) ───
+  cleaner: {
+    enabled: false,                   // 是否启用自动清理
+    retentionDays: 0,                 // 保留天数，0 = 禁用清理
+    cleanTime: '03:00',               // 每日清理时间 (HH:mm)
+    allowAggressiveCleanup: false,    // 是否允许 1-2 天的高风险清理
+  },
+
   // ─── v4.0: 中文支持配置 ───
   chinese: {
     enabled: true,                    // 是否启用中文优化

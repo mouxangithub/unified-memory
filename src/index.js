@@ -3361,6 +3361,55 @@ function registerPipelineTools(server) {
 registerSceneBlockTools(server);
 registerPipelineTools(server);
 
+// ─── v4.1: Memory Cleaner Tools ────────────────────────────────────────────────
+
+import { getCleaner, initCleaner } from './memory-cleaner.js';
+
+function registerCleanerTools(server) {
+  server.registerTool('memory_cleaner_status', {
+    description: '获取数据清理器状态',
+    inputSchema: z.object({})
+  }, async () => {
+    const cleaner = getCleaner();
+    const status = cleaner.getStatus();
+    return { content: [{ type: 'text', text: JSON.stringify(status, null, 2) }] };
+  });
+
+  server.registerTool('memory_cleaner_config', {
+    description: '更新数据清理器配置',
+    inputSchema: z.object({
+      enabled: z.boolean().optional().describe('是否启用自动清理'),
+      retentionDays: z.number().optional().describe('保留天数 (0=禁用)'),
+      cleanTime: z.string().optional().describe('每日清理时间 (HH:mm)'),
+      allowAggressiveCleanup: z.boolean().optional().describe('是否允许 1-2 天的高风险清理'),
+    })
+  }, async (newConfig) => {
+    const cleaner = getCleaner();
+    cleaner.updateConfig(newConfig);
+    return { content: [{ type: 'text', text: JSON.stringify(cleaner.getStatus(), null, 2) }] };
+  });
+
+  server.registerTool('memory_cleaner_run', {
+    description: '手动执行一次数据清理',
+    inputSchema: z.object({})
+  }, async () => {
+    const cleaner = getCleaner();
+    const results = await cleaner.runOnce();
+    return { content: [{ type: 'text', text: JSON.stringify(results, null, 2) }] };
+  });
+}
+
+registerCleanerTools(server);
+
+// 初始化清理器
+if (config.cleaner?.enabled) {
+  const cleaner = initCleaner({
+    baseDir: config.memoryDir,
+    ...config.cleaner,
+  });
+  cleaner.start();
+}
+
 // ─── v4.0: Hook Integration ─────────────────────────────────────────────────────
 
 // 导出 hook 函数供 OpenClaw 调用

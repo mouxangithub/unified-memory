@@ -11,7 +11,7 @@
 | Field | Value |
 |-------|-------|
 | **Name** | `unified-memory` |
-| **Version** | `4.1.0` (see [docs/CHANGELOG.md](./docs/CHANGELOG.md)) |
+| **Version** | `4.1.1` (see [docs/CHANGELOG.md](./docs/CHANGELOG.md)) |
 | **Framework** | OpenClaw Agent · Node.js ESM · MCP stdio |
 | **Node** | `>=18.0.0` |
 | **OpenClaw** | `>=2026.3.0` |
@@ -46,6 +46,9 @@ L3 (用户画像) → profile.js ✅
 | `memory_pipeline_status` | 获取四层管线状态 |
 | `memory_pipeline_trigger` | 手动触发管线阶段 |
 | `memory_pipeline_config` | 更新管线配置 |
+| `memory_cleaner_status` | 获取数据清理器状态 |
+| `memory_cleaner_config` | 更新数据清理器配置 |
+| `memory_cleaner_run` | 手动执行一次数据清理 |
 
 ### 🔧 改进功能
 
