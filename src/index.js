@@ -11,6 +11,16 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+// Tool utilities (ported from memory-tencentdb)
+import { CheckpointManager } from './utils/checkpoint.js';
+import { CleanContextRunner, parseModelRef, resolveModelFromMainConfig, prewarmEmbeddedAgent } from './utils/clean_context_runner.js';
+import { sanitizeText, shouldCaptureL0, shouldExtractL1, shouldCapture, looksLikePromptInjection, escapeXmlTags, sanitizeJsonForParse, pickRecentUnique } from './utils/sanitize.js';
+import { SerialQueue } from './utils/serial_queue.js';
+import { ManagedTimer } from './utils/managed_timer.js';
+import { SessionFilter } from './utils/session_filter.js';
+import { BackupManager } from './utils/backup.js';
+import { extractWords } from './utils/text_utils.js';
+
 import { config, log as configLog } from './config.js';
 import { log as structuredLog, getLogger } from './logger.js';
 import { metrics, recordSearchLatency, recordStore, recordError } from './metrics.js';
@@ -3507,3 +3517,25 @@ export async function agent_end(context) {
   }
 }
 
+
+// ─── v4.1.3: Tool Utilities (ported from memory-tencentdb) ───────────────────
+export {
+  CheckpointManager,
+  CleanContextRunner,
+  parseModelRef,
+  resolveModelFromMainConfig,
+  prewarmEmbeddedAgent,
+  sanitizeText,
+  shouldCaptureL0,
+  shouldExtractL1,
+  shouldCapture,
+  looksLikePromptInjection,
+  escapeXmlTags,
+  sanitizeJsonForParse,
+  pickRecentUnique,
+  SerialQueue,
+  ManagedTimer,
+  SessionFilter,
+  BackupManager,
+  extractWords,
+};

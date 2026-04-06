@@ -11,7 +11,7 @@
 | Field | Value |
 |-------|-------|
 | **Name** | `unified-memory` |
-| **Version** | `4.1.2` (see [docs/CHANGELOG.md](./docs/CHANGELOG.md)) |
+| **Version** | `4.1.3` (see [docs/CHANGELOG.md](./docs/CHANGELOG.md)) |
 | **Framework** | OpenClaw Agent · Node.js ESM · MCP stdio |
 | **Node** | `>=18.0.0` |
 | **OpenClaw** | `>=2026.3.0` |
