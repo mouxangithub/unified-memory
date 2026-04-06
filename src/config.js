@@ -87,6 +87,12 @@ const VECTOR_ENGINE = process.env.VECTOR_ENGINE || 'lancedb';
 const EMBED_PROVIDER = process.env.EMBED_PROVIDER || 'ollama';
 const LLM_PROVIDER   = process.env.LLM_PROVIDER   || 'ollama';
 
+// ─── v4.3: Vector Store Backend Selection ───
+// VECTOR_STORE_TYPE: 'lancedb' (default) | 'sqlite'
+// When 'sqlite': uses SQLite with sqlite-vec extension for L0+L1 dual-layer storage
+const VECTOR_STORE_TYPE = process.env.VECTOR_STORE_TYPE || 'lancedb';
+const SQLITE_DB_PATH = process.env.SQLITE_DB_PATH || join(MEMORY_DIR, 'memory.db');
+
 // Resolve active embed provider by name
 function resolveEmbedProvider(name) {
   if (name === 'none') return null;
@@ -124,6 +130,10 @@ const defaultConfig = {
   activeEmbedProvider,
   activeLlmProvider,
 
+  // ─── v4.3: Vector Store Backend ───
+  VECTOR_STORE_TYPE,    // 'lancedb' | 'sqlite'
+  SQLITE_DB_PATH,        // SQLite database path
+
   // ─── v4.0: 四层管线配置 (借鉴 memory-tencentdb) ───
   pipeline: {
     enabled: true,                    // 是否启用自动管线
@@ -153,6 +163,7 @@ const defaultConfig = {
     modelCacheDir: '',                // 模型缓存目录
     autoWarmup: true,                 // 是否自动预热
     waitForReady: false,              // 是否等待就绪 (false = 回退到远程)
+    dimensions: 768,                  // 向量维度 (embeddinggemma-300m = 768)
   },
 
   // ─── v4.0: 中文支持配置 ───

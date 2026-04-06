@@ -11,7 +11,7 @@
 | Field | Value |
 |-------|-------|
 | **Name** | `unified-memory` |
-| **Version** | `4.2.0` (see [docs/CHANGELOG.md](./docs/CHANGELOG.md)) |
+| **Version** | `4.3.0` (see [docs/CHANGELOG.md](./docs/CHANGELOG.md)) |
 | **Framework** | OpenClaw Agent · Node.js ESM · MCP stdio |
 | **Node** | `>=18.0.0` |
 | **OpenClaw** | `>=2026.3.0` |
@@ -59,6 +59,52 @@ L3 (用户画像) → profile.js ✅
 2. **自动调度** — Pipeline Scheduler 自动管理 L0→L1→L2→L3
 3. **零配置** — 开箱即用默认值，无需手动配置
 4. **Hook 集成** — `before_prompt_build` 自动召回，`agent_end` 自动捕获
+
+---
+
+## v4.3 双后端 Vector Store 支持
+
+### 🔀 双后端架构
+
+```
+Vector Store Factory (vector_factory.js)
+       │
+       ├── 'lancedb' → VectorMemory (LanceDB 后端，默认)
+       │                └── 现有实现，保持兼容
+       │
+       └── 'sqlite' → VectorStore (SQLite 后端，🆕)
+                        ├── L0: l0_conversations + l0_vec
+                        ├── L1: l1_records + l1_vec
+                        ├── FTS5: l1_fts + l0_fts (jieba 分词)
+                        ├── BM25: 全文排序
+                        └── sqlite-vec 扩展
+```
+
+### 环境变量切换
+
+| 环境变量 | 默认值 | 说明 |
+|---------|--------|------|
+| `VECTOR_STORE_TYPE` | `lancedb` | 后端类型：`lancedb` 或 `sqlite` |
+| `SQLITE_DB_PATH` | `./memory/memory.db` | SQLite 数据库路径 |
+
+### 使用示例
+
+```bash
+# 使用 LanceDB 后端（默认）
+export VECTOR_STORE_TYPE=lancedb
+
+# 使用 SQLite 后端（需要 sqlite-vec 扩展）
+export VECTOR_STORE_TYPE=sqlite
+export SQLITE_DB_PATH=/root/.openclaw/workspace/memory/memory.db
+```
+
+### SQLite 后端特性
+
+- **L0 + L1 双层存储**：L0 存储原始对话消息，L1 存储结构化记忆
+- **FTS5 全文搜索**：jieba 中文分词 + BM25 排序
+- **向量搜索**：sqlite-vec 扩展，cosine 距离
+- **批量操作**：支持 upsertBatch、deleteBatch
+- **向后兼容**：LanceDB 后端完全保留，切换无感知
 
 ---
 
