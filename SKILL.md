@@ -11,11 +11,48 @@
 | Field | Value |
 |-------|-------|
 | **Name** | `unified-memory` |
-| **Version** | `3.8.x` (see [docs/CHANGELOG.md](./docs/CHANGELOG.md)) |
+| **Version** | `4.1.0` (see [docs/CHANGELOG.md](./docs/CHANGELOG.md)) |
 | **Framework** | OpenClaw Agent · Node.js ESM · MCP stdio |
 | **Node** | `>=18.0.0` |
 | **OpenClaw** | `>=2026.3.0` |
 | **Transport** | `stdio` (MCP over node `src/index.js`) |
+
+---
+
+## v4.1 新功能 (借鉴 memory-tencentdb)
+
+### 🎯 四层渐进式管线 (L0→L1→L2→L3)
+
+```
+L0 (对话录制) → transcript_first.js ✅
+      ↓
+L1 (记忆提取) → extract.js ✅
+      ↓
+L2 (场景归纳) → scene_block.js 🆕
+      ↓
+L3 (用户画像) → profile.js ✅
+```
+
+### 🆕 新增工具
+
+| 工具 | 功能 |
+|------|------|
+| `memory_scene_induct` | 从记忆中归纳场景块 (L2) |
+| `memory_scene_list` | 列出所有场景块 |
+| `memory_scene_get` | 获取场景块详情 |
+| `memory_scene_delete` | 删除场景块 |
+| `memory_scene_search` | 搜索场景块 |
+| `memory_scene_stats` | 获取场景统计 |
+| `memory_pipeline_status` | 获取四层管线状态 |
+| `memory_pipeline_trigger` | 手动触发管线阶段 |
+| `memory_pipeline_config` | 更新管线配置 |
+
+### 🔧 改进功能
+
+1. **中文分词** — 集成 @node-rs/jieba，中文搜索效果更好
+2. **自动调度** — Pipeline Scheduler 自动管理 L0→L1→L2→L3
+3. **零配置** — 开箱即用默认值，无需手动配置
+4. **Hook 集成** — `before_prompt_build` 自动召回，`agent_end` 自动捕获
 
 ---
 

@@ -3,9 +3,38 @@
  * 参考: memory_bm25.py (274行)
  * 
  * v3.2: 支持 scope 过滤 + index 缓存
+ * v4.0: 集成 @node-rs/jieba 中文分词
  */
 
 import { getAllMemories, getAllMemoriesRaw } from './storage.js';
+import { log } from './logger.js';
+
+// ─── 中文分词支持 ───────────────────────────────────────────────────────────
+
+let jiebaCut = null;
+let jiebaLoaded = false;
+
+/**
+ * 初始化 Jieba 分词器
+ */
+async function initJieba() {
+  if (jiebaLoaded) return jiebaCut !== null;
+  
+  try {
+    const jieba = await import('@node-rs/jieba');
+    jiebaCut = jieba.cut;
+    jiebaLoaded = true;
+    log.info('[BM25] Jieba tokenizer loaded successfully');
+    return true;
+  } catch (err) {
+    log.warn('[BM25] Jieba not available, using fallback tokenizer:', err.message);
+    jiebaLoaded = true;
+    return false;
+  }
+}
+
+// 异步初始化
+initJieba();
 
 // BM25 parameters
 const B = 0.75;  // field length normalization
@@ -17,29 +46,94 @@ let _cachedMemCount = -1;
 let _cachedScope = null;
 
 /**
- * Simple tokenizer - 中英文分词
+ * 中文停用词表
+ */
+const STOP_WORDS = new Set([
+  // 常用停用词
+  '的', '了', '在', '是', '我', '有', '和', '就', '不', '人', '都', '一', '一个', '上', '也', '很', '到', '说', '要', '去', '你', '会', '着', '没有', '看', '好', '自己', '这', '那', '么',
+  '他', '她', '它', '们', '这个', '那个', '什么', '怎么', '为什么', '哪里', '那里', '这里',
+  '可以', '可能', '应该', '需要', '能够', '已经', '还是', '但是', '因为', '所以', '如果',
+  '或者', '而且', '然后', '虽然', '比如', '通过', '进行', '使用', '关于', '对于', '根据',
+  // 英文停用词
+  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should',
+  'may', 'might', 'must', 'shall', 'can', 'need', 'dare', 'ought', 'used',
+  'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from', 'as', 'into',
+  'through', 'during', 'before', 'after', 'above', 'below', 'between', 'under',
+  'and', 'but', 'or', 'nor', 'so', 'yet', 'both', 'either', 'neither',
+  'not', 'only', 'own', 'same', 'than', 'too', 'very', 'just', 'also',
+  'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves',
+  'you', 'your', 'yours', 'yourself', 'yourselves',
+  'he', 'him', 'his', 'himself', 'she', 'her', 'hers', 'herself',
+  'it', 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves',
+  'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those',
+  'am', 'been', 'being', 'here', 'there', 'when', 'where', 'why', 'how',
+  'all', 'each', 'every', 'both', 'few', 'more', 'most', 'other', 'some',
+]);
+
+/**
+ * Enhanced tokenizer - 支持 Jieba 中文分词
  * @param {string} text
  * @returns {string[]}
  */
 function tokenize(text) {
   if (!text) return [];
-  // 中文按字符，英文按单词
+  
   const tokens = [];
+  
   // 移除HTML标签
   text = text.replace(/<[^>]+>/g, ' ');
-  // 英文单词
+  
+  // 使用 Jieba 分词（如果可用）
+  if (jiebaCut) {
+    try {
+      const chineseTokens = jiebaCut(text, false); // false = 不返回 HMM 结果
+      for (const token of chineseTokens) {
+        const trimmed = token.trim();
+        if (trimmed.length > 1 && !STOP_WORDS.has(trimmed.toLowerCase())) {
+          tokens.push(trimmed.toLowerCase());
+        }
+      }
+    } catch (err) {
+      // Jieba 失败，使用 fallback
+      log.warn('[BM25] Jieba cut failed, using fallback:', err.message);
+    }
+  }
+  
+  // Fallback 或补充：英文单词分词
   const english = text.match(/[a-zA-Z_]+/g) || [];
   for (const word of english) {
     const lower = word.toLowerCase();
-    if (lower.length > 1) tokens.push(lower);
+    if (lower.length > 1 && !STOP_WORDS.has(lower)) {
+      tokens.push(lower);
+    }
   }
-  // 中文字符（去除停用词）
-  const chinese = text.match(/[\u4e00-\u9fa5]/g) || [];
-  const stopChars = new Set(['的', '了', '在', '是', '我', '有', '和', '就', '不', '人', '都', '一', '一个', '上', '也', '很', '到', '说', '要', '去', '你', '会', '着', '没有', '看', '好', '自己', '这', '那', '么']);
-  for (const char of chinese) {
-    if (!stopChars.has(char)) tokens.push(char);
+  
+  // 如果 Jieba 不可用，使用简单的中文字符分词
+  if (!jiebaCut) {
+    const chinese = text.match(/[\u4e00-\u9fa5]+/g) || [];
+    for (const phrase of chinese) {
+      // 简单分词：每 2-4 个字符作为一个 token
+      if (phrase.length <= 4) {
+        if (!STOP_WORDS.has(phrase)) {
+          tokens.push(phrase);
+        }
+      } else {
+        // 滑动窗口
+        for (let i = 0; i <= phrase.length - 2; i++) {
+          for (let len = 2; len <= Math.min(4, phrase.length - i); len++) {
+            const ngram = phrase.substring(i, i + len);
+            if (!STOP_WORDS.has(ngram)) {
+              tokens.push(ngram);
+            }
+          }
+        }
+      }
+    }
   }
-  return tokens;
+  
+  // 去重
+  return [...new Set(tokens)];
 }
 
 /**

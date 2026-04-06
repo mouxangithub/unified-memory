@@ -124,6 +124,33 @@ const defaultConfig = {
   activeEmbedProvider,
   activeLlmProvider,
 
+  // ─── v4.0: 四层管线配置 (借鉴 memory-tencentdb) ───
+  pipeline: {
+    enabled: true,                    // 是否启用自动管线
+    everyNConversations: 5,           // 每 N 轮对话触发 L1
+    enableWarmup: true,               // Warm-up 模式: 1→2→4→8→...→N
+    l1IdleTimeoutSeconds: 60,         // 用户停止对话后多久触发 L1
+    l2DelayAfterL1Seconds: 90,        // L1 完成后延迟多久触发 L2
+    l2MinIntervalSeconds: 300,        // 同一 session 两次 L2 的最小间隔
+    l2MaxIntervalSeconds: 1800,       // 活跃 session 的 L2 最大轮询间隔
+    sessionActiveWindowHours: 24,     // 超过此时间不活跃的 session 停止 L2 轮询
+    l3TriggerEveryN: 50,              // 每 N 条新记忆触发 L3
+  },
+
+  // ─── v4.0: 中文支持配置 ───
+  chinese: {
+    enabled: true,                    // 是否启用中文优化
+    segmenter: 'jieba',               // 分词器: 'jieba' | 'fallback'
+  },
+
+  // ─── v4.0: 零配置默认值 ───
+  zeroConfig: {
+    enabled: true,                    // 是否启用零配置模式
+    autoDetectOllama: true,           // 自动检测 Ollama
+    autoDetectOpenAI: true,           // 自动检测 OpenAI API Key
+    defaultStrategy: 'keyword',       // 默认搜索策略: 'keyword' | 'hybrid' | 'embedding'
+  },
+
   // ─── Backward-compat aliases (used by existing code) ───
   get ollamaUrl() {
     const p = this.activeEmbedProvider;
@@ -185,6 +212,70 @@ function loadConfig() {
 }
 
 export const config = { ...defaultConfig, ...loadConfig() };
+
+// ─── LLM Call Helper (used by extract.js, profile.js) ────────────────────────
+// Uses the active LLM provider (OLLAMA_BASE_URL/LLM_MODEL env vars or config)
+let _llmClient = null;
+
+async function getLlmClientAsync() {
+  if (_llmClient) return _llmClient;
+  try {
+    const { LLMProviderFactory } = await import('./system/llm_provider.js').catch(() => ({ LLMProviderFactory: null }));
+    if (!LLMProviderFactory) return null;
+    const provider = config.llmProvider || 'ollama';
+    _llmClient = LLMProviderFactory.create(provider, {
+      baseUrl: config.llmUrl,
+      model: config.llmModel,
+      apiKey: null,
+    });
+    return _llmClient;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * LLM call helper: returns the raw text response from the active LLM.
+ * Compatible with the llmCall(text, { prompt, signal }) interface used by extract.js.
+ * @param {string} prompt
+ * @param {{ prompt?: string, signal?: AbortSignal }} [_opts]
+ * @returns {Promise<string>}
+ */
+/**
+ * LLM call helper.
+ * Signature compatible with extractMemories: llmCall(text, { prompt: SYSTEM_PROMPT, signal })
+ * - text = user message to analyze
+ * - opts.prompt = system prompt template (we append text to it)
+ */
+export async function llmCall(text, _opts = {}) {
+  // extractMemories passes: llmCall(text, { prompt: EXTRACT_PROMPT, signal })
+  // So _opts.prompt is the system/instruction part, text is the content to analyze
+  const systemPrompt = _opts.prompt || '';
+  const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${text}` : text;
+  const signal = _opts.signal;
+
+  const client = await getLlmClientAsync();
+  if (!client) {
+    // Fallback: direct Ollama /api/generate
+    const url = config.llmUrl || 'http://localhost:11434';
+    const model = config.llmModel || 'qwen2.5:7b';
+    try {
+      const res = await fetch(`${url}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, prompt: fullPrompt, stream: false }),
+        signal: signal || AbortSignal.timeout(30000),
+      });
+      if (!res.ok) throw new Error(`Ollama ${res.status}`);
+      const data = await res.json();
+      return data.response || '';
+    } catch (e) {
+      throw new Error(`llmCall failed: ${e.message}`);
+    }
+  }
+  const result = await client.generate(fullPrompt);
+  return result.content || '';
+}
 
 // Ensure directories exist
 for (const dir of [MEMORY_DIR, VECTOR_CACHE_DIR, LOG_DIR]) {

@@ -1,45 +1,48 @@
 {
   "name": "unified-memory",
-  "version": "4.0.6",
+  "version": "4.1.0",
   "type": "module",
-  "description": "🧠 Unified Memory System v2.0 - AI Agent专用记忆系统，多层级、持久化、主动式记忆",
+  "description": "🧠 Unified Memory - 四层渐进式记忆系统 (L0→L1→L2→L3)",
   "main": "src/index.js",
-  "bin": {
-    "memory": "./src/cli/index.js"
-  },
   "scripts": {
     "start": "node src/index.js",
-    "cli": "node src/cli/index.js",
-    "dashboard": "node src/webui/dashboard.js",
-    "dashboard:port": "node src/webui/dashboard.js --port=3849",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "postinstall": "node -e \"const v=process.version.match(/^v(\\d+)/)[1]; if(v<22){console.error('⚠️  Node.js 22+ required, current '+process.version);process.exit(1);} console.log('✅ Node.js', process.version)\" && node scripts/build-hook.js"
+    "test": "node --test src/**/*.test.js"
   },
   "keywords": [
     "memory",
-    "ai-agent",
-    "bm25",
+    "ai-memory",
+    "long-term-memory",
     "vector-search",
-    "hybrid-search",
-    "ollama",
-    "mcp",
-    "unified-memory"
+    "bm25",
+    "lancedb",
+    "scene-induction",
+    "pipeline",
+    "chinese-nlp"
   ],
-  "author": "mouxangithub",
+  "author": "OpenClaw",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/mouxangithub/unified-memory"
+  "engines": {
+    "node": ">=18.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@node-rs/jieba": "^2.0.1",
+    "zod": "^3.22.0"
   },
   "peerDependencies": {
-    "@lancedb/lancedb": "provided-by-host",
-    "@xenova/transformers": "provided-by-host"
+    "mcporter": ">=2026.3.0"
   },
-  "devDependencies": {
-    "vitest": "^1.6.0"
+  "peerDependenciesMeta": {
+    "mcporter": {
+      "optional": true
+    }
+  },
+  "openclaw": {
+    "skills": [
+      "src/index.js"
+    ],
+    "hooks": {
+      "before_prompt_build": "before_prompt_build",
+      "agent_end": "agent_end"
+    }
   }
 }

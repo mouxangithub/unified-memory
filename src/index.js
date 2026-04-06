@@ -37,6 +37,7 @@ import { TemplateManager, cmdTemplates } from './tools/templates.js';
 import { shouldStore, qualityScore, learnNoisePattern, getNoiseCount } from './noise.js';
 import { routeSearch, INTENT_TYPES } from './intent.js';
 import { extractMemories, batchExtract } from './extract.js';
+import { getProfile } from './profile.js';
 import { addLearning, addError, getLearnings, getErrors, getStats } from './reflection.js';
 import { initWal, flushWal, listWalFiles, logOp } from './wal.js';
 import { assignTiers, partitionByTier, redistributeTiers, compressColdTier, autoMigrateTiers } from './tier.js';
@@ -1247,6 +1248,37 @@ server.registerTool('memory_lessons', {
   }
 });
 
+// ============ Profile Aggregator (v3.9, inspired by SuperMemory) ============
+// memory_profile: Get user profile with static/dynamic separation
+// One call replaces multiple memory searches
+server.registerTool('memory_profile', {
+  description: 'Get user profile with static/dynamic separation. ' +
+    'static = stable long-term facts + preferences. ' +
+    'dynamic = recent context + in-progress work. ' +
+    'Inspired by SuperMemory profile abstraction.',
+  inputSchema: z.object({
+    scope: z.string().optional().default('user').describe('Scope: agent, user, team, or global'),
+    container_tag: z.string().optional().describe('Project/lane tag to scope profile'),
+    entity_filter: z.string().optional().describe('Focus on specific entity'),
+    static_days: z.number().optional().default(30).describe('Days without access to mark as static'),
+    limit: z.number().optional().default(100).describe('Max memories to analyze'),
+  }),
+}, async ({ scope, container_tag, entity_filter, static_days, limit }) => {
+  try {
+    const profile = await getProfile({
+      scope: scope || 'user',
+      containerTag: container_tag,
+      entityFilter: entity_filter,
+      staticDays: static_days,
+      limit: limit || 100,
+    });
+    return { content: [{ type: 'text', text: JSON.stringify(profile, null, 2) }] };
+  } catch (err) {
+    structuredLog.error(`memory_profile error: ${err.message}`);
+    return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+  }
+});
+
 // ============ AutoStore (v1.2) ============
 
 server.registerTool('memory_autostore', {
@@ -1938,7 +1970,7 @@ server.registerTool('memory_extract', {
   }),
 }, async ({ texts, batch, onProgress }) => {
   try {
-    const { default: llmCall } = await import('./config.js');
+    const { llmCall } = await import('./config.js');
     if (batch) {
       const results = await batchExtract(texts, async (p) => { if (onProgress) process.stderr.write(`[extract] ${p}\n`); }, llmCall);
       return { content: [{ type: 'text', text: JSON.stringify(results) }] };
@@ -3206,3 +3238,161 @@ main().catch((err) => {
   console.error('Fatal:', err);
   process.exit(1);
 });
+
+// ─── v4.0: Scene Block Tools (L2) ───────────────────────────────────────────────
+
+import { inductScenes, listSceneBlocks, getSceneBlock, deleteSceneBlock, searchSceneBlocks, getSceneStats } from './scene_block.js';
+
+function registerSceneBlockTools(server) {
+  server.registerTool('memory_scene_induct', {
+    description: '从记忆中归纳场景块 (L2 Scene Induction) - 自动聚类相关记忆并生成场景摘要',
+    inputSchema: z.object({
+      scope: z.string().optional().default('USER').describe('范围: USER/TEAM/AGENT/GLOBAL'),
+      timeRange: z.object({
+        start: z.number().optional().describe('开始时间戳'),
+        end: z.number().optional().describe('结束时间戳'),
+      }).optional().describe('时间范围过滤'),
+      minMemories: z.number().optional().default(3).describe('最少记忆数'),
+      maxScenes: z.number().optional().default(20).describe('最大场景数'),
+    })
+  }, async ({ scope, timeRange, minMemories, maxScenes }) => {
+    const scenes = await inductScenes({ scope, timeRange, minMemories, maxScenes });
+    return { content: [{ type: 'text', text: JSON.stringify(scenes, null, 2) }] };
+  });
+
+  server.registerTool('memory_scene_list', {
+    description: '列出所有场景块',
+    inputSchema: z.object({
+      scope: z.string().optional().default('USER').describe('范围'),
+      limit: z.number().optional().default(20).describe('返回数量限制'),
+    })
+  }, async ({ scope, limit }) => {
+    const scenes = await listSceneBlocks(scope, limit);
+    return { content: [{ type: 'text', text: JSON.stringify(scenes, null, 2) }] };
+  });
+
+  server.registerTool('memory_scene_get', {
+    description: '获取场景块详情',
+    inputSchema: z.object({
+      sceneId: z.string().describe('场景块 ID'),
+      scope: z.string().optional().default('USER').describe('范围'),
+    })
+  }, async ({ sceneId, scope }) => {
+    const scene = await getSceneBlock(sceneId, scope);
+    return { content: [{ type: 'text', text: scene ? JSON.stringify(scene, null, 2) : 'Scene not found' }] };
+  });
+
+  server.registerTool('memory_scene_delete', {
+    description: '删除场景块',
+    inputSchema: z.object({
+      sceneId: z.string().describe('场景块 ID'),
+      scope: z.string().optional().default('USER').describe('范围'),
+    })
+  }, async ({ sceneId, scope }) => {
+    const result = await deleteSceneBlock(sceneId, scope);
+    return { content: [{ type: 'text', text: result ? 'Scene deleted' : 'Scene not found' }] };
+  });
+
+  server.registerTool('memory_scene_search', {
+    description: '搜索场景块',
+    inputSchema: z.object({
+      query: z.string().describe('搜索关键词'),
+      scope: z.string().optional().default('USER').describe('范围'),
+      limit: z.number().optional().default(10).describe('返回数量限制'),
+    })
+  }, async ({ query, scope, limit }) => {
+    const scenes = await searchSceneBlocks(query, scope, limit);
+    return { content: [{ type: 'text', text: JSON.stringify(scenes, null, 2) }] };
+  });
+
+  server.registerTool('memory_scene_stats', {
+    description: '获取场景统计',
+    inputSchema: z.object({
+      scope: z.string().optional().default('USER').describe('范围'),
+    })
+  }, async ({ scope }) => {
+    const stats = await getSceneStats(scope);
+    return { content: [{ type: 'text', text: JSON.stringify(stats, null, 2) }] };
+  });
+}
+
+// ─── v4.0: Pipeline Scheduler Tools ─────────────────────────────────────────────
+
+import { scheduler, onConversationEnd, triggerPipeline, getPipelineStatus } from './pipeline_scheduler.js';
+
+function registerPipelineTools(server) {
+  server.registerTool('memory_pipeline_status', {
+    description: '获取四层管线状态 (L0→L1→L2→L3)',
+    inputSchema: z.object({})
+  }, async () => {
+    const status = getPipelineStatus();
+    return { content: [{ type: 'text', text: JSON.stringify(status, null, 2) }] };
+  });
+
+  server.registerTool('memory_pipeline_trigger', {
+    description: '手动触发管线阶段',
+    inputSchema: z.object({
+      stage: z.enum(['L1', 'L2', 'L3']).describe('管线阶段: L1(记忆提取)/L2(场景归纳)/L3(用户画像)'),
+      sessionId: z.string().optional().describe('会话 ID (L1 必需)'),
+      scope: z.string().optional().default('USER').describe('范围'),
+    })
+  }, async ({ stage, sessionId, scope }) => {
+    const result = await triggerPipeline(stage, sessionId, scope);
+    return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+  });
+
+  server.registerTool('memory_pipeline_config', {
+    description: '更新管线配置',
+    inputSchema: z.object({
+      enabled: z.boolean().optional().describe('是否启用'),
+      everyNConversations: z.number().optional().describe('每 N 轮对话触发 L1'),
+      enableWarmup: z.boolean().optional().describe('是否启用 Warm-up 模式'),
+      l1IdleTimeoutSeconds: z.number().optional().describe('L1 空闲超时(秒)'),
+      l2DelayAfterL1Seconds: z.number().optional().describe('L2 延迟(秒)'),
+      l3TriggerEveryN: z.number().optional().describe('L3 触发阈值'),
+    })
+  }, async (newConfig) => {
+    scheduler.updateConfig(newConfig);
+    return { content: [{ type: 'text', text: JSON.stringify(scheduler.getStatus(), null, 2) }] };
+  });
+}
+
+// Register v4.0 tools
+registerSceneBlockTools(server);
+registerPipelineTools(server);
+
+// ─── v4.0: Hook Integration ─────────────────────────────────────────────────────
+
+// 导出 hook 函数供 OpenClaw 调用
+export async function before_prompt_build(context) {
+  // 自动召回: 在对话开始前注入相关记忆
+  const { sessionId, userId, query } = context;
+  
+  try {
+    // 搜索相关记忆
+    const results = await hybridSearch(query, { topK: 5, scope: 'USER' });
+    
+    if (results.length > 0) {
+      const memoryContext = results.map(r => r.memory.text).join('\n');
+      return {
+        injectedContext: `相关记忆:\n${memoryContext}`,
+      };
+    }
+  } catch (err) {
+    log.error('[Hook] before_prompt_build error:', err);
+  }
+  
+  return {};
+}
+
+export async function agent_end(context) {
+  // 自动捕获: 对话结束后触发管线
+  const { sessionId, userId } = context;
+  
+  try {
+    await onConversationEnd(sessionId, 'USER');
+  } catch (err) {
+    log.error('[Hook] agent_end error:', err);
+  }
+}
+

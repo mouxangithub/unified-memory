@@ -1,20 +1,154 @@
-# Changelog (v4.0.0)
-<!-- zh -->
+# Changelog — Unified Memory
+
 > 统一记忆系统完整版本历史 | Consolidated Version History
 
 All notable changes to unified-memory are documented here.
 
 ---
 
+## v4.1.0 (2026-04-06) — 四层管线 · 场景归纳 · 中文分词
+
+> **Breaking Changes**: 无
+> **升级指南**: 直接更新到 v4.1.0，所有 API 向下兼容
+
+### 🆕 新增功能
+
+#### L2 场景归纳 (scene_block.js)
+
+| 工具 | 说明 |
+|------|------|
+| `memory_scene_induct` | 从记忆中归纳场景块 |
+| `memory_scene_list` | 列出所有场景块 |
+| `memory_scene_get` | 获取场景块详情 |
+| `memory_scene_delete` | 删除场景块 |
+| `memory_scene_search` | 搜索场景块 |
+| `memory_scene_stats` | 获取场景统计 |
+
+**场景块结构**:
+```javascript
+{
+  id: "scene_xxx",
+  title: "场景标题",
+  summary: "场景摘要",
+  entities: ["实体1", "实体2"],
+  actions: ["行动项1", "行动项2"],
+  memoryIds: ["mem_xxx", "mem_yyy"],
+  timeRange: { start: 174..., end: 174... },
+  tags: ["标签1", "标签2"],
+  scope: "USER"
+}
+```
+
+#### 自动调度管线 (pipeline_scheduler.js)
+
+| 工具 | 说明 |
+|------|------|
+| `memory_pipeline_status` | 获取四层管线状态 |
+| `memory_pipeline_trigger` | 手动触发管线阶段 |
+| `memory_pipeline_config` | 更新管线配置 |
+
+**管线配置**:
+```javascript
+{
+  enabled: true,
+  everyNConversations: 5,        // 每 N 轮对话触发 L1
+  enableWarmup: true,            // Warm-up: 1→2→4→8→...→N
+  l1IdleTimeoutSeconds: 60,     // L1 触发延迟
+  l2DelayAfterL1Seconds: 90,    // L2 触发延迟
+  l2MinIntervalSeconds: 300,    // L2 最小间隔
+  l2MaxIntervalSeconds: 1800,   // L2 最大间隔
+  sessionActiveWindowHours: 24,  // Session 不活跃超时
+  l3TriggerEveryN: 50,          // L3 触发间隔
+}
+```
+
+#### 中文分词 (@node-rs/jieba)
+
+集成高性能中文分词库：
+
+```javascript
+"程序员小刘喜欢写代码" → ["程序员", "小刘", "喜欢", "写", "代码"]
+```
+
+- 原生 C++ 实现，性能优异
+- 无需配置，默认启用
+- 支持搜索时分词优化
+
+#### Hook 集成
+
+支持 OpenClaw Hook 生命周期：
+
+| Hook | 触发时机 | 功能 |
+|------|---------|------|
+| `before_prompt_build` | 构建提示词前 | 自动召回相关记忆 |
+| `agent_end` | Agent 结束 | 自动捕获对话 |
+
+**配置方式** (package.json):
+```json
+{
+  "openclaw": {
+    "hooks": {
+      "before_prompt_build": "before_prompt_build",
+      "agent_end": "agent_end"
+    }
+  }
+}
+```
+
+#### 零配置默认值
+
+- 无需手动配置即可使用
+- 智能默认值覆盖常见场景
+- 环境变量可覆盖默认值
+
+### 🔧 改进
+
+1. **BM25 增强** — 支持中文分词
+2. **Search 优化** — 自动分词处理
+3. **Config 增强** — 零配置开箱即用
+4. **管线状态追踪** — 完整的执行统计
+
+### 📊 统计
+
+| 指标 | 值 |
+|------|-----|
+| 新增工具 | 9 个 |
+| 新增文件 | 2 个 |
+| 中文分词 | @node-rs/jieba |
+| Hook 触发点 | 2 个 |
+
+---
+
+## v4.0.6 (2026-04-03) — 文档系统重构
+
+### 🔧 改进
+
+- 重构文档系统
+- 添加自动构建 Hook 机制
+- 双语文档优化
+
+---
+
+## v4.0.4 (2026-04-03) — 版本同步
+
+### 🔧 改进
+
+- 同步 skill.json 版本
+- 完善文档索引
+
+---
+
 ## v3.8.10 (2026-03-31) — Phase 5+6: Evidence TTL + WAL Operations
 
 ### Phase 5: Evidence TTL + Revision Limits
+
 - `addEvidence`: auto-trims TTL on each write (90-day B-tree, O(log n + k))
 - `addRevision`: auto-prunes old versions (max 50 per memory)
 - `trimEvidence`: manual TTL trim trigger
 - `getEvidenceStats` / `getRevisionStats`: stats endpoints
 
 ### Phase 6: WAL Operations
+
 - `getWalStatus`: total/pending/committed WAL entries
 - `exportWal`: JSONL export for backup/audit
 - `importWal`: JSONL import
@@ -25,11 +159,13 @@ All notable changes to unified-memory are documented here.
 ## v3.8.9 (2026-03-31) — Phase 3+4: Team Spaces + Rate Limiting
 
 ### Phase 3: Multi-Tenant Team Spaces
+
 - `memory_v4_create_team` / `list_teams` / `get_team` / `delete_team`
 - `memory_v4_team_store`: store in team space, auto-creates team
 - Team-scoped memory isolation (B-tree indexed)
 
 ### Phase 4: Distributed Rate Limiting
+
 - SQLite atomic counter rate_limits table
 - Per-scope limits: write=30/min, read=100/min, search=50/min
 - `memory_v4_rate_limit_status`: check current usage
@@ -39,6 +175,7 @@ All notable changes to unified-memory are documented here.
 ## v3.8.8 (2026-03-31) — Phase 2: Hybrid Search
 
 ### Hybrid Search (BM25 + Vector RRF)
+
 - `memory_v4_hybrid_search`: normalized score fusion
   - BM25: incremental index (no full rebuild)
   - Vector: Ollama embeddings
@@ -51,6 +188,7 @@ All notable changes to unified-memory are documented here.
 ## v3.8.7 (2026-03-31) — Phase 1: StorageGateway Foundation
 
 ### v4.0 Storage Gateway (SQLite-first)
+
 - **New**: `src/v4/storage-schema.js` — 8 tables (memories, evidence, revisions, scopes, wal_entries, rate_limits, bm25_index, vector_meta)
 - **New**: `src/v4/storage-gateway.js` — StorageGateway class
   - `getMemories()`: B-tree scope filter, O(log n)
@@ -61,24 +199,17 @@ All notable changes to unified-memory are documented here.
   - `stats()`: comprehensive statistics
 
 ### v4.0 Tools (additive, non-breaking)
+
 - `memory_v4_stats`, `memory_v4_search`, `memory_v4_store`, `memory_v4_list`
 
 ---
 
 ## v3.8.0 (2026-03-30) — WAL · Evidence · Auto-Organize
-<!-- zh -->
-> 统一记忆系统完整版本历史 | Consolidated Version History
-
-All notable changes to unified-memory are documented here.
-
----
-
-## v3.8.0 (2026-03-30) — WAL · Evidence · Auto-Organize
-<!-- zh -->
 
 ### 🚀 New Features
 
 #### WAL Protocol (Write-Ahead Log)
+
 - `memory_wal_write` — Write entry to WAL with checksum
 - `memory_wal_replay` — Replay WAL entries for crash recovery
 - `memory_wal_status` — Get WAL status and statistics
@@ -90,6 +221,7 @@ All notable changes to unified-memory are documented here.
 - Backward compatible with existing storage.js
 
 #### Evidence Chain Mechanism
+
 - `memory_evidence_add` — Add evidence to memory's chain
 - `memory_evidence_get` — Get evidence chain for a memory
 - `memory_evidence_find_by_type` — Find memories by evidence type
@@ -99,6 +231,7 @@ All notable changes to unified-memory are documented here.
 - Confidence scoring (0-1)
 
 #### Auto Organization
+
 - `memory_organize` — Organize memories across tiers
 - `memory_compress_tier` — Compress memories in a specific tier
 - `memory_archive_old` — Archive memories older than threshold
@@ -106,179 +239,64 @@ All notable changes to unified-memory are documented here.
 - `memory_full_organize` — Run full organization (organize + compress + archive)
 - Automatic tier migration: HOT (7d, 50%), WARM (30d, 30%), COLD (365d, 10%)
 
-### 📊 Statistics
-| Metric | Value |
-|--------|-------|
-| Total Tools | 112 (+15) |
-| Lines of Code | ~29K (+4K) |
-| New Files | 3 |
+---
+
+## v3.5.0 (2026-03-28) — Web UI Dashboard
+
+### 📱 Web Dashboard Features
+
+- **Overview** — Stats cards, category distribution, recent memories
+- **Memory List** — Pagination, filter, sort
+- **Search** — Keyword search
+- **API Endpoints** — `/api/stats`, `/api/memories`, `/api/categories`, `/api/search`
 
 ---
 
-## v3.7.0 (2026-03-29)
-<!-- zh -->
+## 版本概要
 
-### Features
-- 97 MCP tools fully registered
-- Complete memory system with all core features
-- HOT/WARM/COLD tier management
-- BM25 + Vector + RRF hybrid search
-- Scope isolation (AGENT/USER/TEAM/GLOBAL)
-- Weibull time decay
-- Git-Notes integration
-- Cloud backup API
-- Cognitive scheduler
-- Memory lanes
-- Token budget
-- Revision manager
+| 版本 | 日期 | 关键特性 |
+|------|------|---------|
+| **v4.1.0** | 2026-04-06 | 四层管线、场景归纳、中文分词、Hook 集成、零配置 |
+| v4.0.6 | 2026-04-03 | 文档系统重构 |
+| v3.8.10 | 2026-03-31 | Evidence TTL、WAL 操作 |
+| v3.8.9 | 2026-03-31 | 团队空间、限流 |
+| v3.8.8 | 2026-03-31 | 混合搜索 |
+| v3.8.7 | 2026-03-31 | StorageGateway 基础 |
+| v3.8.0 | 2026-03-30 | WAL、证据链、自动整理 |
+| v3.5.0 | 2026-03-28 | Web UI 仪表板 |
+| v2.7.0 | 2026-03-28 | 仪表板、身份记忆 |
+| v2.0.0 | 2026-03-26 | Node.js ESM 重写 |
 
 ---
 
-## v3.6.0 (2026-03-29)
-<!-- zh -->
+## 升级指南
 
-### 🐛 Bug Fixes
+### 从 v3.x 升级到 v4.1.0
 
-- **WAL cleanup on startup**: `initWalStorage()` now deletes old WAL files on each restart, preventing WAL directory bloat (previously 104 stale .wal.jsonl files accumulated)
-- **Vector cache health check false 0%**: Health check was using `Array.isArray(embedding)` but LanceDB stores embeddings as base64 strings in JSON — fixed to accept both string and array formats
-- **vector_cache_complete_rate**: Correctly reports 100% when all 117 memories have vectors in LanceDB
+**无需修改任何代码**，v4.1.0 完全向后兼容：
 
-### 📊 System Health (after fixes)
-```
-memoryCount: 117
-vector_cache_complete_rate: 100%
-ollama: connected
-WAL record count: 0 (clean on restart)
+1. 更新包：
+```bash
+cd unified-memory
+git pull origin main
+npm install
 ```
 
----
+2. 重启 Gateway：
+```bash
+openclaw gateway restart
+```
 
-## v3.5.0 (2026-03-28)
-<!-- zh -->
+3. 验证安装：
+```bash
+mcporter call unified-memory memory_health '{}'
+```
 
-### 🚀 Features
-
-- **Unified Web UI + API Server** — Single port (3850) for all dashboards, memory API, and health endpoints
-- **Responsive mobile design** — CSS media queries for phone/tablet/desktop
-- **Chinese interface** — Full Chinese localization
-- **Dark/Light theme toggle** — Persisted in localStorage
-- **Enriched API data** — `/api/stats` returns category, importance, time distributions
-
-### 📱 Pages
-| Page | Route | Features |
-|------|-------|----------|
-| Overview | `/` | Stats cards, category distribution, recent memories |
-| Memory List | `/memories` | Pagination, filter, sort |
-| Search | `/search` | Keyword search |
-
-### 🔌 API Endpoints
-| Endpoint | Feature |
-|----------|---------|
-| `/api/stats` | Complete statistics |
-| `/api/memories` | Memory list (paginated) |
-| `/api/categories` | Category list |
-| `/api/search?q=` | Search |
-| `/api/recent` | Recent memories |
-| `/api/top` | High-importance memories |
-| `/health` | Health check |
+4. 检查管线状态：
+```bash
+mcporter call unified-memory memory_pipeline_status '{}'
+```
 
 ---
 
-## v2.7.0 (2026-03-28)
-<!-- zh -->
-
-### Web UI Dashboard ⭐ NEW
-- `npm run dashboard` — Launch monitoring dashboard on port 3849
-- Real-time stats: total memories, 7d growth, access counts
-- Memory distribution: by category, scope, tier, importance, tags
-- System health: Ollama, LanceDB, memory file, storage usage
-- 14-day growth trend chart (Chart.js bar chart)
-- Scope donut chart
-- Management actions: cleanup old memories, export JSON
-- Auto-refresh every 5 seconds via AJAX
-
-### Identity Memory Type ⭐ NEW
-- New `identity` category family: `identity`, `preference`, `habit`, `requirement`, `skill`, `goal`
-- Identity memories always use `importance >= 0.9`
-- Identity extraction tools: `memory_identity_extract`, `memory_identity_update`, `memory_identity_get`
-- Auto-store integration with IDENTITY_PATTERNS
-
----
-
-## v2.6.0 (2026-03-28)
-<!-- zh -->
-
-### Phase 3 — Complete
-
-- **LanceDB query-level scope filtering** — B-tree index on `scope` column
-- **Plugin Interface** — `phase3_memory_search`, `phase3_memory_get`, `phase3_memory_write`
-- **QMD Search Backend** — `memory_qmd_query`, `memory_qmd_status`, `memory_qmd_search2`
-- **Git Integration** — `memory_git_init`, `memory_git_sync/history/note/pull/push`
-- **Cloud Backup** — `memory_cloud_sync/push/pull`
-- **Weibull Decay** — Shape=1.5, scale=30 days, access reward +5% up to 50% cap
-
----
-
-## v2.4.0 (2026-03-27)
-<!-- zh -->
-
-- 86 MCP tools complete (33 → 86)
-- Episode / Procedural / Rule memory system
-- Knowledge graph / proactive recall / prediction
-- Observability (WAL tracing, metrics, templates)
-- HTTP REST API
-- Dual-language docs (Chinese + English)
-
----
-
-## v2.1.0 (2026-03-27)
-<!-- zh -->
-
-- 33 MCP tools fully registered
-- Preference Slots system
-- HOT/WARM/COLD tier management
-- Write-Ahead Log for crash recovery
-- Intent routing + noise filter
-- BM25 + Vector + RRF pipeline
-
-### Fixed
-- noise.js `(?i)` regex bug
-- tier.js ISO timestamp parsing
-
----
-
-## v2.0.0 (2026-03-26)
-<!-- zh -->
-
-- Full Node.js ESM rewrite (147 JS modules)
-- Weibull time decay
-- Scope isolation (AGENT/USER/TEAM/GLOBAL)
-
----
-
-## v1.x (2026-03-25)
-<!-- zh -->
-
-- Python prototype
-
----
-
-## Summary / 版本概要
-<!-- zh -->
-
-| Version | Date | Key Additions |
-|---------|------|--------------|
-| v3.8.0 | 2026-03-30 | WAL Protocol, Evidence Chain, Auto-Organize |
-| v3.7.0 | 2026-03-29 | 97 tools, complete feature set |
-| v3.6.0 | 2026-03-29 | Bug fixes (WAL cleanup, vector cache) |
-| v3.5.0 | 2026-03-28 | Web UI, API Server, Chinese UI |
-| v2.7.0 | 2026-03-28 | Dashboard, Identity memory |
-| v2.6.0 | 2026-03-28 | Phase 3 plugins, Git, Cloud backup |
-| v2.4.0 | 2026-03-27 | 86 tools, KG, REST API |
-| v2.1.0 | 2026-03-27 | 33 tools, tier management, WAL |
-| v2.0.0 | 2026-03-26 | Node.js ESM rewrite |
-| v1.x | 2026-03-25 | Python prototype |
-
----
-
-*Last updated: 2026-03-31*
+*最后更新: 2026-04-06 | v4.1.0*
