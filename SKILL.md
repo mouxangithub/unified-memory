@@ -11,7 +11,7 @@
 | Field | Value |
 |-------|-------|
 | **Name** | `unified-memory` |
-| **Version** | `4.3.0` (see [docs/CHANGELOG.md](./docs/CHANGELOG.md)) |
+| **Version** | `4.4.0` (see [docs/CHANGELOG.md](./docs/CHANGELOG.md)) |
 | **Framework** | OpenClaw Agent · Node.js ESM · MCP stdio |
 | **Node** | `>=18.0.0` |
 | **OpenClaw** | `>=2026.3.0` |
@@ -654,6 +654,365 @@ Full architecture details: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 | [docs/CHANGELOG.md](./docs/CHANGELOG.md) | Version history and changelog |
 | [SKILL_CN.md](./SKILL_CN.md) | Legacy Chinese SKILL (superseded by this file) |
 | [HOOK.md](./HOOK.md) | Hook lifecycle and configuration reference |
+
+---
+
+## v4.4 Supermemory Features / Supermemory 功能
+
+> ⚡ **新功能**: 从 Supermemory 学习并实现的增强功能
+
+### 🎯 Dynamic Profile (动态画像)
+
+从最近 N 条记忆中提取动态画像，结合静态画像（persona.md）。
+
+**功能**:
+- `static`: 从 persona.md 读取长期稳定事实 + 偏好
+- `dynamic`: 归纳最近活动（工作重点、关注点）
+- 缓存机制，提高性能
+
+**API**:
+```javascript
+import { getProfile } from './profile/dynamic_profile.js';
+
+const profile = await getProfile(userId, {
+  recentMemoryLimit: 100,
+  recencyWindowDays: 7,
+});
+
+// 返回: { static: {...}, dynamic: {...}, lastUpdated: timestamp }
+```
+
+**字段说明**:
+- `static.facts`: 长期事实
+- `static.preferences`: 用户偏好
+- `static.skills`: 技能列表
+- `static.goals`: 目标列表
+- `dynamic.keywords`: 近期关键词
+- `dynamic.topics`: 近期主题
+- `dynamic.entities`: 近期实体
+- `dynamic.activities`: 活动类型
+- `dynamic.focusAreas`: 关注点
+
+---
+
+### 🔄 Contradiction Resolution (矛盾解决)
+
+检测并解决记忆中的矛盾陈述。
+
+**功能**:
+- 使用规则快速检测矛盾（地点、时间、状态）
+- 使用 LLM 深度判断矛盾
+- 保留较新的记忆，标记较旧的为过期
+
+**API**:
+```javascript
+import { detectContradictions, resolveContradictions } from './forgetting/contradiction_resolver.js';
+
+// 检测矛盾
+const contradictions = await detectContradictions(memories, { useLLM: true });
+
+// 解决矛盾
+const result = await resolveContradictions(contradictions, { storage });
+```
+
+**支持的模式**:
+- 地点矛盾: "我住在 NYC" vs "我刚搬到 SF"
+- 时间矛盾: "明天开会" vs "昨天开会"
+- 状态矛盾: "是" vs "不是"
+
+---
+
+### ⏰ Temporal Expiry (临时过期)
+
+检测和清理临时事实（有过期时间的记忆）。
+
+**功能**:
+- 正则提取过期时间（支持中英文）
+- LLM 提取复杂时间表达式
+- 定期检查并清理过期记忆
+
+**API**:
+```javascript
+import { extractExpiryTime, cleanExpiredMemories } from './forgetting/temporal_expiry.js';
+
+// 提取过期时间
+const expiry = await extractExpiryTime(memory);
+
+// 清理过期记忆
+const result = await cleanExpiredMemories(memories, storage);
+```
+
+**支持的时间表达式**:
+- 中文: 明天、下周、N天后、X月X日
+- 英文: tomorrow, next week, in N days, next Monday
+
+---
+
+### 🔍 Hybrid Search (混合搜索)
+
+统一搜索接口，支持记忆 + 文档混合搜索。
+
+**搜索模式**:
+- `memories`: 只搜索记忆
+- `documents`: 只搜索文档（RAG）
+- `hybrid`: 合并两者结果（默认）
+
+**API**:
+```javascript
+import { hybridSearch } from './search/hybrid_search.js';
+
+// 混合搜索
+const results = await hybridSearch(query, {
+  searchMode: 'hybrid',
+  maxResults: 20,
+  rerankResults: true,
+});
+```
+
+**特性**:
+- 结果合并与重排序
+- 去重处理
+- 权重可配置
+
+---
+
+### 🔌 Connectors Framework (连接器框架)
+
+为外部数据源提供统一的同步接口。
+
+**BaseConnector**:
+```javascript
+import { BaseConnector } from './connectors/base.js';
+
+class GitHubConnector extends BaseConnector {
+  constructor(options) {
+    super({ name: 'github', type: 'github', ...options });
+  }
+
+  async _doSync() {
+    // 实现具体同步逻辑
+    return items;
+  }
+}
+```
+
+**接口**:
+- `sync()`: 全量同步
+- `watch(callback)`: 增量监听
+- `normalize(rawData)`: 数据格式转换
+
+---
+
+### 📄 Multi-modal Extractors (多模态提取器)
+
+为不同类型文件提供统一的内容提取接口。
+
+**BaseExtractor**:
+```javascript
+import { BaseExtractor } from './extractors/base.js';
+
+class PDFExtractor extends BaseExtractor {
+  constructor(options) {
+    super({ name: 'pdf', type: 'pdf', supportedFormats: ['pdf'], ...options });
+  }
+
+  async _doExtract(filePath, options) {
+    // 实现具体提取逻辑
+    return { content, metadata };
+  }
+}
+```
+
+**接口**:
+- `extract(filePath)`: 提取文件内容
+- `extractBatch(filePaths)`: 批量提取
+- `supports(filePath)`: 检查是否支持
+
+**内置提取器**:
+- `TextExtractor`: 文本文件 (txt, md, json, yaml, csv)
+
+---
+
+### 📦 导出汇总
+
+```javascript
+// Dynamic Profile
+import { getProfile, getProfiles, invalidateCache } from './profile/dynamic_profile.js';
+
+// Contradiction Resolution
+import { detectContradiction, detectContradictions, resolveContradictions } from './forgetting/contradiction_resolver.js';
+
+// Temporal Expiry
+import { extractExpiryTime, cleanExpiredMemories, startExpiryChecker } from './forgetting/temporal_expiry.js';
+
+// Hybrid Search
+import { hybridSearch, searchMemoriesOnly, searchDocumentsOnly } from './search/hybrid_search.js';
+
+// Connectors
+import { BaseConnector, registerConnector, createConnector } from './connectors/index.js';
+
+// Extractors
+import { BaseExtractor, TextExtractor, autoExtract } from './extractors/index.js';
+```
+
+---
+
+## v4.4 Supermemory 对标功能
+
+> 🆕 新增功能：Benchmark 验证 + 可配置实体类型 + 插件系统
+
+---
+
+### 📊 Benchmark Evaluation (召回率验证)
+
+运行 recall@K / precision@K / MRR 基准测试，对标 LoCoMo / LongMemEval。
+
+**新工具**:
+
+| 工具 | 功能 |
+|------|------|
+| `memory_benchmark_recall` | 运行召回率基准测试 |
+
+**使用方法**:
+```javascript
+// 直接调用
+const report = runRecallBenchmark();
+// 返回: { timestamp, dataset_size, metrics: { recall@1/5/10, precision@1/5, mrr }, results: [...] }
+```
+
+**输出指标**:
+- `recall@K`: 前 K 个结果中包含的相关记忆比例
+- `precision@K`: 前 K 个结果中相关记忆的占比
+- `MRR`: 首个相关结果的倒数排名平均值
+
+**Benchmark 报告保存位置**:
+```
+~/.openclaw/skills/unified-memory/src/benchmark/results/
+```
+
+---
+
+### 🏷️ Configurable Entity Types (可配置实体类型)
+
+实体类型不再硬编码，改为从配置文件加载，支持运行时扩展。
+
+**新工具**:
+
+| 工具 | 功能 |
+|------|------|
+| `memory_entity_types_list` | 列出所有实体类型配置 |
+| `memory_entity_type_add` | 添加/更新实体类型 |
+
+**配置文件**:
+```
+~/.openclaw/workspace/memory/config/entity_types.json
+```
+
+**默认实体类型**:
+
+| 类型 | 标签 | 颜色 | 优先级 |
+|------|------|------|--------|
+| person | 人物 | #667eea | 10 |
+| organization | 组织 | #10b981 | 8 |
+| project | 项目 | #f59e0b | 9 |
+| topic | 主题 | #8b5cf6 | 6 |
+| tool | 工具 | #06b6d4 | 7 |
+| location | 地点 | #ef4444 | 5 |
+| date | 日期 | #ec4899 | 4 |
+| event | 事件 | #84cc16 | 6 |
+
+**运行时添加新类型**:
+```javascript
+addEntityType('framework', {
+  label: '框架',
+  color: '#ff6b6b',
+  keywords: ['React', 'Vue', 'Angular', 'Next.js'],
+  priority: 7,
+});
+```
+
+**使用 MCP 工具**:
+```json
+{
+  "name": "memory_entity_type_add",
+  "arguments": {
+    "typeName": "framework",
+    "label": "开发框架",
+    "color": "#ff6b6b",
+    "keywords": ["React", "Vue", "Angular"],
+    "priority": 7
+  }
+}
+```
+
+---
+
+### 🔌 Plugin System (插件系统)
+
+可插拔架构，支持在搜索/写入关键节点注入自定义逻辑。
+
+**内置插件**:
+
+| 插件 | 功能 |
+|------|------|
+| `kg-enrich` | 知识图谱增强：在搜索结果中附加 KG 实体/关系上下文 |
+| `dedup` | 去重：写入前检查相似记忆，防止重复 |
+| `revision` | 版本追踪：自动记录每次写入的 revision |
+
+**新工具**:
+
+| 工具 | 功能 |
+|------|------|
+| `memory_plugins_list` | 列出所有已注册插件 |
+| `memory_plugin_enable` | 启用插件 |
+| `memory_plugin_disable` | 禁用插件 |
+| `memory_plugin_register` | 注册外部插件 |
+
+**插件 Hook 接口**:
+
+```javascript
+const myPlugin = {
+  name: 'my-plugin',
+  version: '1.0.0',
+  description: 'My custom plugin',
+  enabled: true,
+  hooks: {
+    beforeSearch: async (query, context) => query,
+    afterSearch: async (results, context) => results,
+    beforeWrite: async (memory, context) => memory,
+    afterWrite: async (memory, context) => memory,
+    onConflictDetected: async (local, remote) => ({ resolution: 'merged' }),
+  },
+  config: { /* 自定义配置 */ },
+};
+```
+
+**Hook 执行顺序**:
+```
+beforeSearch → [实际搜索] → afterSearch
+                   ↓
+beforeWrite → [实际写入] → afterWrite
+```
+
+**插件注册表位置**:
+```
+~/.openclaw/workspace/memory/plugins/registry.json
+```
+
+---
+
+### 📦 v4.4 导出汇总
+
+```javascript
+// Benchmark
+import { runRecallBenchmark } from './benchmark/eval_recall.js';
+
+// Entity Config
+import { loadEntityConfig, addEntityType, getEntityTypesByPriority } from './graph/entity_config.js';
+
+// Plugin System
+import { getPlugins, enablePlugin, disablePlugin, registerPlugin } from './plugin/plugin_manager.js';
+```
 
 ---
 

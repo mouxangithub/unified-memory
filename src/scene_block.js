@@ -292,7 +292,7 @@ ${scene.actions.map(a => `- [ ] ${a}`).join('\n') || '无'}
 
 ## 标签
 
-${scene.tags.map(t => \`#\${t}\`).join(' ') || '无'}
+${scene.tags.map(t => '#' + t).join(' ') || '无'}
 
 ## 关联记忆
 
@@ -376,7 +376,7 @@ export async function listSceneBlocks(scope = 'USER', limit = 20) {
  */
 export async function getSceneBlock(sceneId, scope = 'USER') {
   const sceneDir = getSceneDir(scope);
-  const filePath = path.join(sceneDir, \`\${sceneId}.json\`);
+  const filePath = path.join(sceneDir, '\${sceneId}.json');
   
   if (!fs.existsSync(filePath)) {
     return null;
@@ -397,8 +397,8 @@ export async function deleteSceneBlock(sceneId, scope = 'USER') {
   const sceneDir = getSceneDir(scope);
   
   // 删除 JSON 和 Markdown 文件
-  const jsonPath = path.join(sceneDir, \`\${sceneId}.json\`);
-  const mdPath = path.join(sceneDir, \`\${sceneId}.md\`);
+  const jsonPath = path.join(sceneDir, '\${sceneId}.json');
+  const mdPath = path.join(sceneDir, '\${sceneId}.md');
   
   if (fs.existsSync(jsonPath)) fs.unlinkSync(jsonPath);
   if (fs.existsSync(mdPath)) fs.unlinkSync(mdPath);

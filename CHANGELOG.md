@@ -2,6 +2,52 @@
 
 All notable changes to unified-memory are documented here.
 
+## v4.4.0 (2026-04-07)
+
+### 🚀 Supermemory 对标功能
+
+基于对 Supermemory.ai 架构的深入分析，新增以下功能：
+
+#### 1. Benchmark Evaluation (召回率验证)
+- **新文件**: `src/benchmark/eval_recall.js`
+  - 实现 recall@K / precision@K / MRR 评测
+  - 自动从 HOT/WARM/COLD tier 加载测试数据
+  - 生成 benchmark 报告到 `src/benchmark/results/`
+- **新文件**: `src/benchmark/locomo_loader.js`
+  - LoCoMo 格式数据集加载器
+- **新工具**: `memory_benchmark_recall`
+
+#### 2. Configurable Entity Types (可配置实体类型)
+- **新文件**: `src/graph/entity_config.js`
+  - 实体类型从硬编码改为配置文件加载
+  - 支持运行时添加/删除实体类型
+  - 默认 8 种实体类型：person, organization, project, topic, tool, location, date, event
+- **更新**: `src/graph/graph.js`
+  - 改用 `entity_config.js` 的配置
+- **新工具**: `memory_entity_types_list`, `memory_entity_type_add`
+
+#### 3. Plugin System (插件系统)
+- **新文件**: `src/plugin/plugin_manager.js`
+  - 完整的插件管理器
+  - 支持 5 种 Hook：beforeSearch, afterSearch, beforeWrite, afterWrite, onConflictDetected
+  - 3 个内置插件：kg-enrich, dedup, revision
+- **新工具**: `memory_plugins_list`, `memory_plugin_enable`, `memory_plugin_disable`, `memory_plugin_register`
+
+### 📚 Documentation
+
+- **SKILL.md**: 新增 v4.4 章节，完整文档
+- **CHANGELOG.md**: 更新版本历史
+
+### 配置变更
+
+```
+# 新增目录
+~/.openclaw/workspace/memory/config/     # 实体类型配置
+~/.openclaw/workspace/memory/plugins/    # 插件注册表
+```
+
+---
+
 ## v4.0.6 (2026-04-02)
 
 ### 📚 Documentation & Organization

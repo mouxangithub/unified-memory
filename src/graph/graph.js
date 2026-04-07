@@ -30,23 +30,48 @@ import {
   getGraphStats as gsGetStats,
 } from './graph_store.js';
 
-/** @type {Map<string, EntityType>} */
-const ENTITY_TYPES = {
-  person: ['用户', '刘总', '我', '你', '他', '她'],
-  project: ['项目', '龙宫', '官网', '重构', '开发'],
-  tool: ['飞书', '微信', 'QQ', '钉钉', 'Slack'],
-  time: ['今天', '明天', '下周', '月', '日'],
-  action: ['喜欢', '使用', '决定', '创建', '完成'],
-};
+// Use configurable entity types from entity_config.js
+import { loadEntityConfig, DEFAULT_ENTITY_TYPES } from './entity_config.js';
 
 /** @type {Record<string, string>} */
-const ENTITY_COLORS = {
-  person: '#667eea',
-  project: '#10b981',
-  tool: '#f59e0b',
-  time: '#ef4444',
-  action: '#8b5cf6',
-};
+let ENTITY_COLORS = {};
+
+/** @type {Map<string, EntityType>} */
+let ENTITY_TYPES = {};
+
+/**
+ * Initialize entity types from config (lazy load)
+ */
+function initEntityTypes() {
+  if (Object.keys(ENTITY_TYPES).length === 0) {
+    try {
+      const config = loadEntityConfig();
+      // Build ENTITY_TYPES.map from config.keywords
+      for (const [type, def] of Object.entries(config)) {
+        if (!ENTITY_TYPES[type]) ENTITY_TYPES[type] = [];
+        if (def.keywords) ENTITY_TYPES[type].push(...def.keywords);
+        ENTITY_COLORS[type] = def.color || '#94a3b8';
+      }
+    } catch {
+      // Fallback to defaults
+      ENTITY_COLORS = {
+        person: '#667eea',
+        project: '#10b981',
+        tool: '#f59e0b',
+        time: '#ef4444',
+        action: '#8b5cf6',
+      };
+      ENTITY_TYPES = {
+        person: ['用户', '刘总', '我', '你', '他', '她'],
+        project: ['项目', '龙宫', '官网', '重构', '开发'],
+        tool: ['飞书', '微信', 'QQ', '钉钉', 'Slack'],
+        time: ['今天', '明天', '下周', '月', '日'],
+        action: ['喜欢', '使用', '决定', '创建', '完成'],
+      };
+    }
+  }
+  return { ENTITY_TYPES, ENTITY_COLORS };
+}
 
 /**
  * @typedef {Object} Entity
@@ -92,17 +117,19 @@ const ENTITY_COLORS = {
 
 /**
  * Extract entities from a single memory text.
+ * Uses configurable entity types from entity_config.js
  * @param {string} text
  * @returns {Entity[]}
  */
 export function extractEntitiesFromText(text) {
   /** @type {Entity[]} */
   const entities = [];
+  const { ENTITY_TYPES: etypes, ENTITY_COLORS: ecolors } = initEntityTypes();
 
-  for (const [entityType, keywords] of Object.entries(ENTITY_TYPES)) {
+  for (const [entityType, keywords] of Object.entries(etypes)) {
     for (const keyword of keywords) {
       if (text.includes(keyword)) {
-        entities.push({ name: keyword, type: entityType, text });
+        entities.push({ name: keyword, type: entityType, text, color: ecolors[entityType] });
       }
     }
   }

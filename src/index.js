@@ -4,8 +4,8 @@
  */
 
 import { z } from 'zod';
-import { McpServer } from '/usr/local/lib/node_modules/mcporter/node_modules/@modelcontextprotocol/sdk/dist/cjs/server/mcp.js';
-import { StdioServerTransport } from '/usr/local/lib/node_modules/mcporter/node_modules/@modelcontextprotocol/sdk/dist/cjs/server/stdio.js';
+import { McpServer } from '/root/.openclaw/node_modules/@modelcontextprotocol/sdk/dist/cjs/server/mcp.js';
+import { StdioServerTransport } from '/root/.openclaw/node_modules/@modelcontextprotocol/sdk/dist/cjs/server/stdio.js';
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
@@ -20,7 +20,8 @@ import { ManagedTimer } from './utils/managed_timer.js';
 import { SessionFilter } from './utils/session_filter.js';
 import { BackupManager } from './utils/backup.js';
 // v4.2.0: Hooks (from memory-tencentdb)
-import { performAutoCapture, performAutoRecall } from './hooks/auto_capture.js';
+import { performAutoCapture } from './hooks/auto_capture.js';
+import { performAutoRecall } from './hooks/auto_recall.js';
 // v4.2.0: Conversation
 import { recordConversation } from './conversation/l0_recorder.js';
 // v4.2.0: Record / L1
@@ -98,6 +99,14 @@ import { registerChunkTools } from './chunking/chunk_tools.js';
 import { registerPluginTools } from './plugin/tools.js';
 import { registerGitTools } from './integrations/git_tools.js';
 import { registerCloudTools } from './integrations/cloud_tools.js';
+
+// v4.3: Supermemory Features
+import { getProfile as getDynamicProfile, getProfiles, invalidateCache as invalidateProfileCache } from './profile/dynamic_profile.js';
+import { detectContradiction, detectContradictions, resolveContradictions, dedupWithContradictionResolution } from './forgetting/contradiction_resolver.js';
+import { isTemporalMemory, extractExpiryTime, isExpired, extractExpiryTimes, cleanExpiredMemories, startExpiryChecker } from './forgetting/temporal_expiry.js';
+import { hybridSearch as hybridSearchEngine, searchMemoriesOnly, searchDocumentsOnly, getSearchStats } from './search/hybrid_search.js';
+import { BaseConnector, registerConnector, createConnector, listConnectors, createConnectors } from './connectors/index.js';
+import { BaseExtractor, TextExtractor, registerExtractor, createExtractor, getExtractorForFile, autoExtract, listExtractors } from './extractors/index.js';
 import { registerDecayStatsTool } from './decay/weibull_tools.js';
 
 // Feature #10: Preference Slots
@@ -2384,6 +2393,13 @@ server.registerTool('memory_reminder', {
 
 // ============ Knowledge Graph Tools (Entity + Relation Extraction) ============
 
+// v4.4: Benchmark & Evaluation
+import { runRecallBenchmark } from './benchmark/eval_recall.js';
+// v4.4: Entity Config
+import { loadEntityConfig, saveEntityConfig, addEntityType, removeEntityType, getEntityTypesByPriority, reloadEntityConfig } from './graph/entity_config.js';
+// v4.4: Plugin System
+import { getPlugins, getPlugin, enablePlugin, disablePlugin, registerPlugin as registerExternalPlugin, getPluginStats } from './plugin/plugin_manager.js';
+
 import { extractEntities } from './graph/entity.js';
 import { extractRelations } from './graph/relation.js';
 import {
@@ -3488,6 +3504,137 @@ function registerLocalEmbeddingTools(server) {
 
 registerLocalEmbeddingTools(server);
 
+// ─── v4.4: Benchmark Tools ───────────────────────────────────────────────────
+  server.registerTool('memory_benchmark_recall', {
+    description: '[v4.4] 运行记忆召回基准测试，评估 recall@K, precision@K, MRR 等指标',
+    inputSchema: z.object({
+      limit: z.number().optional().default(10).describe('最大返回结果数'),
+    })
+  }, async ({ limit }) => {
+    try {
+      const report = runRecallBenchmark();
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify(report, null, 2)
+        }]
+      };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Benchmark error: ${err.message}` }], isError: true };
+    }
+  });
+
+// ─── v4.4: Entity Config Tools ───────────────────────────────────────────────
+  server.registerTool('memory_entity_types_list', {
+    description: '[v4.4] 列出所有可配置的实体类型及其配置',
+    inputSchema: z.object({})
+  }, async () => {
+    try {
+      const config = loadEntityConfig();
+      const byPriority = getEntityTypesByPriority();
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({ config, byPriority }, null, 2)
+        }]
+      };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    }
+  });
+
+  server.registerTool('memory_entity_type_add', {
+    description: '[v4.4] 添加或更新一个实体类型配置',
+    inputSchema: z.object({
+      typeName: z.string().describe('实体类型名称'),
+      label: z.string().describe('中文标签'),
+      labelEn: z.string().optional().describe('英文标签'),
+      color: z.string().describe('颜色代码，如 #667eea'),
+      keywords: z.array(z.string()).optional().describe('关键词列表'),
+      priority: z.number().optional().default(5).describe('优先级'),
+    })
+  }, async ({ typeName, label, labelEn, color, keywords, priority }) => {
+    try {
+      const newConfig = addEntityType(typeName, { label, labelEn, color, keywords: keywords || [], priority });
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ success: true, typeName, config: newConfig[typeName] }, null, 2) }]
+      };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    }
+  });
+
+// ─── v4.4: Plugin System Tools ────────────────────────────────────────────────
+  server.registerTool('memory_plugins_list', {
+    description: '[v4.4] 列出所有已注册插件及其状态',
+    inputSchema: z.object({})
+  }, async () => {
+    try {
+      const stats = await getPluginStats();
+      const plugins = await getPlugins();
+      const list = Object.entries(plugins).map(([name, p]) => ({
+        name,
+        version: p.version,
+        description: p.description,
+        enabled: p.enabled,
+        hooks: Object.keys(p.hooks || {}),
+      }));
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({ stats, plugins: list }, null, 2)
+        }]
+      };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    }
+  });
+
+  server.registerTool('memory_plugin_enable', {
+    description: '[v4.4] 启用指定插件',
+    inputSchema: z.object({
+      name: z.string().describe('插件名称'),
+    })
+  }, async ({ name }) => {
+    try {
+      const result = await enablePlugin(name);
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    }
+  });
+
+  server.registerTool('memory_plugin_disable', {
+    description: '[v4.4] 禁用指定插件',
+    inputSchema: z.object({
+      name: z.string().describe('插件名称'),
+    })
+  }, async ({ name }) => {
+    try {
+      const result = await disablePlugin(name);
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    }
+  });
+
+  server.registerTool('memory_plugin_register', {
+    description: '[v4.4] 注册一个外部插件',
+    inputSchema: z.object({
+      name: z.string().describe('插件名称'),
+      version: z.string().optional().default('1.0.0').describe('插件版本'),
+      description: z.string().optional().describe('插件描述'),
+      path: z.string().describe('插件文件路径'),
+    })
+  }, async ({ name, version, description, path }) => {
+    try {
+      const result = await registerExternalPlugin({ name, version, description, path });
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+    }
+  });
+
 // 初始化本地 Embedding
 if (config.localEmbedding?.enabled && config.localEmbedding?.autoWarmup) {
   const service = getLocalEmbedding(config.localEmbedding);
@@ -3587,4 +3734,50 @@ export {
   formatConversationSearchResponse,
   executeMemorySearch,
   formatSearchResponse,
+  // v4.3: Supermemory Features
+  getDynamicProfile,
+  getProfiles,
+  invalidateProfileCache,
+  detectContradiction,
+  detectContradictions,
+  resolveContradictions,
+  dedupWithContradictionResolution,
+  isTemporalMemory,
+  extractExpiryTime,
+  isExpired,
+  extractExpiryTimes,
+  cleanExpiredMemories,
+  startExpiryChecker,
+  hybridSearchEngine,
+  searchMemoriesOnly,
+  searchDocumentsOnly,
+  getSearchStats,
+  BaseConnector,
+  registerConnector,
+  createConnector,
+  listConnectors,
+  createConnectors,
+  BaseExtractor,
+  TextExtractor,
+  registerExtractor,
+  createExtractor,
+  getExtractorForFile,
+  autoExtract,
+  listExtractors,
+  // v4.4: Benchmark (Supermemory comparison)
+  runRecallBenchmark,
+  // v4.4: Entity Config
+  loadEntityConfig,
+  saveEntityConfig,
+  addEntityType,
+  removeEntityType,
+  getEntityTypesByPriority,
+  reloadEntityConfig,
+  // v4.4: Plugin System
+  getPlugins,
+  getPlugin,
+  enablePlugin,
+  disablePlugin,
+  registerExternalPlugin,
+  getPluginStats,
 };

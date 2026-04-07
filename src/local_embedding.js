@@ -127,19 +127,19 @@ export class LocalEmbeddingService {
       return; // 已在进行中或已完成
     }
     
-    log('info', `[LocalEmbedding] Starting background warmup for model: ${this.modelPath}`);
+    log.info(`[LocalEmbedding] Starting background warmup for model: ${this.modelPath}`);
     this.initState = 'initializing';
     this.initError = null;
     
     this.initPromise = this._doInitialize()
       .then(() => {
         this.initState = 'ready';
-        log('info', '[LocalEmbedding] Background warmup complete — local embedding ready');
+        log.info('[LocalEmbedding] Background warmup complete — local embedding ready');
       })
       .catch(err => {
         this.initState = 'failed';
         this.initError = err instanceof Error ? err : new Error(String(err));
-        log('error', `[LocalEmbedding] Background warmup failed: ${this.initError.message}`);
+        log.error(`[LocalEmbedding] Background warmup failed: ${this.initError.message}`);
       });
   }
   
@@ -200,7 +200,7 @@ export class LocalEmbeddingService {
       this.initPromise = null;
       this.initState = 'idle';
       this.initError = null;
-      log('info', '[LocalEmbedding] Resources released');
+      log.info('[LocalEmbedding] Resources released');
     }
   }
   
@@ -246,7 +246,7 @@ export class LocalEmbeddingService {
    */
   _truncateInput(text) {
     if (text.length <= LOCAL_MAX_INPUT_CHARS) return text;
-    log('debug', `[LocalEmbedding] Input truncated from ${text.length} to ${LOCAL_MAX_INPUT_CHARS} chars`);
+    log.debug(`[LocalEmbedding] Input truncated from ${text.length} to ${LOCAL_MAX_INPUT_CHARS} chars`);
     return text.slice(0, LOCAL_MAX_INPUT_CHARS);
   }
   
@@ -257,7 +257,7 @@ export class LocalEmbeddingService {
     let model = undefined;
     
     try {
-      log('debug', '[LocalEmbedding] Loading node-llama-cpp...');
+      log.debug('[LocalEmbedding] Loading node-llama-cpp...');
       
       // 动态导入 — node-llama-cpp 是可选依赖
       const { getLlama, resolveModelFile, LlamaLogLevel } = await import('node-llama-cpp').catch(() => {
@@ -265,16 +265,16 @@ export class LocalEmbeddingService {
       });
       
       const llama = await getLlama({ logLevel: LlamaLogLevel.error });
-      log('debug', '[LocalEmbedding] Llama instance created');
+      log.debug('[LocalEmbedding] Llama instance created');
       
       const resolvedPath = await resolveModelFile(this.modelPath, this.modelCacheDir);
-      log('debug', `[LocalEmbedding] Model resolved: ${resolvedPath}`);
+      log.debug(`[LocalEmbedding] Model resolved: ${resolvedPath}`);
       
       model = await llama.loadModel({ modelPath: resolvedPath });
-      log('debug', '[LocalEmbedding] Model loaded, creating embedding context...');
+      log.debug('[LocalEmbedding] Model loaded, creating embedding context...');
       
       this.embeddingContext = await model.createEmbeddingContext();
-      log('info', `[LocalEmbedding] Ready (model=${this.modelPath}, dims=${LOCAL_DIMENSIONS})`);
+      log.info(`[LocalEmbedding] Ready (model=${this.modelPath}, dims=${LOCAL_DIMENSIONS})`);
       
     } catch (err) {
       // 清理部分初始化的资源
