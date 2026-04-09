@@ -51,7 +51,7 @@ const DEFAULT_PATTERNS = [
   },
   {
     id: 'user_info',
-    keywords: ['刘总', '老板', '用户', 'user', '刘选权'],
+    keywords: ['刘总', '老板', '用户', 'user', '张三'],
     category: 'user',
     target: 'all',
     priority: 'high',

@@ -1,4 +1,4 @@
-# API Reference — Unified Memory v4.4.0
+# API Reference — Unified Memory v5.0.1
 
 > Complete MCP Tool API Reference | 完整的 MCP 工具 API 参考
 
@@ -392,7 +392,7 @@ mcporter call unified-memory memory_scene_stats '{"scope": "USER"}'
 知识图谱操作。
 
 ```bash
-mcporter call unified-memory memory_graph '{"operation": "get_relations", "entity": "刘选权"}'
+mcporter call unified-memory memory_graph '{"operation": "get_relations", "entity": "张三"}'
 ```
 
 | operation | 说明 |
@@ -446,7 +446,7 @@ mcporter call unified-memory memory_entity_type_add '{
 获取实体详情。
 
 ```bash
-mcporter call unified-memory memory_entity_get '{"name": "刘选权"}'
+mcporter call unified-memory memory_entity_get '{"name": "张三"}'
 ```
 
 ---
@@ -467,7 +467,7 @@ mcporter call unified-memory memory_entity_search '{"query": "OpenClaw"}'
 
 ```bash
 mcporter call unified-memory memory_relation_add '{
-  "source": "刘选权",
+  "source": "张三",
   "target": "OpenClaw",
   "relation": "founder_of"
 }'
@@ -781,7 +781,7 @@ mcporter call unified-memory memory_dashboard '{}'
 
 ```bash
 mcporter call unified-memory memory_extract '{
-  "text": "刘选权是OpenClaw的创始人，擅长JavaScript编程"
+  "text": "张三是OpenClaw的创始人，擅长JavaScript编程"
 }'
 ```
 
@@ -927,7 +927,7 @@ mcporter call unified-memory memory_feedback '{
 从记忆中提取身份信息。
 
 ```bash
-mcporter call unified-memory memory_identity_extract '{"text": "我叫刘选权，是一名工程师"}'
+mcporter call unified-memory memory_identity_extract '{"text": "我叫张三，是一名工程师"}'
 ```
 
 ---
@@ -950,7 +950,7 @@ mcporter call unified-memory memory_identity_get '{"userId": "user_001"}'
 mcporter call unified-memory memory_identity_update '{
   "userId": "user_001",
   "profile": {
-    "name": "刘选权",
+    "name": "张三",
     "role": "工程师"
   }
 }'
@@ -1491,4 +1491,4 @@ mcporter call unified-memory memory_git_notes '{"operation": "list"}'
 
 ---
 
-*最后更新: 2026-04-09 | v4.4.0*
+*最后更新: 2026-04-09 | v5.0.1*

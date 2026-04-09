@@ -103,7 +103,7 @@ async function testOpenVikingSystem() {
     agentId: 'agent_001'
   });
   
-  await system.addMessage('test_extraction', 'user', '我叫刘选权，是 OpenClaw 的创始人');
+  await system.addMessage('test_extraction', 'user', '我叫张明，是 OpenClaw 的创始人');
   await system.addMessage('test_extraction', 'user', '我喜欢使用 JavaScript 和 Python');
   await system.addMessage('test_extraction', 'user', '上次我们解决了 Unified Memory 的性能问题');
   
@@ -166,13 +166,13 @@ async function testOpenVikingSystem() {
   const testMemories = [
     {
       id: 'mem_001',
-      text: '刘选权是 OpenClaw 的创始人，公司位于北京。他拥有 10 年的软件开发经验，擅长 JavaScript、Python 和 Go 编程。',
+      text: '张明是 OpenClaw 的创始人，公司位于北京。他拥有 10 年的软件开发经验，擅长 JavaScript、Python 和 Go 编程。',
       type: 'facts',
       importance: 0.9
     },
     {
       id: 'mem_002',
-      text: '刘选权每天早上 7 点起床，习惯喝一杯咖啡后开始工作。他喜欢在早上处理最重要的任务。',
+      text: '张明每天早上 7 点起床，习惯喝一杯咖啡后开始工作。他喜欢在早上处理最重要的任务。',
       type: 'patterns',
       importance: 0.7
     }

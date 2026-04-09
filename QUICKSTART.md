@@ -11,7 +11,7 @@ import { initializeEnhancedMemorySystem } from './src/init_enhanced_system.js';
 const system = await initializeEnhancedMemorySystem();
 
 // 存储记忆（自动类型检测 + 去重）
-await system.remember('刘选权擅长JavaScript编程', { userId: 'user_001' });
+await system.remember('张三擅长JavaScript编程', { userId: 'user_001' });
 
 // 回忆记忆（自动优化 + 压缩）
 const result = await system.recall('编程技能', {
@@ -102,7 +102,7 @@ await shutdownEnhancedMemorySystem(system);
 
 ```javascript
 // 多路召回：向量 + 文本 + 上下文
-const result = await system.recall('刘选权的编程技能', {
+const result = await system.recall('张三的编程技能', {
   optimizeRecall: true,
   maxRecall: 10,
   minScore: 0.6
@@ -129,7 +129,7 @@ const result = await system.recall('项目经验', {
 // 输出示例：
 /*
 📋 事实:
-  • 刘选权是OpenClaw创始人 [重要度: 90%]
+  • 张三是OpenClaw创始人 [重要度: 90%]
   • 公司位于北京
 
 💡 技能:
@@ -158,7 +158,7 @@ const result = await system.recall('项目经验', {
 ```javascript
 // 自动检测记忆类型
 const detected = await system.typeRegistry.detectMemoryType(
-  '刘选权每天早上7点起床'
+  '张三每天早上7点起床'
 );
 
 console.log(detected.type);      // 'patterns'
@@ -169,8 +169,8 @@ console.log(detected.confidence); // 'high'
 
 ```javascript
 // 自动去重
-await system.remember('刘选权擅长JavaScript', { userId: 'user_001' });
-await system.remember('刘选权擅长JavaScript', { userId: 'user_001' });
+await system.remember('张三擅长JavaScript', { userId: 'user_001' });
+await system.remember('张三擅长JavaScript', { userId: 'user_001' });
 // 第二次会自动识别为重复，跳过或合并
 ```
 
@@ -205,7 +205,7 @@ await system.lifecycleManager.restore(memoryId, storage, vectorStore);
 
 ```javascript
 // ✅ 好的做法：提供上下文
-await system.remember('刘选权擅长JavaScript编程', {
+await system.remember('张三擅长JavaScript编程', {
   userId: 'user_001',
   source: 'conversation',
   importance: 0.8,  // 可选：手动设置重要性
@@ -213,7 +213,7 @@ await system.remember('刘选权擅长JavaScript编程', {
 });
 
 // ❌ 不好的做法：没有上下文
-await system.remember('刘选权擅长JavaScript编程');
+await system.remember('张三擅长JavaScript编程');
 ```
 
 ### 2. 召回记忆时
@@ -301,23 +301,23 @@ async function main() {
   const system = await initializeEnhancedMemorySystem();
   
   // 2. 存储记忆
-  await system.remember('刘选权是OpenClaw创始人', { 
+  await system.remember('张三是OpenClaw创始人', { 
     userId: 'user_001',
     importance: 0.9 
   });
   
-  await system.remember('刘选权擅长JavaScript编程', { 
+  await system.remember('张三擅长JavaScript编程', { 
     userId: 'user_001',
     type: 'skills'
   });
   
-  await system.remember('刘选权喜欢简洁的设计风格', { 
+  await system.remember('张三喜欢简洁的设计风格', { 
     userId: 'user_001',
     type: 'preferences'
   });
   
   // 3. 召回记忆
-  const result = await system.recall('刘选权', {
+  const result = await system.recall('张三', {
     optimizeRecall: true,
     compress: true,
     maxRecall: 10,
@@ -351,6 +351,6 @@ main().catch(console.error);
 
 ---
 
-**版本**: v4.5.0  
+**版本**: v5.0.1  
 **更新时间**: 2026-04-09  
 **作者**: OpenClaw Assistant (xiaozhi)

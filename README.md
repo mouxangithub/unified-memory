@@ -1,8 +1,8 @@
-# Unified Memory v4.4.0
+# Unified Memory v5.0.1
 
 > 🧠 **Unified Memory** — 四层渐进式 AI 记忆系统 (L0→L1→L2→L3) · Pure Node.js ESM
 
-[![Version](https://img.shields.io/badge/version-4.4.0-blue.svg)](https://github.com/mouxangithub/unified-memory)
+[![Version](https://img.shields.io/badge/version-5.0.1-blue.svg)](https://github.com/mouxangithub/unified-memory)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -12,7 +12,7 @@
 
 ## 项目简介
 
-Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 MCP 服务器。基于 Supermemory.ai 架构分析，v4.4.0 新增 Benchmark 召回率验证、可配置实体类型和插件系统。
+Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 MCP 服务器。基于 Supermemory.ai 架构分析，v5.0.1 集成了 OpenViking 风格的完整知识管理能力。
 
 **核心能力**:
 - 🔄 **持久化上下文** — 每次对话建立在上一次会话基础上
@@ -30,6 +30,7 @@ Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 
 - 🧹 **数据清理器** — retentionDays 自动清理旧数据
 - 📊 **Benchmark** — recall@K / precision@K / MRR 召回率验证
 - 🔌 **插件系统** — 5 种 Hook 可扩展架构
+- 🏅 **OpenViking 集成** — Viking URI、意图分析、分层检索、会话管理
 
 **零 Python 依赖** — 纯 Node.js ESM 实现
 
@@ -41,7 +42,7 @@ Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                      Unified Memory v4.4.0                         │
+│                      Unified Memory v5.0.1                         │
 │                   四层渐进式管线 (L0 → L1 → L2 → L3)              │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
@@ -64,9 +65,11 @@ Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 
 │   ▼                                                              │
 │                                                                  │
 ├──────────────────────────────────────────────────────────────────┤
-│                      Hook 自动调度                                 │
-│  • before_prompt_build: 自动召回相关记忆                          │
-│  • agent_end: 自动捕获对话到 L0                                   │
+│                      OpenViking 集成                              │
+│  • Viking URI 命名空间                                           │
+│  • 意图分析与类型化查询                                          │
+│  • 分层压缩 (L0/L1/L2)                                          │
+│  • 智能去重与生命周期管理                                         │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -128,7 +131,7 @@ Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 
 | 功能 | 说明 |
 |------|------|
 | L0 对话录制 | JSONL 格式，增量捕获 |
-| L1 记忆提取 | LLM 实体/关系/偏好提取 |
+| L1 记忆提取 | LLM 实体/关系/偏好提取，8种记忆类型 |
 | L2 场景归纳 | 时间窗口聚类，生成场景块 |
 | L3 用户画像 | 静态 + 动态双画像 |
 | 矛盾检测 | 规则 + LLM 深度判断 |
@@ -136,6 +139,17 @@ Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 
 | 遗忘曲线 | Weibull 衰减 (shape=1.5, scale=30d) |
 | 意图路由 | 智能路由到合适的处理器 |
 | 噪声过滤 | 过滤无意义查询 |
+
+### OpenViking 特性 (v5.0.1 新增)
+
+| 功能 | 说明 |
+|------|------|
+| Viking URI | 统一资源定位命名空间 |
+| 意图分析 | 多类型化查询生成 |
+| 分层压缩 | L0抽象/L1概览/L2详情三层模型 |
+| 智能去重 | 语义相似度检测与合并 |
+| 生命周期管理 | 自动归档与清理 |
+| 异步队列 | 批量任务后台处理 |
 
 ### 可观测性
 
@@ -147,40 +161,9 @@ Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 
 | Token 预算 | 自动压缩与限制 |
 | 追踪器 | 访问历史，修改追踪 |
 
-### v4.4.0 新增功能
-
-| 功能 | 说明 |
-|------|------|
-| **Benchmark** | recall@K / precision@K / MRR 召回率验证 |
-| **可配置实体类型** | 从配置文件加载，运行时动态添加 |
-| **插件系统** | 5 种 Hook，支持自定义扩展 |
-
 ---
 
 ## MCP 工具列表 (100+)
-
-### v4.0 存储网关 (18个)
-
-| 工具 | 说明 |
-|------|------|
-| `memory_v4_stats` | 存储网关统计 |
-| `memory_v4_search` | 增量 BM25 搜索 |
-| `memory_v4_store` | WAL + 增量索引单事务 |
-| `memory_v4_list` | B-tree 范围过滤列表 |
-| `memory_v4_hybrid_search` | BM25 + 向量 RRF 融合 |
-| `memory_v4_create_team` | 创建团队空间 |
-| `memory_v4_list_teams` | 列出所有团队 |
-| `memory_v4_get_team` | 获取团队配置 |
-| `memory_v4_delete_team` | 删除团队 |
-| `memory_v4_team_store` | 团队空间存储 |
-| `memory_v4_team_search` | 严格团队隔离搜索 |
-| `memory_v4_rate_limit_status` | 限流状态 |
-| `memory_v4_evidence_stats` | Evidence 统计 |
-| `memory_v4_trim_evidence` | 手动触发 TTL 清理 |
-| `memory_v4_revision_stats` | 版本历史统计 |
-| `memory_v4_wal_status` | WAL 状态 |
-| `memory_v4_wal_export` | JSONL 导出 WAL |
-| `memory_v4_wal_truncate` | 删除未提交 WAL |
 
 ### 存储核心 (5个)
 
@@ -222,22 +205,6 @@ Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 
 | `memory_pipeline_status` | 管线状态 |
 | `memory_pipeline_trigger` | 手动触发管线 |
 | `memory_pipeline_config` | 管线配置 |
-
-### 本地 Embedding (3个)
-
-| 工具 | 说明 |
-|------|------|
-| `memory_local_embedding_status` | 服务状态 |
-| `memory_local_embedding_warmup` | 模型预热 |
-| `memory_local_embedding_embed` | 获取向量 |
-
-### 数据清理器 (3个)
-
-| 工具 | 说明 |
-|------|------|
-| `memory_cleaner_status` | 清理器状态 |
-| `memory_cleaner_config` | 清理器配置 |
-| `memory_cleaner_run` | 手动执行清理 |
 
 ### 知识图谱 (6个)
 
@@ -285,12 +252,6 @@ Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 
 | `memory_lanes` | 泳道管理 |
 | `memory_dashboard` | Web 仪表盘 |
 | `memory_wal` | WAL 操作 |
-| `memory_wal_status` | WAL 状态 |
-| `memory_wal_export` | WAL 导出 |
-| `memory_wal_import` | WAL 导入 |
-| `memory_wal_replay` | WAL 回放 |
-| `memory_wal_truncate` | WAL 截断 |
-| `memory_wal_write` | WAL 写入 |
 | `memory_extract` | 实体提取 |
 | `memory_reflection` | 反思分析 |
 | `memory_lessons` | 经验教训 |
@@ -310,29 +271,6 @@ Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 
 | `memory_evidence_find_by_source` | 按来源查找 |
 | `memory_evidence_stats` | 证据统计 |
 | `memory_evidence_recall` | 证据召回 |
-
-### 云备份 (3个)
-
-| 工具 | 说明 |
-|------|------|
-| `memory_cloud_backup` | 云备份 |
-| `memory_cloud_restore` | 云恢复 |
-| `memory_cloud_backup_api` | 云备份 API |
-
-### 其他 (10+个)
-
-| 工具 | 说明 |
-|------|------|
-| `memory_export` | 导出 JSON/CSV/MD |
-| `memory_import` | 导入 |
-| `memory_clone` | 克隆 |
-| `memory_share` | 跨 Agent 共享 |
-| `memory_intent` | 意图检测 |
-| `memory_insights` | 洞察生成 |
-| `memory_predict` | 预测 |
-| `memory_feedback` | 反馈 |
-| `memory_reminder` | 提醒 |
-| `memory_trace` | 追踪 |
 
 ---
 
@@ -385,12 +323,6 @@ mcporter call unified-memory memory_pipeline_status '{}'
 
 # 召回率 Benchmark
 mcporter call unified-memory memory_benchmark_recall '{}'
-
-# 列出实体类型
-mcporter call unified-memory memory_entity_types_list '{}'
-
-# 列出插件
-mcporter call unified-memory memory_plugins_list '{}'
 ```
 
 ---
@@ -417,58 +349,6 @@ mcporter call unified-memory memory_plugins_list '{}'
 
 ---
 
-## v4.4.0 新增功能详解
-
-### 📊 Benchmark Evaluation (召回率验证)
-
-基于 LoCoMo / LongMemEval 方法论，自动评估记忆召回效果。
-
-```
-输出指标:
-- recall@K: 前 K 个结果中包含的相关记忆比例
-- precision@K: 前 K 个结果中相关记忆的占比
-- MRR: 首个相关结果的倒数排名平均值
-
-报告位置: src/benchmark/results/
-```
-
-### 🏷️ 可配置实体类型
-
-实体类型不再硬编码，改为从配置文件加载：
-
-```
-配置文件: ~/.openclaw/workspace/memory/config/entity_types.json
-
-默认 8 种实体类型:
-person, organization, project, topic, tool, location, date, event
-
-运行时添加新类型:
-mcporter call unified-memory memory_entity_type_add '{
-  "typeName": "framework",
-  "label": "开发框架",
-  "color": "#ff6b6b",
-  "keywords": ["React", "Vue", "Angular"],
-  "priority": 7
-}'
-```
-
-### 🔌 插件系统
-
-5 种 Hook 接口，支持自定义扩展：
-
-```
-beforeSearch → [实际搜索] → afterSearch
-                   ↓
-beforeWrite → [实际写入] → afterWrite
-
-内置插件:
-- kg-enrich: 知识图谱增强
-- dedup: 写入前去重
-- revision: 版本追踪
-```
-
----
-
 ## 文档索引
 
 | 文档 | 说明 |
@@ -489,4 +369,4 @@ MIT License
 
 ---
 
-*最后更新: 2026-04-07 | v4.4.0 | Supermemory 对标 | Benchmark | 可配置实体类型 | 插件系统*
+*最后更新: 2026-04-09 | v5.0.1 | OpenViking Integration | Viking URI | Layered Compression*

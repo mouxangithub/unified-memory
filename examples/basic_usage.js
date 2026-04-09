@@ -17,19 +17,19 @@ async function main() {
   console.log('--- 1. 存储记忆 ---');
   
   const mem1 = await system.remember(
-    '用户叫刘选权，是一名全栈工程师',
+    '用户叫张三，是一名全栈工程师',
     { userId: 'user_001', source: 'conversation' }
   );
   console.log('已存储:', mem1.memory.id);
 
   const mem2 = await system.remember(
-    '刘选权擅长 JavaScript、Python 和 Go',
+    '张三擅长 JavaScript、Python 和 Go',
     { userId: 'user_001', source: 'conversation' }
   );
   console.log('已存储:', mem2.memory.id);
 
   const mem3 = await system.remember(
-    '刘选权喜欢简洁的设计风格',
+    '张三喜欢简洁的设计风格',
     { userId: 'user_001', source: 'conversation' }
   );
   console.log('已存储:', mem3.memory.id);
@@ -37,7 +37,7 @@ async function main() {
   // 2. 搜索记忆
   console.log('\n--- 2. 搜索记忆 ---');
   
-  const results = await system.recall('刘选权 技能', { limit: 5 });
+  const results = await system.recall('张三 技能', { limit: 5 });
   console.log(`找到 ${results.results.length} 条相关记忆:`);
   results.results.forEach((mem, i) => {
     console.log(`  ${i + 1}. ${mem.text}`);

@@ -109,14 +109,14 @@ mcporter call unified-memory memory_health '{}'
 
 ```bash
 mcporter call unified-memory memory_store \
-  '{"content": "用户叫刘选权，擅长 JavaScript", "category": "user_info"}'
+  '{"content": "用户叫张三，擅长 JavaScript", "category": "user_info"}'
 ```
 
 ### 2. 搜索记忆
 
 ```bash
 mcporter call unified-memory memory_search \
-  '{"query": "刘选权 擅长"}'
+  '{"query": "张三 擅长"}'
 ```
 
 ### 3. 列出所有记忆

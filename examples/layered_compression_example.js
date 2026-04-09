@@ -8,14 +8,14 @@ import { getLayeredCompressor } from '../src/compression/layered_compressor.js';
 const sampleMemories = [
   {
     id: 'mem_001',
-    text: '刘选权是OpenClaw的创始人，公司位于北京。他拥有10年的软件开发经验，擅长JavaScript、Python和Go编程。公司主要产品是AI助手平台，已经服务了超过10000名用户。',
+    text: '张明是某科技公司的创始人，公司位于北京。他拥有10年的软件开发经验，擅长JavaScript、Python和Go编程。公司主要产品是AI助手平台，已经服务了超过10000名用户。',
     type: 'facts',
     importance: 0.9,
     timestamp: Date.now()
   },
   {
     id: 'mem_002',
-    text: '刘选权每天早上7点起床，习惯喝一杯咖啡后开始工作。他喜欢在早上处理最重要的任务，下午通常用于会议和沟通。晚上会花时间学习新技术或阅读技术博客。',
+    text: '张明每天早上7点起床，习惯喝一杯咖啡后开始工作。他喜欢在早上处理最重要的任务，下午通常用于会议和沟通。晚上会花时间学习新技术或阅读技术博客。',
     type: 'patterns',
     importance: 0.7,
     timestamp: Date.now() - 86400000

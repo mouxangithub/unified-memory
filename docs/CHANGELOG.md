@@ -6,10 +6,10 @@ All notable changes to unified-memory are documented here.
 
 ---
 
-## v5.0.0 (2026-04-09) — OpenViking 完整集成
+## v5.0.1 (2026-04-09) — OpenViking 完整集成
 
 > **Breaking Changes**: 无
-> **升级指南**: 直接更新到 v5.0.0，所有 API 向下兼容
+> **升级指南**: 直接更新到 v5.0.1，所有 API 向下兼容
 
 ### 🆕 新增功能
 

@@ -30,7 +30,7 @@ async function main() {
 
   const testTexts = [
     '我每天早上7点起床，然后跑步30分钟',
-    '刘选权是OpenClaw的创始人，公司位于北京',
+    '张明是某科技公司的创始人，公司位于北京',
     '我擅长JavaScript和Python编程',
     '上次项目失败的原因是需求不明确',
     '明天下午3点有个重要会议',
@@ -58,19 +58,19 @@ async function main() {
   console.log('\n\n3. 存储记忆...');
   
   const memory1 = await system.remember(
-    '刘选权每天早上7点起床，习惯喝一杯咖啡后开始工作',
+    '张明每天早上7点起床，习惯喝一杯咖啡后开始工作',
     { userId: 'user_001', source: 'conversation' }
   );
   console.log('记忆1已存储:', memory1.memory.id);
 
   const memory2 = await system.remember(
-    '刘选权擅长JavaScript、Python和Go编程',
+    '张明擅长JavaScript、Python和Go编程',
     { userId: 'user_001', source: 'profile' }
   );
   console.log('记忆2已存储:', memory2.memory.id);
 
   const memory3 = await system.remember(
-    '刘选权喜欢简洁的设计风格，不喜欢复杂的界面',
+    '张明喜欢简洁的设计风格，不喜欢复杂的界面',
     { userId: 'user_001', source: 'preference' }
   );
   console.log('记忆3已存储:', memory3.memory.id);
@@ -79,7 +79,7 @@ async function main() {
   console.log('\n\n4. 测试去重功能...');
   const deduplicator = getSmartDeduplicator();
 
-  const duplicateText = '刘选权每天早上7点起床';
+  const duplicateText = '张明每天早上7点起床';
   const dupCheck = await system.remember(
     duplicateText,
     { userId: 'user_001', source: 'conversation' }
@@ -93,8 +93,8 @@ async function main() {
   // 5. 回忆记忆
   console.log('\n\n5. 回忆记忆...');
   
-  const recall1 = await system.recall('刘选权的习惯', { limit: 5 });
-  console.log(`\n查询: "刘选权的习惯"`);
+  const recall1 = await system.recall('张明的习惯', { limit: 5 });
+  console.log(`\n查询: "张明的习惯"`);
   console.log(`找到 ${recall1.results.length} 条记忆:`);
   recall1.results.forEach((mem, i) => {
     console.log(`  ${i + 1}. ${mem.text.substring(0, 50)}... (来源: ${mem.source})`);

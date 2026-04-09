@@ -6,7 +6,7 @@
 
 ---
 
-## 🚀 v4.5.0 OpenViking 风格改进
+## 🚀 v5.0.1 OpenViking 风格改进
 
 ### 核心改进
 

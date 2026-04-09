@@ -7,7 +7,7 @@ import { getEnhancedMemorySystem } from '../src/enhanced_memory_system.js';
 
 // 模拟对话历史
 const conversationHistory = [
-  { role: 'user', content: '我叫刘选权，是一名全栈工程师，目前在创业公司工作' },
+  { role: 'user', content: '我叫张三，是一名全栈工程师，目前在创业公司工作' },
   { role: 'assistant', content: '很高兴认识您！作为全栈工程师，您擅长哪些技术栈？' },
   { role: 'user', content: '我主要用 JavaScript 和 Python，也用 Go 做后端服务' },
   { role: 'assistant', content: '技术选型很合理！您平时用什么框架？' },
@@ -19,7 +19,7 @@ const conversationHistory = [
 
 // 模拟后续查询
 const futureQueries = [
-  '刘选权的技术背景是什么？',
+  '张三的技术背景是什么？',
   '他公司的产品有什么痛点？',
   '他用什么技术栈做开发？',
 ];

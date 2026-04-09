@@ -152,7 +152,7 @@ export async function quickTest(system) {
   
   try {
     // 测试存储
-    const storeResult = await system.remember('测试记忆：刘选权擅长JavaScript编程', {
+    const storeResult = await system.remember('测试记忆：张三擅长JavaScript编程', {
       userId: 'test_user',
       source: 'quick_test'
     });
@@ -170,14 +170,14 @@ export async function quickTest(system) {
     
     // 测试类型检测
     if (system.typeRegistry) {
-      const detected = await system.typeRegistry.detectMemoryType('刘选权每天早上7点起床');
+      const detected = await system.typeRegistry.detectMemoryType('张三每天早上7点起床');
       results.typeDetection = detected.type !== 'general';
       logger.info(`[Test] 类型检测: ${results.typeDetection ? '✅' : '❌'} (类型: ${detected.type})`);
     }
     
     // 测试去重
     if (system.deduplicator) {
-      const dupResult = await system.remember('测试记忆：刘选权擅长JavaScript编程', {
+      const dupResult = await system.remember('测试记忆：张三擅长JavaScript编程', {
         userId: 'test_user',
         source: 'quick_test'
       });

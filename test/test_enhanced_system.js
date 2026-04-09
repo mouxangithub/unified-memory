@@ -49,12 +49,12 @@ async function runFullTest() {
     console.log('--- 3.1 记忆类型系统 ---');
     
     const testMemories = [
-      { text: '刘选权是OpenClaw的创始人，公司位于北京', expectedType: 'facts' },
-      { text: '刘选权每天早上7点起床，习惯喝一杯咖啡', expectedType: 'patterns' },
-      { text: '刘选权擅长JavaScript、Python和Go编程', expectedType: 'skills' },
+      { text: '张明是OpenClaw的创始人，公司位于北京', expectedType: 'facts' },
+      { text: '张明每天早上7点起床，习惯喝一杯咖啡', expectedType: 'patterns' },
+      { text: '张明擅长JavaScript、Python和Go编程', expectedType: 'skills' },
       { text: '上次项目失败的原因是需求不明确，沟通不及时', expectedType: 'cases' },
       { text: '明天下午3点有个重要的产品评审会议', expectedType: 'events' },
-      { text: '刘选权喜欢简洁的设计风格，不喜欢复杂的界面', expectedType: 'preferences' }
+      { text: '张明喜欢简洁的设计风格，不喜欢复杂的界面', expectedType: 'preferences' }
     ];
     
     for (const test of testMemories) {
@@ -74,7 +74,7 @@ async function runFullTest() {
     console.log('\n--- 3.2 去重系统 ---');
     
     // 存储重复记忆
-    const dupText = '刘选权擅长JavaScript编程';
+    const dupText = '张明擅长JavaScript编程';
     
     const firstStore = await system.remember(dupText, {
       userId: 'test_user',
@@ -120,7 +120,7 @@ async function runFullTest() {
     // 3.4 测试记忆压缩
     console.log('\n--- 3.4 记忆压缩 ---');
     
-    const compressResult = await system.recall('刘选权', {
+    const compressResult = await system.recall('张明', {
       userId: 'test_user',
       optimizeRecall: true,
       compress: true,

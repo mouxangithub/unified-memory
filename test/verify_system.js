@@ -103,12 +103,12 @@ async function testTypeDetection() {
     const registry = getMemoryTypeRegistry();
     
     const testCases = [
-      '刘选权是OpenClaw的创始人',
-      '刘选权每天早上7点起床',
-      '刘选权擅长JavaScript编程',
+      '张三是OpenClaw的创始人',
+      '张三每天早上7点起床',
+      '张三擅长JavaScript编程',
       '上次项目失败的原因是需求不明确',
       '明天下午3点有个会议',
-      '刘选权喜欢简洁的设计风格'
+      '张三喜欢简洁的设计风格'
     ];
     
     for (const text of testCases) {
