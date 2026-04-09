@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+
+# Git
+.git/
+.gitignore
+
+# Test files
+test/
+
+# Development files
+.vscode/
+.idea/
+*.log
+*.swp
+*.swo
+*~
+
+# Build artifacts
+dist/
+build/
+.cache/
+
+# Backup files
+backup/
+*.bak
+*.backup
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Large files
+*.pdf
+*.zip
+*.tar.gz
+*.rar
+
+# Benchmark
+benchmark/
+
+# Dashboard
+src/dashboard.html
+
+# Documentation (keep essential)
+docs/*.md
+!docs/README.md
+
+# Examples (keep essential)
+examples/*.js
+!examples/basic_usage.js
+!examples/workflow_complete.js

@@ -15,6 +15,15 @@ import { getMemoryLifecycleManager } from './lifecycle/memory_lifecycle_manager.
 import { storage } from './storage.js';
 import { vector_lancedb } from './vector_lancedb.js';
 
+// Claude-Mem 风格功能
+import { 
+  createClaudeMemFeatures,
+  MemoryEditor,
+  PrivacyManager,
+  MemoryQuality,
+  MemoryIndex 
+} from './claudemem_features/index.js';
+
 export class EnhancedMemorySystem {
   constructor(options = {}) {
     this.options = {
@@ -27,6 +36,12 @@ export class EnhancedMemorySystem {
       enableLayeredCompression: options.enableLayeredCompression !== false,  // 新增：分层压缩
       enableLifecycle: options.enableLifecycle !== false,
       asyncProcessing: options.asyncProcessing !== false,
+      // Claude-Mem 功能选项
+      enableClaudeMem: options.enableClaudeMem !== false,
+      enableMemoryEditor: options.enableMemoryEditor !== false,
+      enablePrivacyManager: options.enablePrivacyManager !== false,
+      enableMemoryQuality: options.enableMemoryQuality !== false,
+      enableMemoryIndex: options.enableMemoryIndex !== false,
       ...options
     };
     
@@ -39,6 +54,12 @@ export class EnhancedMemorySystem {
     this.compressor = null;
     this.layeredCompressor = null;  // 新增：分层压缩器
     this.lifecycleManager = null;
+    
+    // Claude-Mem 功能组件
+    this.memoryEditor = null;
+    this.privacyManager = null;
+    this.memoryQuality = null;
+    this.memoryIndex = null;
     
     // 存储后端
     this.storage = storage;
@@ -117,6 +138,12 @@ export class EnhancedMemorySystem {
         // 启动自动管理
         this.lifecycleManager.startAutoManagement(this.storage, this.vectorStore);
         logger.info('[EnhancedMemorySystem] 生命周期管理器已初始化');
+      }
+      
+      // 8. 初始化 Claude-Mem 风格功能
+      if (this.options.enableClaudeMem) {
+        await this.initializeClaudeMemFeatures();
+        logger.info('[EnhancedMemorySystem] Claude-Mem 功能已初始化');
       }
       
       this.initialized = true;
@@ -598,7 +625,75 @@ export class EnhancedMemorySystem {
       };
     }
     
+    // Claude-Mem 功能状态
+    if (this.options.enableClaudeMem) {
+      health.components.claudeMem = {
+        status: 'healthy',
+        features: {
+          memoryEditor: !!this.memoryEditor,
+          privacyManager: !!this.privacyManager,
+          memoryQuality: !!this.memoryQuality,
+          memoryIndex: !!this.memoryIndex
+        }
+      };
+    }
+    
     return health;
+  }
+  
+  /**
+   * 初始化 Claude-Mem 风格功能
+   */
+  async initializeClaudeMemFeatures() {
+    try {
+      // 初始化记忆编辑系统
+      if (this.options.enableMemoryEditor) {
+        this.memoryEditor = new MemoryEditor(this.storage, this.vectorStore);
+        logger.info('[EnhancedMemorySystem] 记忆编辑系统已初始化');
+      }
+      
+      // 初始化隐私管理系统
+      if (this.options.enablePrivacyManager) {
+        this.privacyManager = new PrivacyManager(this.storage, this.memoryEditor);
+        logger.info('[EnhancedMemorySystem] 隐私管理系统已初始化');
+      }
+      
+      // 初始化记忆质量评估系统
+      if (this.options.enableMemoryQuality) {
+        this.memoryQuality = new MemoryQuality(this.storage, this.vectorStore);
+        logger.info('[EnhancedMemorySystem] 记忆质量评估系统已初始化');
+      }
+      
+      // 初始化记忆索引系统
+      if (this.options.enableMemoryIndex) {
+        this.memoryIndex = new MemoryIndex(this.storage, this.vectorStore);
+        logger.info('[EnhancedMemorySystem] 记忆索引系统已初始化');
+      }
+      
+      // 批量索引现有记忆（可选）
+      if (this.options.enableMemoryIndex && this.options.autoIndexExisting) {
+        logger.info('[EnhancedMemorySystem] 开始自动索引现有记忆...');
+        // 这里可以添加批量索引逻辑
+      }
+      
+      return true;
+      
+    } catch (error) {
+      logger.error('[EnhancedMemorySystem] Claude-Mem 功能初始化失败:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * 获取 Claude-Mem 功能
+   */
+  getClaudeMemFeatures() {
+    return {
+      memoryEditor: this.memoryEditor,
+      privacyManager: this.privacyManager,
+      memoryQuality: this.memoryQuality,
+      memoryIndex: this.memoryIndex
+    };
   }
   
   /**
