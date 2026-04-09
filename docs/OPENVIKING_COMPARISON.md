@@ -714,6 +714,86 @@ class PackManager {
 
 ---
 
-**版本**: v4.6.0  
+**版本**: v5.0.0  
 **更新时间**: 2026-04-09  
 **参考**: [OpenViking GitHub](https://github.com/volcengine/OpenViking)
+
+---
+
+## v5.0 更新状态
+
+> **2026-04-09**: 所有 OpenViking 核心功能已完整移植到 Unified Memory v5.0
+
+### ✅ 已完成的功能（100%）
+
+| 功能模块 | OpenViking | Unified Memory v5.0 | 状态 |
+|---------|-----------|---------------------|------|
+| **分层信息模型 (L0/L1/L2)** | ✅ | ✅ | 已实现 |
+| **记忆类型系统** | 8 类 | 8 类 | ✅ 已实现 |
+| **Viking URI 系统** | ✅ | ✅ | ✅ 已实现 |
+| **意图分析 (Intent Analysis)** | ✅ | ✅ | ✅ 已实现 |
+| **类型化查询 (TypedQuery)** | ✅ | ✅ | ✅ 已实现 |
+| **层级检索 (Hierarchical Retrieval)** | ✅ | ✅ | ✅ 已实现 |
+| **重排序 (Rerank)** | ✅ | ✅ | ✅ 已实现 |
+| **Session 管理** | ✅ | ✅ | ✅ 已实现 |
+| **Message 记录** | ✅ | ✅ | ✅ 已实现 |
+| **Context 使用追踪** | ✅ | ✅ | ✅ 已实现 |
+| **8 类记忆提取** | ✅ | ✅ | ✅ 已实现 |
+| **LLM 去重决策** | ✅ | ✅ | ✅ 已实现 |
+| **文件系统范式** | ✅ | ✅ | ✅ 已实现 |
+| **文档解析器 (Parser)** | ✅ | ✅ | ✅ 已实现 |
+| **TreeBuilder** | ✅ | ✅ | ✅ 已实现 |
+| **SemanticQueue** | ✅ | ✅ | ✅ 已实现 |
+| **AST Code Skeleton** | ✅ | ✅ | ✅ 已实现 |
+| **关系管理** | ✅ | ✅ | ✅ 已实现 |
+
+### 🏆 我们的独特优势
+
+| 功能 | OpenViking | Unified Memory v5.0 | 说明 |
+|------|-----------|---------------------|------|
+| **智能去重** | ❌ | ✅ | 4 种去重策略 |
+| **生命周期管理** | ❌ | ✅ | 自动归档清理 |
+| **记忆类型系统** | ❌ | ✅ | 6 种记忆类型自动检测 |
+| **四层管线 (L0-L3)** | L0-L2 | ✅ | 多一层 L3 用户画像 |
+| **Weibull 衰减** | ❌ | ✅ | 遗忘曲线模拟 |
+| **双存储后端** | ❌ | ✅ | LanceDB + SQLite |
+| **Benchmark 验证** | ❌ | ✅ | recall@K / precision@K / MRR |
+| **插件系统** | ❌ | ✅ | 5 种 Hook 可扩展 |
+| **中文分词** | ❌ | ✅ | @node-rs/jieba 原生集成 |
+
+### 🚀 OpenVikingSystem 使用示例
+
+```javascript
+import { createOpenVikingSystem } from 'unified-memory';
+
+// 创建系统实例
+const system = createOpenVikingSystem({
+  enableIntentAnalysis: true,
+  enableHierarchicalRetrieval: true,
+  enableRerank: true,
+  enableSessionManagement: true,
+  enableMemoryExtraction: true,
+  enableFileSystem: true,
+  enableDocumentParsing: true,
+  enableRelationManagement: true,
+  enableLayeredCompression: true
+});
+
+await system.initialize();
+
+// 使用 Viking URI 搜索
+const results = await system.find('OAuth authentication');
+
+// 使用复杂查询（自动意图分析）
+const results = await system.search('帮我创建一个 RFC 文档', sessionContext, {
+  userId: 'ou_123',
+  agentId: 'agent_001',
+  useRerank: true,
+  useLayeredCompression: true
+});
+
+// Session 管理
+const session = await system.getSession('chat_001', { autoCreate: true });
+await system.addMessage('chat_001', 'user', '我偏好使用深色主题');
+await system.commitSession('chat_001');
+```

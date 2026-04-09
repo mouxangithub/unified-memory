@@ -72,3 +72,6 @@ export const log = {
   warn: (msg, data) => getLogger().warn(msg, data),
   error: (msg, data) => getLogger().error(msg, data),
 };
+
+// 兼容旧代码（有些模块 import { logger } from '../logger.js'）
+export const logger = getLogger();

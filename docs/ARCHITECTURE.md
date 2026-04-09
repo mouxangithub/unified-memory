@@ -1,560 +1,703 @@
-# Unified Memory Architecture
-<!-- zh -->
-> 统一记忆系统技术架构 | Technical Architecture Documentation
+# Unified Memory — Technical Architecture
+
+> 技术架构文档 | Technical Architecture Documentation
+> **版本**: v4.4 / v5.0 | **更新**: 2026-04-09
 
 ---
 
 ## 1. System Overview
-<!-- zh -->
 
-Unified Memory is a pure Node.js ESM memory system for OpenClaw agents, featuring hybrid search, tiered storage, and intelligent management.
+Unified Memory is a pure Node.js ESM memory system for OpenClaw agents, featuring:
 
-**Key Design Goals / 设计目标**:
-1. Zero external dependencies (no Python, no external DB)
-2. Hybrid search (BM25 + Vector + RRF)
-3. Tiered memory (HOT / WARM / COLD)
-4. Data durability (WAL protocol)
-5. Evidence traceability (Evidence Chain)
+- 🔄 **四层渐进式管线** — L0→L1→L2→L3 完整记忆生命周期
+- 🔍 **混合搜索** — BM25 + Vector + RRF 融合
+- 💾 **双存储后端** — LanceDB / SQLite 向量存储
+- 📈 **Weibull 衰减** — 模拟人类遗忘曲线
+- 💰 **WAL 协议** — 崩溃恢复保障
+- 🏷️ **四层 Scope 隔离** — USER / TEAM / AGENT / GLOBAL
+- 📊 **知识图谱** — 实体关系提取与查询
+- 🔗 **证据链** — 来源追踪与置信度评分
+- 🏊 **泳道记忆** — 多 Agent 并行隔离
+- 🤖 **OpenViking 集成** — 意图分析 + 层级检索 + 分层压缩
+- 🔌 **插件系统** — 5 种 Hook 可扩展架构
+- ⚡ **Benchmark** — recall@K / precision@K / MRR 召回率验证
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Unified Memory v3.8.x                    │
-│                    112 Tools · Pure Node.js ESM             │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │   Storage   │  │   Search    │  │    Intelligence     │  │
-│  │    Layer    │  │    Layer    │  │      Layer          │  │
-│  │             │  │             │  │                     │  │
-│  │ · Memory    │  │ · BM25      │  │ · Cognitive Sched.  │  │
-│  │   Files     │  │ · Vector    │  │ · Memory Lanes      │  │
-│  │ · LanceDB  │  │ · RRF       │  │ · Evidence Chain   │  │
-│  │ · WAL       │  │ · Scope     │  │ · Auto Organize    │  │
-│  │ · Tier      │  │   Filter    │  │ · Weibull Decay    │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │              Plugin Interface (Pluggable)            │   │
-│  └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-```
+### 核心设计目标
 
-<!-- zh -->
+1. **零外部依赖** — 无 Python，无外部数据库（除可选的 Ollama）
+2. **混合搜索** — BM25 + Vector + RRF
+3. **分层记忆** — HOT / WARM / COLD
+4. **数据持久性** — WAL 协议
+5. **可追溯性** — 证据链机制
+6. **OpenViking 兼容** — 完整 Viking URI + 意图分析 + 分层压缩
 
-## 2. Storage Layer / 存储层
-
-### 2.1 Memory Files / 记忆文件
-
-```
-memory/
-├── hot/      ← HOT tier (7 days, ≤10 memories)
-├── warm/     ← WARM tier (30 days, ≤50 memories)
-└── cold/     ← COLD tier (365 days, ≤1000 memories)
-```
-
-Each memory is a markdown file with YAML frontmatter:
-```yaml
 ---
-id: mem_abc123
-scope: agent       # agent | user | team | global
-category: fact     # fact | preference | habit | skill | goal | identity
-importance: 0.8    # 0.0 - 1.0
-tier: warm
-created: 2026-03-30T10:00:00+08:00
-lastAccessed: 2026-03-30T10:00:00+08:00
-accessCount: 1
-decayScore: 0.95
+
+## 2. Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Unified Memory v4.4 / v5.0                   │
+│                    100+ Tools · Pure Node.js ESM                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │                     MCP Server (index.js)                      │  │
+│  │              100+ registered tools · stdio transport           │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                              │                                       │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐   │
+│  │   Storage   │  │   Search    │  │       Intelligence      │   │
+│  │    Layer    │  │    Layer    │  │         Layer           │   │
+│  │              │  │              │  │                         │   │
+│  │ · Memory    │  │ · BM25      │  │ · Cognitive Scheduler  │   │
+│  │   Files     │  │ · Vector     │  │ · Memory Lanes        │   │
+│  │ · LanceDB  │  │ · RRF        │  │ · Evidence Chain     │   │
+│  │ · SQLite   │  │ · Scope      │  │ · Auto Organize      │   │
+│  │ · WAL       │  │   Filter     │  │ · Weibull Decay     │   │
+│  │ · Tier      │  │ · Intent     │  │ · Intent Analyzer    │   │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘   │
+│                                                                      │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │            Plugin System (Pluggable Architecture)             │   │
+│  │    beforeSearch / afterSearch / beforeWrite / afterWrite      │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │                   OpenViking System (v5.0)                    │   │
+│  │   Viking URI · Intent Analysis · Hierarchical Retrieval       │   │
+│  │   Session Mgmt · 8-class Extraction · Layered Compression    │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
 ---
-Memory content goes here...
-```
 
-### 2.2 LanceDB Vector Store / LanceDB 向量存储
-<!-- zh -->
+## 3. Four-Layer Pipeline (L0→L1→L2→L3)
 
-- **Embedded**: No external service required
-- **Collection**: `memories` (scope-indexed via B-tree)
-- **Embedding**: Ollama (nomic-embed-text) or OpenAI/Jina/SiliconFlow
-- **Cache**: Vector cache with 100% complete rate target
+### 3.1 Pipeline Architecture
 
 ```
-LanceDB Schema:
-┌────────────────────────────────────────┐
-│ id          │ string (PK)               │
-│ scope       │ string (indexed)          │
-│ category    │ string                    │
-│ embedding   │ base64 string (1536 dim) │
-│ text        │ string                    │
-│ importance  │ float                     │
-│ created     │ timestamp                 │
-└────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                   Four-Layer Progressive Pipeline                      │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  L0 (对话录制) ─────────────────────────────────────────────────   │
+│  │  transcript_first.js + l0_recorder.js                            │
+│  │  • 捕获原始对话，JSONL 格式存储                                   │
+│  │  • 增量捕获，支持向量索引                                         │
+│  ▼                                                                   │
+│  L1 (记忆提取) ─────────────────────────────────────────────────   │
+│  │  extract.js + memory_types/registry.js                           │
+│  │  • 从对话中提取关键信息、实体、关系、偏好                         │
+│  │  • 6 种记忆类型自动检测                                          │
+│  │  • LLM 实体/关系/偏好提取                                        │
+│  │  • 智能去重 (精确/语义/FTS/LLM)                                  │
+│  ▼                                                                   │
+│  L2 (场景归纳) ─────────────────────────────────────────────────   │
+│  │  scene_block.js + scene_navigation.js                           │
+│  │  • 按时间窗口聚类记忆，生成场景块                                 │
+│  │  • 提取场景主题、关键实体、行动项                                 │
+│  │  • 场景导航生成                                                  │
+│  ▼                                                                   │
+│  L3 (用户画像) ─────────────────────────────────────────────────   │
+│  │  profile.js + persona_generator.js                              │
+│  │  • 静态 + 动态双画像                                             │
+│  │  • 用户偏好、习惯、目标                                           │
+│  │  • 5 级优先级触发机制                                            │
+│                                                                      │
+├─────────────────────────────────────────────────────────────────────┤
+│                        Hook Auto-Scheduling                           │
+│  • before_prompt_build: 自动召回相关记忆                             │
+│  • agent_end: 自动捕获对话到 L0                                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.3 WAL Protocol / WAL 预写日志
-<!-- zh -->
+### 3.2 Memory Type System
 
-Write-Ahead Log ensures data durability and crash recovery.
+| Type | Handler | Priority | Retention | Description |
+|------|---------|----------|-----------|-------------|
+| `facts` | facts.js | High | Permanent | Factual memories |
+| `patterns` | patterns.js | Medium | 6 months | Behavioral patterns |
+| `skills` | skills.js | High | 1 year | Technical skills |
+| `cases` | cases.js | Medium | 6 months | Problem-solving cases |
+| `events` | events.js | Low | 3 months | Events and decisions |
+| `preferences` | preferences.js | High | Permanent | User preferences |
 
-**File**: `data/wal/*.wal.jsonl`
+---
+
+## 4. Storage Layer
+
+### 4.1 Dual Backend Architecture
 
 ```
-WAL Entry Format:
-{"op":"insert","collection":"memories","data":{...},"timestamp":"...","checksum":"..."}
-{"op":"update","collection":"memories","id":"mem_123","data":{...},"timestamp":"...","checksum":"..."}
-{"op":"delete","collection":"memories","id":"mem_456","timestamp":"...","checksum":"..."}
+┌─────────────────────────────────────────────────────────────────────┐
+│                     Vector Store Factory                             │
+│                     (store/vector_factory.js)                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│       ┌─────────────────┐              ┌─────────────────┐         │
+│       │    LanceDB      │              │     SQLite      │         │
+│       │   (default)     │              │  (sqlite-vec)   │         │
+│       │                 │              │                 │         │
+│       │ · Embedded      │              │ · FTS5 + BM25   │         │
+│       │ · No server     │              │ · Cosine sim.   │         │
+│       │ · 1536 dim      │              │ · L0 + L1 layers│         │
+│       └─────────────────┘              └─────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Workflow / 工作流程**:
+### 4.2 Tier Management
+
+| Tier | Max Age | Max Count | Compression | Storage |
+|------|---------|-----------|-------------|---------|
+| **HOT** | 7 days | 10 | 50% | `memory/hot/` |
+| **WARM** | 30 days | 50 | 30% | `memory/warm/` |
+| **COLD** | 365 days | 1000 | 10% | `memory/cold/` |
+
+### 4.3 WAL Protocol
+
 ```
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   Client     │ ──▶ │     WAL      │ ──▶ │  Storage.js  │
-│  Write Op    │     │  (append)    │     │  (commit)    │
+│   Client     │ ──▶ │     WAL      │ ──▶ │   Storage    │
+│  Write Op    │     │  (append)    │     │   (commit)   │
 └──────────────┘     └──────────────┘     └──────────────┘
                             │
                             ▼ (on crash)
                      ┌──────────────┐
                      │   Replay     │ ──▶ Recover uncommitted ops
-                     │   WAL        │
+                     │     WAL      │
                      └──────────────┘
 ```
 
-### 2.4 Tier Management / 分层管理
-<!-- zh -->
-
-Automatic migration between HOT → WARM → COLD based on age and importance.
-
-| Tier | Max Age | Max Count | Compression | Location |
-|------|---------|-----------|-------------|----------|
-| HOT | 7 days | 10 | 50% | `memory/hot/` |
-| WARM | 30 days | 50 | 30% | `memory/warm/` |
-| COLD | 365 days | 1000 | 10% | `memory/cold/` |
-
----
-
-## 3. Search Layer / 搜索层
-<!-- zh -->
-
-### 3.1 Hybrid Search Pipeline / 混合搜索管道
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Hybrid Search Pipeline                    │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  Query: "user preference for dark mode"                     │
-│                                                              │
-│         ┌─────────────┐                                     │
-│         │    BM25     │ ← Keyword matching                  │
-│         │  (scored)   │   importance + accessCount          │
-│         └──────┬──────┘                                     │
-│                │                                            │
-│         ┌──────▼──────┐                                     │
-│         │   Vector    │ ← Semantic similarity                │
-│         │  ( cosine ) │   LanceDB embedding                  │
-│         └──────┬──────┘                                     │
-│                │                                            │
-│         ┌──────▼──────┐                                     │
-│         │     RRF     │ ← Reciprocal Rank Fusion            │
-│         │  (merged)   │   k=60, rank-based scoring           │
-│         └──────┬──────┘                                     │
-│                │                                            │
-│         ┌──────▼──────┐                                     │
-│         │   Scope     │ ← AGENT / USER / TEAM / GLOBAL      │
-│         │   Filter    │   B-tree index filtering             │
-│         └──────┬──────┘                                     │
-│                │                                            │
-│         ┌──────▼──────┐                                     │
-│         │  Weibull    │ ← Decay based on:                   │
-│         │   Decay     │   - Time since last access           │
-│         │             │   - Access frequency                │
-│         └──────┬──────┘   - Importance score                 │
-│                │                                            │
-│         ┌──────▼──────┐                                     │
-│         │   Results   │ ← Top-K with evidence metadata       │
-│         │  ( ranked ) │                                     │
-│         └─────────────┘                                     │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 3.2 BM25 / BM25 全文索引
-<!-- zh -->
-
-Classic keyword-based search with relevance scoring.
-
-**Formula**: `score = IDF * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * dl/avgdl))`
-
-**Features**:
-- Importance-weighted boost (+15% for high importance)
-- Access count boost (+5% per access, capped at +50%)
-- Full-text content + category + scope search
-
-### 3.3 Vector Search / 向量搜索
-<!-- zh -->
-
-Semantic similarity search using embeddings.
-
-**Supported Providers**:
-| Provider | Model | Dimensions | Notes |
-|----------|-------|------------|-------|
-| Ollama | nomic-embed-text | 1536 | Local, recommended |
-| OpenAI | text-embedding-3-small | 1536 | Requires API key |
-| Jina | jina-embeddings-v3 | 1024 | Free tier available |
-| SiliconFlow | Pro/Yg-16 | 2048 | API key required |
-
-### 3.4 RRF (Reciprocal Rank Fusion) / 倒数排名融合
-<!-- zh -->
-
-Combines BM25 and Vector results using rank-based fusion.
-
-```
-RRF(score, d) = Σ 1 / (k + rank_d(document))
-```
-
-Where `k = 60` (standard damping factor).
-
----
-
-## 4. Intelligence Layer / 智能层
-<!-- zh -->
-
-### 4.1 Cognitive Scheduler / 认知调度器
-<!-- zh -->
-
-Proactive memory exploration and recall scheduling.
-
-- Periodic background recalls (configurable interval)
-- Category-based recall strategies
-- Importance-weighted selection
-- Pattern-based memory triggering
-
-### 4.2 Memory Lanes / 记忆车道
-<!-- zh -->
-
-Multi-lane parallel memory management for independent contexts.
-
-```
-┌─────────────────────────────────────────┐
-│  Lane: project-alpha                    │
-│  Lane: project-beta                     │
-│  Lane: personal                         │
-│  Lane: work                             │
-│  Lane: default                           │
-└─────────────────────────────────────────┘
-```
-
-Each lane maintains independent:
-- Memory files
-- Search scope
-- Tier management
-
-### 4.3 Evidence Chain / 证据链
-<!-- zh -->
-
-Traceable memory provenance and evolution tracking.
-
-**Evidence Entry**:
+**WAL Entry Format**:
 ```json
-{
-  "id": "ev_abc123",
-  "memoryId": "mem_xyz789",
-  "type": "transcript",
-  "sourceId": "msg_456",
-  "confidence": 0.95,
-  "context": "User mentioned preference for dark mode",
-  "timestamp": "2026-03-30T10:00:00+08:00"
-}
+{"op":"insert","collection":"memories","data":{...},"timestamp":"...","checksum":"..."}
+{"op":"update","collection":"memories","id":"mem_123","data":{...},"timestamp":"...","checksum":"..."}
+{"op":"delete","collection":"memories","id":"mem_456","timestamp":"...","checksum":"..."}
 ```
-
-**Evidence Types**:
-| Type | Source |
-|------|--------|
-| transcript | Conversation transcript |
-| message | Specific message ID |
-| manual | Manually added |
-| inference | AI inferred |
-| git_note | Git note |
-| revision | Memory revision |
-
-### 4.4 Auto Organization / 自动整理
-<!-- zh -->
-
-Scheduled automatic memory management across tiers.
-
-**Operations**:
-1. **Organize**: Migrate memories to appropriate tiers
-2. **Compress**: Summarize low-importance memories
-3. **Archive**: Move very old memories (365+ days) to archive
-
-**Triggered by**: `memory_full_organize` tool or scheduled cron
-
-### 4.5 Weibull Decay / Weibull 衰减
-<!-- zh -->
-
-Memory strength decay based on Weibull distribution (forgetting curve).
-
-**Parameters**:
-- Shape (`k`): 1.5 (optimized)
-- Scale (`λ`): 30 days
-- Access reward: +5% per access (capped at +50%)
-
-**Formula**: `strength = importance * e^(-(age/λ)^k) * (1 + accessBonus)`
-
-### 4.6 Knowledge Graph / 知识图谱
-<!-- zh -->
-
-Entity and relationship tracking for connected memories.
-
-**Node Types**: person, place, thing, concept, event
-**Edge Types**: related_to, part_of, causes, implies, similar_to
 
 ---
 
-## 5. Data Flow Diagram / 数据流图
-<!-- zh -->
+## 5. Search Layer
 
-### 5.1 Write Flow / 写入流程
+### 5.1 Hybrid Search Pipeline
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Hybrid Search Pipeline                           │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Query: "user preference for dark mode"                             │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  BM25 Scorer          Vector Search        Scope Filter     │   │
+│  │  • Keyword match      • Cosine similarity  • B-tree index  │   │
+│  │  • Importance boost   • Ollama embeddings  • O(log n)      │   │
+│  │  • Access count       • Multi-provider                      │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                            │                                         │
+│                            ▼                                         │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │              RRF Fusion (k=60)                               │   │
+│  │  score = Σ 1 / (k + rank_d(document))                       │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                            │                                         │
+│                            ▼                                         │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │              Weibull Decay                                   │   │
+│  │  strength = importance × e^(-(age/λ)^k) × (1 + accessBonus) │   │
+│  │  shape=1.5, scale=30d, access reward +5% (cap +50%)         │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                            │                                         │
+│                            ▼                                         │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                  MMR Re-ranking                              │   │
+│  │  Maximal Marginal Relevance for diversity                    │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                            │                                         │
+│                            ▼                                         │
+│                      Top-K Results ✅                                │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 5.2 Intent Analysis (v5.0)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Intent Analysis Pipeline                           │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  User Query: "帮我创建一个 RFC 文档"                                  │
+│                                                                      │
+│                            ▼                                         │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │           LLM Intent Analyzer                                │   │
+│  │  → Generate 0-5 TypedQueries                               │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                            │                                         │
+│                            ▼                                         │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  TypedQuery[]                                               │   │
+│  │  • query="创建 RFC 文档", context_type=SKILL, priority=5    │   │
+│  │  • query="RFC 文档模板", context_type=RESOURCE, priority=4  │   │
+│  │  • query="用户的代码风格偏好", context_type=MEMORY, priority=3│   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 5.3 Hierarchical Retrieval (v5.0)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                  Hierarchical Retrieval Pipeline                     │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Step 1: 确定根目录（根据 context_type）                              │
+│                            │                                         │
+│                            ▼                                         │
+│  Step 2: 全局向量搜索定位起始目录                                     │
+│                            │                                         │
+│                            ▼                                         │
+│  Step 3: 合并起始点 + Rerank 评分                                    │
+│                            │                                         │
+│                            ▼                                         │
+│  Step 4: 递归搜索（优先队列）                                        │
+│          while dir_queue:                                             │
+│            pop current_uri, parent_score                             │
+│            search children                                           │
+│            final_score = 0.5 × embedding + 0.5 × parent             │
+│            if final_score > threshold:                               │
+│              collect result                                          │
+│              if not leaf: push to queue                              │
+│                                                                      │
+│                            │                                         │
+│                            ▼                                         │
+│  Step 5: 收敛检测（top-k 连续 3 轮不变停止）                         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 6. OpenViking System (v5.0)
+
+### 6.1 System Components
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                   OpenVikingSystem (openviking_system.js)           │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐    │
+│  │   Viking URI    │  │ Intent Analysis │  │ Hierarchical    │    │
+│  │   (viking_uri)  │  │   (intent)      │  │ Retrieval       │    │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘    │
+│                                                                      │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐    │
+│  │    Session      │  │    Reranker     │  │  Memory         │    │
+│  │   (session)     │  │   (reranker)    │  │  Extractor      │    │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘    │
+│                                                                      │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐    │
+│  │  File System    │  │  Document       │  │    Relations    │    │
+│  │   (fs)          │  │  Parser         │  │   (relations)   │    │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘    │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │              Layered Compressor (layered_compressor)         │    │
+│  │  L0: ~100 tokens │ L1: ~2k tokens │ L2: unlimited           │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 6.2 Viking URI Format
+
+```
+viking://
+├── resources/              # 独立资源
+│   └── {project}/
+│       ├── .abstract.md
+│       ├── .overview.md
+│       └── {files...}
+├── user/{user_id}/
+│   ├── profile.md
+│   └── memories/
+│       ├── preferences/
+│       ├── entities/
+│       └── events/
+├── agent/{agent_id}/
+│   ├── skills/
+│   └── memories/
+│       ├── cases/
+│       └── patterns/
+└── session/{session_id}/
+    ├── messages/
+    ├── tools/
+    └── history/
+```
+
+### 6.3 8-Class Memory Extraction
+
+| Category | Owner | Description | Mergeable |
+|----------|-------|-------------|-----------|
+| `profile` | user | User identity/attributes | ✅ |
+| `preferences` | user | User preferences | ✅ |
+| `entities` | user | Entities (people/projects) | ✅ |
+| `events` | user | Events/decisions | ❌ |
+| `cases` | agent | Problem + solution | ❌ |
+| `patterns` | agent | Reusable patterns | ✅ |
+| `tools` | agent | Tool usage knowledge | ✅ |
+| `skills` | agent | Skill execution knowledge | ✅ |
+
+### 6.4 Layered Compression
+
+| Layer | Token Limit | Purpose | Use Case |
+|-------|-------------|---------|----------|
+| **L0** | ~100 | Abstract | Fast filtering, vector search |
+| **L1** | ~2k | Overview | Content navigation, reranking |
+| **L2** | unlimited | Detail | On-demand full content |
+
+---
+
+## 7. Enhanced Memory System (v4.5)
+
+### 7.1 Components
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│           Enhanced Memory System (enhanced_memory_system.js)         │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐    │
+│  │   Type Registry │  │  Memory Queue   │  │  Smart          │    │
+│  │  (memory_types) │  │  (queue)        │  │  Deduplicator   │    │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘    │
+│                                                                      │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐    │
+│  │ Recall          │  │   Memory        │  │   Lifecycle     │    │
+│  │ Optimizer       │  │   Compressor    │  │   Manager       │    │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 7.2 Smart Deduplication
+
+| Strategy | Method | Threshold |
+|----------|--------|-----------|
+| **Exact** | Text equality | 100% |
+| **Semantic** | Vector similarity | > 0.95 |
+| **FTS** | Full-text similarity | > 0.85 |
+| **LLM** | Deep contradiction detection | Variable |
+
+---
+
+## 8. Plugin System
+
+### 8.1 Hook Interface
+
+```
+beforeSearch → [Actual Search] → afterSearch
+                   ↓
+beforeWrite → [Actual Write] → afterWrite
+```
+
+### 8.2 Built-in Plugins
+
+| Plugin | Hook | Description |
+|--------|------|-------------|
+| `kg-enrich` | afterSearch | Knowledge graph enrichment |
+| `dedup` | beforeWrite | Pre-write deduplication |
+| `revision` | afterWrite | Version tracking |
+
+---
+
+## 9. Data Flow
+
+### 9.1 Write Flow
 
 ```
 Client
   │
-  │ memory_write(text, scope, category, importance)
+  │ memory_store(text, scope, category, importance)
   ▼
-┌─────────────────────┐
-│  WAL (append only)  │ ← checksum + timestamp
-└──────────┬──────────┘
-           │ on success
-           ▼
-┌─────────────────────┐
-│  Storage.js         │
-│  1. Write to file   │
-│  2. Generate ID      │
-│  3. Update metadata  │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  LanceDB             │
-│  1. Get embedding    │
-│  2. Insert vector    │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Tier Manager        │
-│  Classify: HOT/WARM │
-│  Based on importance│
-└──────────┬──────────┘
-           │
-           ▼
-        Done ✅
+┌─────────────────────────────────────────────────────────────┐
+│  WAL (append only)                                         │
+│  • Checksum + timestamp                                    │
+│  • Single SQLite transaction                               │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Storage Layer                                              │
+│  • Write to file / SQLite                                  │
+│  • Generate ID                                             │
+│  • Update metadata                                         │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Vector Store (LanceDB / SQLite)                            │
+│  • Get embedding (Ollama / Local / OpenAI / Jina)         │
+│  • Insert vector                                          │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Tier Manager                                               │
+│  • Classify: HOT / WARM / COLD                             │
+│  • Based on importance and age                             │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+                        Done ✅
 ```
 
-### 5.2 Search Flow / 搜索流程
+### 9.2 Search Flow (with Intent Analysis)
 
 ```
 Client
   │
-  │ memory_search(query, scope, category, limit)
+  │ memory_search(query, scope, options)
   ▼
-┌─────────────────────────────────────────┐
-│  Query Processing                       │
-│  1. Parse query                         │
-│  2. Get embedding (vector provider)    │
-│  3. Extract keywords (BM25)             │
-└──────────┬──────────────────────────────┘
-           │
-     ┌─────┴─────┐
-     ▼           ▼
-┌─────────┐  ┌─────────┐
-│  BM25   │  │ Vector  │
-│ scorer  │  │ search  │
-└────┬────┘  └────┬────┘
-     │            │
-     └─────┬──────┘
-           ▼
-┌─────────────────────┐
-│  RRF Fusion         │
-│  k=60, rank-based   │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Scope Filter       │
-│  B-tree index       │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Weibull Decay      │
-│  Time + Access adj  │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Evidence Enrich    │
-│  Attach evidence    │
-│  chain to results   │
-└──────────┬──────────┘
-           │
-           ▼
-        Results ✅
+┌─────────────────────────────────────────────────────────────┐
+│  Intent Analysis (v5.0)                                     │
+│  • LLM analyze query intent                                  │
+│  • Generate TypedQuery[]                                   │
+└─────────────────────────────────────────────────────────────┘
+                            │
+              ┌─────────────┼─────────────┐
+              ▼             ▼             ▼
+        ┌──────────┐  ┌──────────┐  ┌──────────┐
+        │  BM25    │  │  Vector  │  │  Hier.   │
+        │  Search  │  │  Search  │  │ Retrieval│
+        └────┬─────┘  └────┬─────┘  └────┬─────┘
+              │            │             │
+              └─────────────┼─────────────┘
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  RRF Fusion (k=60) + Rerank                                │
+│  • Normalized score fusion                                  │
+│  • Provider: volcengine / cohere / jina / local            │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Layered Compression                                        │
+│  • Load L0 for filtering                                    │
+│  • Load L1 for context building                             │
+│  • Load L2 on-demand for details                            │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+                        Results ✅
 ```
 
-### 5.3 Crash Recovery Flow / 崩溃恢复流程
+### 9.3 Crash Recovery Flow
 
 ```
 Startup
   │
   ▼
-┌─────────────────────┐
-│  Check WAL status    │
-│  Any uncommitted ops?│
-└──────────┬──────────┘
-           │
-     ┌─────┴─────┐
-     │           │
-    Yes         No
-     │           │
-     ▼           ▼
-┌──────────┐  Done ✅
-│ Replay   │
-│ WAL      │
-│ entries  │
-└────┬─────┘
-     │
-     ▼
-┌─────────────────────┐
-│  For each WAL entry │
-│  1. Verify checksum │
-│  2. Apply operation │
-│  3. Commit to store │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Truncate WAL       │
-│  (mark as clean)    │
-└──────────┬──────────┘
-           │
-           ▼
-        Done ✅
+┌─────────────────────────────────────────────────────────────┐
+│  Check WAL status                                            │
+│  Any uncommitted ops?                                        │
+└─────────────────────────────────────────────────────────────┘
+                            │
+              ┌─────────────┴─────────────┐
+             Yes                          No
+              │                            │
+              ▼                            ▼
+        ┌──────────┐               Done ✅
+        │  Replay  │
+        │   WAL    │
+        └────┬─────┘
+              │
+              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  For each WAL entry                                          │
+│  • Verify checksum                                          │
+│  • Apply operation                                          │
+│  • Commit to store                                          │
+└─────────────────────────────────────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Truncate WAL (mark as clean)                               │
+└─────────────────────────────────────────────────────────────┘
+              │
+              ▼
+         Done ✅
 ```
 
 ---
 
-## 6. Plugin Interface / 插件接口
-<!-- zh -->
+## 10. Configuration
 
-Unified Memory provides a pluggable architecture for extending functionality.
+### 10.1 Environment Variables
 
-**Phase 3 Plugin Interface**:
-```javascript
-// memory_search plugin
-async function phase3_memory_search({ query, scope, limit }) {
-  // Custom search implementation
-  return results;
-}
-
-// memory_write plugin
-async function phase3_memory_write({ memory }) {
-  // Custom write handling
-  return { success: true };
-}
-
-// memory_get plugin
-async function phase3_memory_get({ id }) {
-  // Custom get handling
-  return memory;
-}
-```
-
-**Registered Plugins**:
-- QMD Search Backend (`memory_qmd_*`)
-- Git Integration (`memory_git_*`)
-- Cloud Backup (`memory_cloud_*`)
-
----
-
-## 7. Configuration / 配置
-<!-- zh -->
-
-**Environment Variables**:
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
-| `OLLAMA_MODEL` | `nomic-embed-text` | Embedding model |
-| `VECTOR_PROVIDER` | `ollama` | Vector provider |
+| `OLLAMA_HOST` | `http://localhost:11434` | Ollama server URL |
+| `OLLAMA_EMBED_MODEL` | `nomic-embed-text` | Embedding model |
+| `LLM_MODEL` | `qwen2.5:7b` | LLM model for generation |
+| `VECTOR_STORE_TYPE` | `lancedb` | Vector backend: `lancedb` / `sqlite` |
+| `SQLITE_DB_PATH` | `./memory/memory.db` | SQLite database path |
+| `STORAGE_MODE` | `json` | Storage backend: `json` / `sqlite` |
 | `ENABLE_WAL` | `true` | Enable WAL protocol |
-| `WAL_INTERVAL_MS` | `5000` | WAL flush interval |
-| `AUTO_ORGANIZE_INTERVAL` | `86400` | Auto-organize interval (24h) |
-| `EVIDENCE_TRACKING` | `true` | Enable evidence chain |
 | `HOT_MAX_AGE_DAYS` | `7` | HOT tier max age |
 | `WARM_MAX_AGE_DAYS` | `30` | WARM tier max age |
 | `COLD_MAX_AGE_DAYS` | `365` | COLD tier max age |
 
+### 10.2 OpenViking Configuration
+
+```javascript
+const system = createOpenVikingSystem({
+  // Intent Analysis
+  enableIntentAnalysis: true,
+  intentAnalyzer: { maxQueries: 5, enableCache: true },
+
+  // Hierarchical Retrieval
+  enableHierarchicalRetrieval: true,
+  hierarchicalRetriever: { scorePropagationAlpha: 0.5, maxConvergenceRounds: 3 },
+
+  // Rerank
+  enableRerank: true,
+  reranker: { provider: 'volcengine', model: 'doubao-seed-rerank', topN: 20 },
+
+  // Session Management
+  enableSessionManagement: true,
+  sessionManager: { maxMessagesBeforeArchive: 20, enableAutoArchive: true },
+
+  // Memory Extraction
+  enableMemoryExtraction: true,
+  memoryExtractor: { similarityThreshold: 0.85, enableLLMDedup: true },
+
+  // Layered Compression
+  enableLayeredCompression: true,
+  layeredCompressor: { l0TokenLimit: 100, l1TokenLimit: 2000 }
+});
+```
+
 ---
 
-## 8. File Structure / 文件结构
-<!-- zh -->
+## 11. File Structure
 
 ```
 unified-memory/
 ├── src/
-│   ├── index.js              ← Main entry, 112 tools
-│   ├── storage.js            ← Core read/write/delete
-│   ├── search.js            ← Hybrid search (BM25+Vector+RRF)
-│   ├── tier.js              ← HOT/WARM/COLD management
-│   ├── wal.js               ← WAL protocol
-│   ├── evidence.js          ← Evidence chain
-│   ├── organize.js          ← Auto organization
-│   ├── transcript.js       ← Transcript logging
-│   ├── git-notes.js         ← Git integration
-│   ├── revision.js          ← Version management
-│   ├── budget.js            ← Token budget
-│   ├── cognitive.js         ← Cognitive scheduler
-│   ├── lanes.js            ← Memory lanes
-│   ├── cloud-backup.js      ← Cloud backup API
-│   ├── weibull.js           ← Weibull decay
-│   ├── knowledge-graph.js   ← Knowledge graph
-│   ├── identity.js          ← Identity memory
-│   ├── qmd.js              ← QMD search backend
-│   ├── scope.js            ← Scope isolation
-│   └── utils/
-│       ├── config.js        ← Configuration
-│       ├── embedding.js     ← Embedding providers
-│       └── ...
-├── memory/
-│   ├── hot/
-│   ├── warm/
-│   └── cold/
-├── data/
-│   ├── vectors.lance/       ← LanceDB storage
-│   ├── evidence.db          ← Evidence SQLite
-│   └── wal/                  ← WAL files
+│   ├── index.js                  ← MCP Server (100+ tools)
+│   ├── openviking_system.js      ← OpenViking 主系统 (v5.0)
+│   ├── enhanced_memory_system.js ← 增强版记忆系统 (v4.5)
+│   ├── memory_pipeline.js         ← 四层管线调度
+│   │
+│   ├── storage/
+│   │   ├── storage.js           ← 核心存储
+│   │   ├── filesystem.js         ← 文件系统范式
+│   │   └── vector_factory.js      ← 双后端向量工厂
+│   │
+│   ├── search/
+│   │   ├── hybrid_search.js      ← 混合搜索
+│   │   └── intent_analyzer.js    ← 意图分析 (v5.0)
+│   │
+│   ├── retrieval/
+│   │   ├── hierarchical_retriever.js ← 层级检索 (v5.0)
+│   │   └── reranker.js           ← 重排序 (v5.0)
+│   │
+│   ├── extraction/
+│   │   └── memory_extractor.js   ← 8 类记忆提取 (v5.0)
+│   │
+│   ├── compression/
+│   │   ├── layered_compressor.js ← 分层压缩 (v5.0)
+│   │   └── memory_compressor.js  ← 记忆压缩
+│   │
+│   ├── session/
+│   │   └── session_manager.js    ← Session 管理 (v5.0)
+│   │
+│   ├── relations/
+│   │   └── relation_manager.js   ← 关系管理 (v5.0)
+│   │
+│   ├── parsing/
+│   │   └── document_parser.js    ← 文档解析 (v5.0)
+│   │
+│   ├── memory_types/             ← 记忆类型系统
+│   │   ├── registry.js
+│   │   ├── facts.js
+│   │   ├── patterns.js
+│   │   ├── skills.js
+│   │   ├── cases.js
+│   │   ├── events.js
+│   │   └── preferences.js
+│   │
+│   ├── queue/
+│   │   └── memory_queue.js       ← 异步队列
+│   │
+│   ├── deduplication/
+│   │   └── smart_deduplicator.js ← 智能去重
+│   │
+│   ├── recall/
+│   │   └── memory_recall_optimizer.js ← 召回优化
+│   │
+│   ├── lifecycle/
+│   │   └── memory_lifecycle_manager.js ← 生命周期管理
+│   │
+│   ├── core/
+│   │   ├── viking_uri.js         ← Viking URI (v5.0)
+│   │   ├── transcript_first.js   ← L0 对话录制
+│   │   ├── extract.js            ← L1 记忆提取
+│   │   └── ...
+│   │
+│   ├── graph/
+│   │   ├── entity_config.js      ← 可配置实体类型 (v4.4)
+│   │   └── ...
+│   │
+│   ├── plugin/
+│   │   └── plugin_manager.js     ← 插件系统 (v4.4)
+│   │
+│   ├── benchmark/
+│   │   └── eval_recall.js        ← Benchmark (v4.4)
+│   │
+│   └── [80+ more modules]
+│
 ├── docs/
-│   ├── README.md
-│   ├── ARCHITECTURE.md       ← This document
-│   ├── competitive-analysis.md
-│   └── v3.8.0-release-notes.md
+│   ├── API_REFERENCE.md          ← API 参考
+│   ├── ARCHITECTURE.md           ← 架构文档
+│   ├── FEATURES.md               ← 功能列表
+│   ├── OPENVIKING_COMPARISON.md  ← OpenViking 对比
+│   └── TOKEN_SAVING_COMPARISON.md ← Token 节省对比
+│
 ├── CHANGELOG.md
-└── SKILL.md
+├── SKILL.md
+├── QUICKSTART.md
+├── QUICKSTART_V5.md
+├── CONTRIBUTING.md               ← 贡献指南
+└── README.md
 ```
 
 ---
 
-## 9. Version History / 版本历史
-<!-- zh -->
+## 12. Version History
 
 | Version | Date | Highlights |
 |---------|------|-----------|
-| v3.8.0 | 2026-03-30 | WAL Protocol, Evidence Chain, Auto Organization |
-| v3.7.0 | 2026-03-29 | 97 tools, full feature set |
-| v3.6.0 | 2026-03-29 | WAL cleanup, vector cache fixes |
-| v3.5.0 | 2026-03-28 | Web UI + API Server, Chinese UI |
-| v3.0.0 | 2026-03-27 | Pure Node.js ESM rewrite |
-| v2.0.0 | 2026-03-26 | Full rewrite, Weibull decay, scope isolation |
-| v1.x | 2026-03-25 | Python prototype |
-
-See [CHANGELOG.md](../CHANGELOG.md) for full history.
+| **v5.0.0** | 2026-04-09 | OpenViking complete integration, Enhanced Memory System |
+| **v4.4.0** | 2026-04-07 | Benchmark, Configurable Entity Types, Plugin System |
+| **v4.1.0** | 2026-04-06 | Four-layer pipeline, Scene induction, Chinese tokenization |
+| **v4.0.6** | 2026-04-03 | Documentation restructure |
+| **v3.8.10** | 2026-03-31 | Evidence TTL, WAL Operations |
+| **v3.8.9** | 2026-03-31 | Team Spaces, Rate Limiting |
+| **v3.8.8** | 2026-03-31 | Hybrid Search (BM25 + Vector RRF) |
+| **v3.8.7** | 2026-03-31 | StorageGateway Foundation |
+| **v3.8.0** | 2026-03-30 | WAL Protocol, Evidence Chain, Auto-Organize |
+| **v3.5.0** | 2026-03-28 | Web UI Dashboard |
+| **v2.0.0** | 2026-03-26 | Node.js ESM Rewrite, Weibull Decay |
 
 ---
 
-*Last updated: 2026-03-31*
+*最后更新: 2026-04-09 | v5.0.0*

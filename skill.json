@@ -1,7 +1,7 @@
 {
   "name": "unified-memory",
-  "version": "4.4.0",
-  "description": "Unified Memory v4.0.0 - SQLite-first StorageGateway, Incremental BM25, Hybrid Search, Multi-Tenant Teams, Distributed Rate Limiting, Evidence TTL, WAL Operations",
+  "version": "5.0.1",
+  "description": "Unified Memory v5.0.0 - Complete Knowledge Management System with OpenViking Integration. Layered Information Model (L0/L1/L2), Viking URI, Intent Analysis, Hierarchical Retrieval, Session Management, 8-type Memory Extraction, Smart Deduplication, Lifecycle Management.",
   "author": "mouxangithub",
   "license": "MIT",
   "homepage": "https://github.com/mouxangithub/unified-memory",

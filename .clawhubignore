@@ -1,10 +1,61 @@
+# Dependencies
 node_modules/
+package-lock.json
+
+# Test files
+test/
+*.test.js
+*.spec.js
+
+# Development files
+.vscode/
+.idea/
 *.log
-*.tmp
 *.swp
-.wal/
-*.wal.jsonl
+*.swo
+*~
+
+# Build artifacts
+dist/
+build/
+.cache/
+
+# Documentation (keep main docs)
+docs/*.md
+!docs/README.md
+!docs/INSTALL.md
+
+# Examples (keep essential ones)
+examples/*.js
+!examples/basic_usage.js
+!examples/workflow_complete.js
+
+# Backup files
+backup/
+*.bak
+*.backup
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
 .git/
-tests/
-transcripts/
-webui/node_modules/
+.gitignore
+
+# Large files
+*.pdf
+*.zip
+*.tar.gz
+*.rar
+
+# Benchmark files
+benchmark/
+
+# Dashboard
+src/dashboard.html

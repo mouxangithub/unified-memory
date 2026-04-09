@@ -217,6 +217,6 @@ if (result.memories[0].hasL2) {
 
 ---
 
-**版本**: v4.5.1  
+**版本**: v5.0.0  
 **更新时间**: 2026-04-09  
 **参考**: [OpenViking GitHub](https://github.com/volcengine/OpenViking)

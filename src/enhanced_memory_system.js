@@ -522,20 +522,6 @@ export class EnhancedMemorySystem {
     
     return status;
   }
-        queue: this.queue ? this.queue.healthCheck() : null,
-        deduplicator: this.deduplicator ? this.deduplicator.getStats() : null,
-        recallOptimizer: this.recallOptimizer ? this.recallOptimizer.getStats() : null,
-        compressor: this.compressor ? this.compressor.getStats() : null,
-        lifecycleManager: this.lifecycleManager ? this.lifecycleManager.getLifecycleStats() : null,
-        typeRegistry: this.typeRegistry ? {
-          typesCount: this.typeRegistry.types.size,
-          types: Object.keys(this.typeRegistry.getAllTypes())
-        } : null
-      }
-    };
-    
-    return status;
-  }
   
   /**
    * 健康检查

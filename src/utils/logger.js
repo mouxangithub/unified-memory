@@ -19,3 +19,12 @@ export function log(level, ...args) {
   const prefix = level === 'ERROR' ? '❌' : level === 'WARN' ? '⚠️' : 'ℹ️';
   console.error(`${timestamp} ${prefix} [${level}]`, ...args);
 }
+
+// 兼容新代码（有些模块 import { logger } from '../utils/logger.js'）
+const logger = {
+  debug: (...args) => log('DEBUG', ...args),
+  info: (...args) => log('INFO', ...args),
+  warn: (...args) => log('WARN', ...args),
+  error: (...args) => log('ERROR', ...args),
+};
+export { logger };

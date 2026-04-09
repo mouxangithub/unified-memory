@@ -1,0 +1,133 @@
+{
+  "name": "unified-memory",
+  "version": "5.0.1",
+  "displayName": "Unified Memory",
+  "displayNameZh": "统一记忆系统",
+  "description": "🧠 完整的知识管理系统，集成 OpenViking 所有核心功能。分层信息模型 (L0/L1/L2)、Viking URI、意图分析、层级检索、Session 管理、8 类记忆提取、智能去重、生命周期管理。",
+  "descriptionZh": "为 AI Agent 提供持久化、层次化、可检索的长期记忆能力。开箱即用，支持 MCP 协议。",
+  "author": {
+    "name": "mouxangithub",
+    "github": "https://github.com/mouxangithub"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/mouxangithub/unified-memory",
+  "repository": "https://github.com/mouxangithub/unified-memory",
+  "tags": [
+    "memory",
+    "ai-agent",
+    "vector-search",
+    "bm25",
+    "hybrid-search",
+    "long-term-memory",
+    "knowledge-management",
+    "mcp",
+    "openviking",
+    "session-management",
+    "intent-analysis",
+    "hierarchical-retrieval"
+  ],
+  "categories": [
+    "ai",
+    "productivity",
+    "memory"
+  ],
+  "keywords": [
+    "记忆",
+    "知识库",
+    "向量搜索",
+    "混合搜索",
+    "长期记忆"
+  ],
+  "platforms": [
+    "linux",
+    "macos",
+    "windows"
+  ],
+  "engines": {
+    "node": ">=22.0.0",
+    "openclaw": ">=2026.3.0"
+  },
+  "installation": {
+    "method": "git clone + npm install",
+    "command": "curl -fsSL https://raw.githubusercontent.com/mouxangithub/unified-memory/main/install.sh | bash",
+    "verifyCommand": "node src/cli/index.js health"
+  },
+  "dependencies": {
+    "required": {
+      "node": ">=22.0.0"
+    },
+    "optional": {
+      "ollama": ">=0.1.0"
+    },
+    "bundled": [
+      "@node-rs/jieba",
+      "zod"
+    ]
+  },
+  "permissions": {
+    "filesystem": {
+      "read": ["~/.openclaw/workspace/memory/"],
+      "write": ["~/.openclaw/workspace/memory/"]
+    },
+    "env": ["OLLAMA_HOST", "OLLAMA_EMBED_MODEL"]
+  },
+  "features": {
+    "openviking": [
+      "Viking URI 系统",
+      "意图分析 (Intent Analysis)",
+      "类型化查询 (TypedQuery)",
+      "层级检索 (Hierarchical Retrieval)",
+      "重排序 (Rerank)",
+      "Session 管理",
+      "8 类记忆提取",
+      "LLM 去重决策",
+      "文件系统范式",
+      "文档解析器",
+      "关系管理",
+      "分层压缩 (L0/L1/L2)"
+    ],
+    "core": [
+      "四层记忆架构 (L0对话录制 → L1记忆提取 → L2场景归纳 → L3用户画像)",
+      "混合搜索 (BM25 + Vector + QMD + MMR + Rerank)",
+      "智能去重与合并",
+      "记忆压缩与摘要",
+      "WAL 事务日志",
+      "多租户团队支持"
+    ],
+    "search": [
+      "BM25 全文搜索",
+      "向量相似度搜索",
+      "混合搜索",
+      "Query Understanding (QMD)",
+      "最大边际相关性 (MMR)",
+      "重排序 (Rerank)"
+    ],
+    "storage": [
+      "JSON 文件存储",
+      "WAL 事务日志",
+      "冷热数据分层",
+      "自动去重"
+    ],
+    "intelligence": [
+      "噪声过滤",
+      "意图路由",
+      "自适应跳过",
+      "反思学习",
+      "偏好提取"
+    ]
+  },
+  "quickStart": {
+    "store": "mcporter call unified-memory memory_store '{\"content\": \"Hello\", \"category\": \"general\"}'",
+    "search": "mcporter call unified-memory memory_search '{\"query\": \"hello\"}'",
+    "list": "mcporter call unified-memory memory_list '{}'"
+  },
+  "mcp": {
+    "transport": "stdio",
+    "command": "node",
+    "args": ["src/index.js"]
+  },
+  "screenshots": [],
+  "changelog": "https://github.com/mouxangithub/unified-memory/blob/main/CHANGELOG.md",
+  "readme": "README.md",
+  "skillFile": "SKILL.md"
+}
