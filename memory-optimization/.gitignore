@@ -1,0 +1,53 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# 日志
+logs/
+*.log
+*.jsonl
+
+# 状态文件（不同步）
+sync/sync_state.json
+
+# 报告（不同步）
+reports/
+*.report.json
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# 构建产物
+dist/
+build/
+*.tgz
+
+# 测试覆盖率
+coverage/
+.nyc_output/
+
+# 类型定义
+*.d.ts
+!*.d.ts.map

@@ -1,0 +1,37 @@
+{
+  "name": "memory-system-optimization",
+  "version": "1.0.0",
+  "description": "记忆系统优化 - Workspace Memory与Unified Memory的集成优化",
+  "author": "OpenClaw Assistant",
+  "license": "MIT",
+  "keywords": [
+    "memory",
+    "workspace-memory",
+    "unified-memory",
+    "sync",
+    "deduplication",
+    "optimization"
+  ],
+  "homepage": "https://github.com/openclaw/memory-system-optimization",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openclaw/memory-system-optimization"
+  },
+  "platform": "openclaw",
+  "compatibility": {
+    "openclaw": ">=1.0.0"
+  },
+  "dependencies": {
+    "unified-memory": "*"
+  },
+  "installation": {
+    "source": "github",
+    "url": "https://github.com/openclaw/memory-system-optimization"
+  },
+  "metadata": {
+    "category": "memory",
+    "tags": ["同步", "去重", "监控", "检索"],
+    "difficulty": "intermediate",
+    "usageFrequency": "daily"
+  }
+}
