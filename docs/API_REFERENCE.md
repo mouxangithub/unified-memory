@@ -1,4 +1,4 @@
-# API Reference — Unified Memory v5.0.1
+# API Reference — Unified Memory v5.1.0
 
 > Complete MCP Tool API Reference | 完整的 MCP 工具 API 参考
 
@@ -1491,4 +1491,4 @@ mcporter call unified-memory memory_git_notes '{"operation": "list"}'
 
 ---
 
-*最后更新: 2026-04-09 | v5.0.1*
+*最后更新: 2026-04-09 | v5.1.0*

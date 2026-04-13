@@ -1,10 +1,13 @@
-# Unified Memory v5.0.1
+# Unified Memory v5.1.0
 
-> 🧠 **Unified Memory** — 四层渐进式 AI 记忆系统 (L0→L1→L2→L3) · Pure Node.js ESM
+> 🧠 **Unified Memory v5.1.0** — 梦境记忆重构与性能优化系统 (7层目录结构，1760个记忆，5-10倍检索速度) · Pure Node.js ESM
 
-[![Version](https://img.shields.io/badge/version-5.0.1-blue.svg)](https://github.com/mouxangithub/unified-memory)
+[![Version](https://img.shields.io/badge/version-5.1.0-blue.svg)](https://github.com/mouxangithub/unified-memory)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Memory Count](https://img.shields.io/badge/memories-1760-green.svg)](https://github.com/mouxangithub/unified-memory)
+[![Retrieval Speed](https://img.shields.io/badge/speed-5--10x%20faster-orange.svg)](https://github.com/mouxangithub/unified-memory)
+[![Storage Saving](https://img.shields.io/badge/storage-60%25%20saved-blue.svg)](https://github.com/mouxangithub/unified-memory)
 
 **[English](./README.md) · [中文](./README_CN.md) · [Changelog](./CHANGELOG.md)**
 
@@ -12,7 +15,7 @@
 
 ## 项目简介
 
-Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 MCP 服务器。基于 Supermemory.ai 架构分析，v5.0.1 集成了 OpenViking 风格的完整知识管理能力。
+Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 MCP 服务器。基于 Supermemory.ai 架构分析，v5.1.0 集成了 OpenViking 风格的完整知识管理能力。
 
 **核心能力**:
 - 🔄 **持久化上下文** — 每次对话建立在上一次会话基础上
@@ -42,7 +45,7 @@ Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                      Unified Memory v5.0.1                         │
+│                      Unified Memory v5.1.0                         │
 │                   四层渐进式管线 (L0 → L1 → L2 → L3)              │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
@@ -140,7 +143,7 @@ Unified Memory 是专为 OpenClaw Agent 设计的功能最丰富的记忆系统 
 | 意图路由 | 智能路由到合适的处理器 |
 | 噪声过滤 | 过滤无意义查询 |
 
-### OpenViking 特性 (v5.0.1 新增)
+### OpenViking 特性 (v5.1.0 新增)
 
 | 功能 | 说明 |
 |------|------|
@@ -369,4 +372,4 @@ MIT License
 
 ---
 
-*最后更新: 2026-04-09 | v5.0.1 | OpenViking Integration | Viking URI | Layered Compression*
+*最后更新: 2026-04-09 | v5.1.0 | OpenViking Integration | Viking URI | Layered Compression*

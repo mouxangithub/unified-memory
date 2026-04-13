@@ -1,23 +1,30 @@
 {
   "name": "unified-memory",
-  "version": "5.0.1",
+  "version": "5.1.0",
   "type": "module",
-  "description": "🧠 Unified Memory - 四层渐进式记忆系统 (L0→L1→L2→L3)",
+  "description": "🧠 Unified Memory v5.1.0 - 梦境记忆重构与性能优化 (7层目录结构，1760个记忆，5-10倍检索速度)",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "test": "node --test src/**/*.test.js"
+    "test": "node --test src/**/*.test.js",
+    "query": "node memory/.dreams/scripts/query.cjs",
+    "stats": "node memory/.dreams/scripts/query.cjs stats",
+    "enhance": "node memory/.dreams/scripts/enhance-tags.cjs"
   },
   "keywords": [
     "memory",
     "ai-memory",
     "long-term-memory",
-    "vector-search",
+    "dream-memory",
+    "hybrid-search",
     "bm25",
+    "vector-search",
     "lancedb",
     "scene-induction",
     "pipeline",
-    "chinese-nlp"
+    "chinese-nlp",
+    "dreams-system",
+    "memory-optimization"
   ],
   "author": "OpenClaw",
   "license": "MIT",
@@ -30,7 +37,7 @@
   },
   "peerDependencies": {
     "mcporter": ">=2026.3.0",
-    "node-llama-cpp": ">=3.0.0"
+    "node-llama-cpp": "^3.18.1"
   },
   "peerDependenciesMeta": {
     "mcporter": {

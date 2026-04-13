@@ -714,7 +714,7 @@ class PackManager {
 
 ---
 
-**版本**: v5.0.1  
+**版本**: v5.1.0  
 **更新时间**: 2026-04-09  
 **参考**: [OpenViking GitHub](https://github.com/volcengine/OpenViking)
 

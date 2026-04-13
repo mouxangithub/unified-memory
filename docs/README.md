@@ -11,6 +11,7 @@
 |----------|-------------|
 | **[README.md](README.md)** | 项目总览、快速开始 |
 | **[ARCHITECTURE.md](ARCHITECTURE.md)** | 系统架构详解（中英双语）|
+| **[RECALL_FUNCTION.md](RECALL_FUNCTION.md)** | 记忆召回功能使用指南 |
 | **[competitive-analysis.md](competitive-analysis.md)** | 竞品分析报告 |
 | **[v3.8.0-release-notes.md](v3.8.0-release-notes.md)** | v3.8.x 版本发布说明 |
 | **[../CHANGELOG.md](../CHANGELOG.md)** | 完整版本变更历史 |

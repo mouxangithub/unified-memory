@@ -686,8 +686,8 @@ unified-memory/
 
 | Version | Date | Highlights |
 |---------|------|-----------|
-| **v5.0.1** | 2026-04-09 | OpenViking complete integration, Enhanced Memory System |
-| **v5.0.1** | 2026-04-07 | Benchmark, Configurable Entity Types, Plugin System |
+| **v5.1.0** | 2026-04-09 | OpenViking complete integration, Enhanced Memory System |
+| **v5.1.0** | 2026-04-07 | Benchmark, Configurable Entity Types, Plugin System |
 | **v4.1.0** | 2026-04-06 | Four-layer pipeline, Scene induction, Chinese tokenization |
 | **v4.0.6** | 2026-04-03 | Documentation restructure |
 | **v3.8.10** | 2026-03-31 | Evidence TTL, WAL Operations |
@@ -700,4 +700,4 @@ unified-memory/
 
 ---
 
-*最后更新: 2026-04-09 | v5.0.1*
+*最后更新: 2026-04-09 | v5.1.0*

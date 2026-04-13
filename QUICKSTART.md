@@ -351,6 +351,6 @@ main().catch(console.error);
 
 ---
 
-**版本**: v5.0.1  
+**版本**: v5.1.0  
 **更新时间**: 2026-04-09  
 **作者**: OpenClaw Assistant (xiaozhi)

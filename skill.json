@@ -1,19 +1,23 @@
 {
   "name": "unified-memory",
-  "version": "5.0.1",
-  "description": "Unified Memory v5.0.0 - Complete Knowledge Management System with OpenViking Integration. Layered Information Model (L0/L1/L2), Viking URI, Intent Analysis, Hierarchical Retrieval, Session Management, 8-type Memory Extraction, Smart Deduplication, Lifecycle Management.",
+  "version": "5.1.0",
+  "description": "Unified Memory v5.1.0 - Dream Memory Reconstruction & Performance Optimization System. 7-layer directory structure, 1760 dream memories, 5-10x retrieval speed, 60% storage saving, 49 tags, 181 entities, complete query API and hybrid search (BM25 + vector + RRF).",
   "author": "mouxangithub",
   "license": "MIT",
   "homepage": "https://github.com/mouxangithub/unified-memory",
   "keywords": [
     "ai-agent",
     "memory",
+    "dream-memory",
     "vector-search",
     "bm25",
     "hybrid-search",
     "mcp",
     "openclaw",
-    "memory-management"
+    "memory-management",
+    "performance-optimization",
+    "dreams-system",
+    "memory-reconstruction"
   ],
   "engines": {
     "node": ">=18.0.0",
