@@ -86,12 +86,6 @@ export class AtomicTransactionManager {
       tempFile 
     });
 
-    // 如果没有向量数据，也标记为 prepared
-    if (!transaction.vectorData) {
-      transaction.prepared = true;
-      transaction.state = 'prepared';
-    }
-
     return tempFile;
   }
 

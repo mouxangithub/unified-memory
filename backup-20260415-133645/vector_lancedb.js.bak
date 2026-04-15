@@ -280,6 +280,7 @@ export class VectorMemory {
       },
     }));
   }
+  }
 
   async count() { return Object.keys(this._cache).length; }
 }

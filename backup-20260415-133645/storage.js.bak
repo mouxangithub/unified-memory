@@ -377,6 +377,15 @@ export async function addMemory(mem) {
     
     throw new Error(`Failed to write memory atomically: ${error.message}`);
   }
+      id: newMem.id,
+      text: newMem.text,
+      category: newMem.category,
+      scope: newMem.scope,
+      importance: newMem.importance,
+      created_at: newMem.created_at,
+      ...(agentId ? { agent_id: agentId } : {}),
+    }).catch(e => console.warn('[storage→LanceDB] upsert failed:', e.message));
+  }).catch(() => {});
 
   return newMem;
 }
