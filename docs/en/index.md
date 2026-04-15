@@ -1,6 +1,6 @@
 # Unified Memory Documentation
 
-[English](./index.md) · [中文](../zh/index.md)
+**English** · [中文](../zh/index.md)
 
 Welcome to the Unified Memory v5.2.0 documentation. This documentation provides comprehensive guides, API references, and architecture details for the Unified Memory system.
 
@@ -56,40 +56,13 @@ Welcome to the Unified Memory v5.2.0 documentation. This documentation provides 
 ## 🔧 Development Resources
 
 ### Code Examples
-```javascript
-// Basic memory operations
-import { addMemory, searchMemories } from 'unified-memory';
 
-// Add a memory
-const memoryId = await addMemory({
-  text: "Example memory",
-  tags: ["example", "test"]
-});
-
-// Search memories
-const results = await searchMemories("example");
-```
 
 ### Testing
-```bash
-# Run unit tests
-npm run test:unit
 
-# Run integration tests
-npm run test:integration
-
-# Run performance tests
-npm run bench
-```
 
 ### Building
-```bash
-# Build for production
-npm run deploy
 
-# Verify build
-npm run verify
-```
 
 ## 📖 Reading Order
 

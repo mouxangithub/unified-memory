@@ -29,7 +29,9 @@
     "monitor:dashboard": "node plugins/monitor/health_check.js --dashboard",
     "crontab": "node plugins/sync/sync_cron.js --crontab",
     
-    "deploy": "./scripts/deploy/deploy-atomic-fixes.sh",
+    "dev": "./scripts/dev.sh",
+    "deploy": "./scripts/deploy.sh",
+    "deploy:atomic": "./scripts/deploy/deploy-atomic-fixes.sh",
     "verify": "./scripts/verify/verify-repairs.sh",
     "docs": "./scripts/docs/update-docs.sh",
     "install": "./install.sh"

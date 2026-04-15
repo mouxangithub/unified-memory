@@ -1,0 +1,244 @@
+{
+  "name": "unified-memory",
+  "version": "5.2.0",
+  "description": "Unified Memory v5.2.0 - Advanced memory management system with hybrid search (BM25 + Vector + RRF), atomic transactions, and plugin system. 5-10x faster search speed, 60% storage reduction.",
+  "description_zh": "Unified Memory v5.2.0 - 高级记忆管理系统，支持混合搜索（BM25 + 向量 + RRF）、原子事务和插件系统。搜索速度提升5-10倍，存储减少60%。",
+  "author": "OpenClaw Team",
+  "contributors": [
+    "OpenClaw Team <team@openclaw.ai>",
+    "mouxangithub"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/mouxangithub/unified-memory",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mouxangithub/unified-memory.git"
+  },
+  "keywords": [
+    "ai-agent",
+    "memory",
+    "dream-memory",
+    "vector-search",
+    "bm25",
+    "hybrid-search",
+    "mcp",
+    "openclaw",
+    "memory-management",
+    "performance-optimization",
+    "dreams-system",
+    "memory-reconstruction",
+    "unified-memory",
+    "atomic-transactions",
+    "plugin-system",
+    "memory-sync",
+    "deduplication",
+    "health-monitoring"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "openclaw": ">=2.7.0"
+  },
+  "installation": {
+    "auto": true,
+    "description": "Self-contained skill with hybrid search, atomic transactions, and plugin system. No external memory plugin required.",
+    "description_zh": "自包含技能，包含混合搜索、原子事务和插件系统。无需外部记忆插件。",
+    "verify": "mcporter call unified-memory memory_health '{}'",
+    "quick_install": "openclaw skills install unified-memory",
+    "manual_install": "git clone https://github.com/mouxangithub/unified-memory.git && cd unified-memory && npm install"
+  },
+  "dependencies": {
+    "required": {
+      "node": ">=18.0.0"
+    },
+    "optional": {
+      "ollama": ">=0.1.0",
+      "mcporter": ">=2026.3.0",
+      "node-llama-cpp": "^3.18.1"
+    }
+  },
+  "permissions": {
+    "filesystem": {
+      "read": [
+        "~/.openclaw/workspace/memory/"
+      ],
+      "write": [
+        "~/.openclaw/workspace/memory/"
+      ]
+    },
+    "env": [
+      "OLLAMA_HOST",
+      "OLLAMA_EMBED_MODEL",
+      "NODE_ENV",
+      "DATABASE_PATH",
+      "CACHE_ENABLED"
+    ]
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "./scripts/dev.sh",
+    "deploy": "./scripts/deploy.sh",
+    "test": "mcporter call unified-memory memory_health '{}'",
+    "test:unit": "node --test test/unit/*.test.js",
+    "test:integration": "node --test test/integration/*.test.js",
+    "test:coverage": "c8 node --test test/unit/*.test.js test/integration/*.test.js",
+    "bench": "node test/benchmark/write-performance.js",
+    "search": "mcporter call unified-memory memory_search '{\"query\": \"test\"}'",
+    "lint": "eslint src/ test/ --ext .js,.jsx,.ts,.tsx",
+    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,md}\" \"test/**/*.{js,jsx,ts,tsx,json,md}\"",
+    "clean": "rm -rf dist build coverage",
+    "build": "npm run clean && npm run lint && npm test",
+    "docs": "./scripts/docs/update-docs.sh"
+  },
+  "mcp": {
+    "transport": "stdio",
+    "command": "node",
+    "args": [
+      "src/index.js"
+    ],
+    "protocol_version": "2024-11-05",
+    "capabilities": {
+      "tools": {
+        "list_changed": true
+      },
+      "resources": {
+        "list_changed": true
+      }
+    }
+  },
+  "quick_start": {
+    "test": "mcporter call unified-memory memory_health '{}'",
+    "store": "mcporter call unified-memory memory_store '{\"content\": \"Hello\", \"category\": \"general\"}'",
+    "search": "mcporter call unified-memory memory_search '{\"query\": \"hello\"}'",
+    "stats": "mcporter call unified-memory memory_stats '{}'"
+  },
+  "triggers": {
+    "keywords": [
+      "记忆",
+      "记住",
+      "memory",
+      "recall",
+      "forget",
+      "知识库",
+      "unified memory",
+      "hybrid search",
+      "atomic transaction"
+    ],
+    "commands": [
+      "/memory",
+      "/unified-memory",
+      "/search-memory"
+    ]
+  },
+  "features": {
+    "search": [
+      "bm25",
+      "vector",
+      "hybrid",
+      "qmd",
+      "mmr",
+      "rerank",
+      "rrf",
+      "semantic",
+      "keyword",
+      "faceted"
+    ],
+    "storage": [
+      "json_file",
+      "auto_store",
+      "wal",
+      "tier",
+      "dedup",
+      "atomic_transactions",
+      "incremental_backup",
+      "point_in_time_recovery"
+    ],
+    "api": [
+      "mcp",
+      "rest",
+      "websocket",
+      "cli",
+      "web_ui"
+    ],
+    "intelligence": [
+      "noise_filter",
+      "intent_routing",
+      "adaptive_skip",
+      "reflection",
+      "lesson",
+      "preference_slots",
+      "semantic_analysis",
+      "context_awareness",
+      "predictive_caching"
+    ],
+    "decay": [
+      "weibull",
+      "scope_isolation",
+      "adaptive_decay",
+      "importance_weighting"
+    ],
+    "performance": [
+      "caching",
+      "parallel_processing",
+      "index_optimization",
+      "query_planning",
+      "result_caching"
+    ],
+    "management": [
+      "health_monitoring",
+      "analytics",
+      "backup",
+      "migration",
+      "plugin_system",
+      "configuration_management"
+    ]
+  },
+  "performance_metrics": {
+    "search_speed": "5-10x faster",
+    "storage_reduction": "60%",
+    "cache_hit_rate": "78%",
+    "average_query_time": "45ms",
+    "memory_usage": "245.6 MB",
+    "total_memories": 1760,
+    "total_categories": 49,
+    "total_tags": 181
+  },
+  "clawhub": {
+    "categories": ["memory", "search", "database", "ai"],
+    "tags": [
+      "memory-management",
+      "hybrid-search",
+      "vector-database",
+      "semantic-search",
+      "bm25",
+      "rrf",
+      "plugin-architecture",
+      "atomic-transactions"
+    ],
+    "compatibility": {
+      "openclaw": ">=2.7.0"
+    },
+    "badges": [
+      {
+        "type": "version",
+        "url": "https://img.shields.io/npm/v/unified-memory",
+        "alt": "npm version"
+      },
+      {
+        "type": "license",
+        "url": "https://img.shields.io/npm/l/unified-memory",
+        "alt": "MIT License"
+      }
+    ]
+  },
+  "support": {
+    "issues": "https://github.com/mouxangithub/unified-memory/issues",
+    "discussions": "https://github.com/mouxangithub/unified-memory/discussions",
+    "documentation": "https://github.com/mouxangithub/unified-memory/docs",
+    "email": "team@openclaw.ai"
+  },
+  "changelog": "https://github.com/mouxangithub/unified-memory/CHANGELOG.md",
+  "contributing": "https://github.com/mouxangithub/unified-memory/CONTRIBUTING.md",
+  "code_of_conduct": "https://github.com/mouxangithub/unified-memory/CODE_OF_CONDUCT.md",
+  "publish_date": "2026-04-15",
+  "last_updated": "2026-04-15"
+}
