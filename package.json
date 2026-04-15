@@ -6,7 +6,11 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "test": "node --test src/**/*.test.js",
+    "test": "node --test test/unit/*.test.js test/integration/*.test.js",
+    "test:unit": "node --test test/unit/*.test.js",
+    "test:integration": "node --test test/integration/*.test.js",
+    "test:coverage": "c8 node --test test/unit/*.test.js test/integration/*.test.js",
+    "bench": "node test/benchmark/write-performance.js",
     "query": "node memory/.dreams/scripts/query.cjs",
     "stats": "node memory/.dreams/scripts/query.cjs stats",
     "enhance": "node memory/.dreams/scripts/enhance-tags.cjs"
