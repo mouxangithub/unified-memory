@@ -1,8 +1,13 @@
 {
   "name": "unified-memory",
-  "version": "5.1.0",
+  "version": "5.2.0",
   "type": "module",
-  "description": "🧠 Unified Memory v5.1.0 - 梦境记忆重构与性能优化 (7层目录结构，1760个记忆，5-10倍检索速度)",
+  "description": "🧠 Unified Memory v5.2.0 - 原子写入修复与性能优化 (原子事务 + 插件系统 + 5-10倍检索速度)",
+  "homepage": "https://github.com/mouxangithub/unified-memory",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mouxangithub/unified-memory.git"
+  },
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -13,7 +18,20 @@
     "bench": "node test/benchmark/write-performance.js",
     "query": "node memory/.dreams/scripts/query.cjs",
     "stats": "node memory/.dreams/scripts/query.cjs stats",
-    "enhance": "node memory/.dreams/scripts/enhance-tags.cjs"
+    "enhance": "node memory/.dreams/scripts/enhance-tags.cjs",
+    
+    "sync": "node plugins/sync/sync_cron.js",
+    "sync:dry-run": "node plugins/sync/sync_cron.js --dry-run",
+    "sync:manual": "node plugins/sync/sync_bridge.js",
+    "query:unified": "node plugins/api/unified_query_api.js",
+    "dedup": "node plugins/dedup/cross_system_dedup.js",
+    "monitor": "node plugins/monitor/health_check.js",
+    "monitor:dashboard": "node plugins/monitor/health_check.js --dashboard",
+    "crontab": "node plugins/sync/sync_cron.js --crontab",
+    
+    "deploy": "node scripts/deploy.js",
+    "verify": "./scripts/verify-repairs.sh",
+    "docs": "./scripts/update-docs.sh"
   },
   "keywords": [
     "memory",
@@ -28,7 +46,14 @@
     "pipeline",
     "chinese-nlp",
     "dreams-system",
-    "memory-optimization"
+    "memory-optimization",
+    "atomic-transactions",
+    "data-persistence",
+    "vector-search",
+    "plugin-system",
+    "memory-sync",
+    "deduplication",
+    "health-monitoring"
   ],
   "author": "OpenClaw",
   "license": "MIT",

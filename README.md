@@ -48,6 +48,14 @@
 
 ### 💾 **企业级数据安全**
 - **WAL 协议**: 崩溃恢复保障
+- **原子事务**: 两阶段提交保证数据一致性
+- **fsync 保证**: 零数据丢失
+
+### 🔌 **插件系统 (新增)**
+- **同步桥梁**: Workspace Memory ↔ Unified Memory 智能同步
+- **统一查询**: 跨系统检索接口
+- **去重检查**: 防止重复存储
+- **健康监控**: 实时系统状态监控
 - **原子重命名**: 防止部分写入
 - **自动备份**: 定期数据备份
 - **事务日志**: 完整的操作审计
@@ -187,6 +195,57 @@ const allMemories = await getAllMemories();
 - **[CONTRIBUTING.md](./CONTRIBUTING.md)** - 贡献指南
 - **[CHANGELOG.md](./CHANGELOG.md)** - 更新日志
 - **[FIXES-AND-OPTIMIZATIONS.md](./docs/FIXES-AND-OPTIMIZATIONS.md)** - 修复与优化详情
+- **[PROJECT-STRUCTURE.md](./PROJECT-STRUCTURE.md)** - 项目结构文档
+
+## 🔌 插件系统使用
+
+### 同步 Workspace Memory
+```bash
+# 手动同步
+npm run sync:manual
+
+# 定时同步 (每日凌晨2点)
+npm run sync
+
+# 生成 crontab 配置
+npm run crontab
+```
+
+### 统一查询
+```bash
+# 基本查询
+npm run query:unified -- "搜索关键词"
+
+# 启动查询服务器
+npm run query:unified -- --server 3851
+```
+
+### 去重检查
+```bash
+# 检查重复记忆
+npm run dedup
+```
+
+### 健康监控
+```bash
+# 单次检查
+npm run monitor
+
+# 仪表板视图
+npm run monitor:dashboard
+```
+
+### 部署与验证
+```bash
+# 部署原子修复
+npm run deploy
+
+# 验证修复
+npm run verify
+
+# 更新文档
+npm run docs
+```
 
 ---
 
