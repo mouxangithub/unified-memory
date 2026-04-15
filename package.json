@@ -29,9 +29,10 @@
     "monitor:dashboard": "node plugins/monitor/health_check.js --dashboard",
     "crontab": "node plugins/sync/sync_cron.js --crontab",
     
-    "deploy": "node scripts/deploy.js",
-    "verify": "./scripts/verify-repairs.sh",
-    "docs": "./scripts/update-docs.sh"
+    "deploy": "./scripts/deploy/deploy-atomic-fixes.sh",
+    "verify": "./scripts/verify/verify-repairs.sh",
+    "docs": "./scripts/docs/update-docs.sh",
+    "install": "./install.sh"
   },
   "keywords": [
     "memory",

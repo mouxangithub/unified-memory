@@ -1,6 +1,20 @@
 {
-  "ownerId": "kn7ddtw3srapdb2a5hxt1jjph1825kye",
-  "slug": "unified-memory",
-  "version": "2.7.0",
-  "publishedAt": 1774258703664
+  "skill": {
+    "id": "unified-memory-architect",
+    "type": "memory-management",
+    "compatibility": {
+      "openclaw": ">=2.7.0",
+      "unifiedMemory": ">=5.0.1"
+    },
+    "installation": {
+      "method": "git-clone",
+      "postInstall": "npm install",
+      "verification": "node memory/scripts/verify-system.cjs"
+    },
+    "support": {
+      "documentation": "https://github.com/openclaw/unified-memory-architect",
+      "issues": "https://github.com/openclaw/unified-memory-architect/issues",
+      "contact": "support@openclaw.school"
+    }
+  }
 }

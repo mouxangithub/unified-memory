@@ -188,7 +188,7 @@ const allMemories = await getAllMemories();
 ## 📚 文档目录
 
 - **[README.md](./README.md)** - 项目概览（本文档）
-- **[QUICKSTART.md](./QUICKSTART.md)** - 快速开始指南
+- **[QUICKSTART.md](./docs/QUICKSTART.md)** - 快速开始指南
 - **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - 系统架构详解
 - **[API.md](./docs/API.md)** - API 参考手册
 - **[DEPLOYMENT.md](./docs/DEPLOYMENT.md)** - 部署指南
