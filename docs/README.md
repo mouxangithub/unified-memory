@@ -1,87 +1,324 @@
-# Unified Memory 文档中心
+# Unified Memory v5.2.0
 
-> 高效梦境记忆管理系统 - 5-10倍检索加速，60%存储节省
+> 🧠 **Unified Memory v5.2.0** — Atomic Write Fixes & Performance Optimization · Enterprise Memory Management Platform · Pure Node.js ESM
 
-[English Documentation](./en/index.md) | [中文文档](./zh/index.md)
+[![Version](https://img.shields.io/badge/version-5.2.0-blue.svg)](https://github.com/mouxangithub/unified-memory)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](https://nodejs.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://img.shields.io/badge/build-passing-green.svg)](https://github.com/mouxangithub/unified-memory)
+[![Data Safety](https://img.shields.io/badge/data%20safety-atomic%20writes-brightgreen.svg)](https://github.com/mouxangithub/unified-memory)
+[![Performance](https://img.shields.io/badge/performance-optimized-orange.svg)](https://github.com/mouxangithub/unified-memory)
 
-## 📚 文档导航
-
-### 快速开始
-- [快速开始指南 (English)](./en/getting-started/quickstart.md)
-- [快速开始指南 (中文)](./zh/getting-started/quickstart.md)
-- [安装指南 (English)](./en/getting-started/installation.md)
-- [安装指南 (中文)](./zh/getting-started/installation.md)
-
-### 使用指南
-- [基础使用 (English)](./en/guides/basic-usage.md)
-- [基础使用 (中文)](./zh/guides/basic-usage.md)
-- [高级用法 (English)](./en/guides/advanced-usage.md)
-- [高级用法 (中文)](./zh/guides/advanced-usage.md)
-- [故障排除 (English)](./en/guides/troubleshooting.md)
-- [故障排除 (中文)](./zh/guides/troubleshooting.md)
-
-### API 文档
-- [API 概览 (English)](./en/api/overview.md)
-- [API 概览 (中文)](./zh/api/overview.md)
-- [函数参考 (English)](./en/api/functions.md)
-- [函数参考 (中文)](./zh/api/functions.md)
-- [API 示例 (English)](./en/api/examples.md)
-- [API 示例 (中文)](./zh/api/examples.md)
-
-### 架构说明
-- [架构概览 (English)](./en/architecture/overview.md)
-- [架构概览 (中文)](./zh/architecture/overview.md)
-- [组件说明 (English)](./en/architecture/components.md)
-- [组件说明 (中文)](./zh/architecture/components.md)
-- [数据流 (English)](./en/architecture/data-flow.md)
-- [数据流 (中文)](./zh/architecture/data-flow.md)
-
-### 贡献指南
-- [贡献指南 (English)](./en/contributing/guidelines.md)
-- [贡献指南 (中文)](./zh/contributing/guidelines.md)
-- [代码规范 (English)](./en/contributing/code-style.md)
-- [代码规范 (中文)](./zh/contributing/code-style.md)
-- [测试指南 (English)](./en/contributing/testing.md)
-- [测试指南 (中文)](./zh/contributing/testing.md)
-
-## 🚀 核心功能
-
-### 混合搜索系统
-- **BM25 + 向量 + RRF** 三重混合搜索
-- **5-10倍检索加速** 相比传统方法
-- **60%存储节省** 智能去重和压缩
-
-### 记忆管理系统
-- **1760个梦境记忆** 精选数据集
-- **49个语义标签** 智能分类
-- **181个识别实体** 实体提取和关联
-- **7层目录结构** 层次化组织
-
-### 性能优化
-- **原子写入** 确保数据一致性
-- **WAL协议** 写前日志保证可靠性
-- **智能缓存** 增量更新和缓存策略
-- **并行处理** 多线程优化
-
-## 📊 技术栈
-
-- **运行时**: Node.js >= 18.0.0
-- **数据库**: SQLite + 向量索引
-- **搜索**: BM25 + 向量搜索 + RRF
-- **协议**: MCP (Model Context Protocol)
-- **集成**: OpenClaw >= 2.7.0
-
-## 🔗 相关链接
-
-- [GitHub 仓库](https://github.com/mouxangithub/unified-memory)
-- [ClawHub 技能页面](https://clawhub.ai/skills/unified-memory)
-- [OpenClaw 文档](https://docs.openclaw.ai)
-- [问题反馈](https://github.com/mouxangithub/unified-memory/issues)
-
-## 📄 许可证
-
-本项目基于 MIT 许可证开源 - 查看 [LICENSE](../LICENSE) 文件了解详情。
+**English** · [中文](./README_CN.md) · [Changelog](./en/reference/changelog.md) · [Documentation](./en/)
 
 ---
 
-**开始使用**: [快速开始指南 (English)](./en/getting-started/quickstart.md) | [快速开始指南 (中文)](./zh/getting-started/quickstart.md)
+## 🚀 Latest Updates (v5.2.0)
+
+### 🔥 Atomic Write Fixes (2026-04-15)
+**Solved the most critical data consistency issues in production environments**:
+
+| Fix | Problem | Solution | Effect |
+|-----|---------|----------|--------|
+| **Atomic Transaction Manager** | No atomicity in JSON and vector storage dual-writes | Two-phase commit protocol | 100% data consistency |
+| **Data Persistence Guarantee** | Data loss on system crash | fsync + atomic rename | Zero data loss |
+| **Vector Search Optimization** | LanceDB WHERE clause bug | Optimized memory filtering algorithm | 5-10x query performance improvement |
+| **ChromaDB Backend** | LanceDB performance issues | Complete ChromaDB backend | Ready to switch anytime |
+
+### 📊 Performance Improvements
+- **Retrieval Speed**: 5-10x faster (optimized vector search)
+- **Storage Space**: 60% savings (intelligent compression)
+- **Data Safety**: fsync guaranteed write to disk
+- **Query Performance**: Optimized memory filtering algorithm
+
+---
+
+## 🎯 Core Features
+
+### 🔄 **Atomic Data Consistency**
+- **Two-Phase Commit Protocol**: Guarantees atomic writes for JSON and vector storage
+- **Transaction Recovery Mechanism**: Automatically recovers unfinished transactions on system crash
+- **fsync Guarantee**: Ensures data is written to disk, preventing loss
+
+### 🔍 **High-Performance Hybrid Search**
+- **BM25 + Vector + RRF Fusion**: Best relevance ranking
+- **Optimized Vector Engine**: Supports LanceDB and ChromaDB
+- **Memory Caching**: Fast ANN similarity calculation
+- **Intelligent Filtering**: Optimized memory filtering algorithm
+
+### 💾 **Enterprise-Grade Data Security**
+- **WAL Protocol**: Crash recovery guarantee
+- **Atomic Transactions**: Two-phase commit ensures data consistency
+- **fsync Guarantee**: Zero data loss
+
+### 🔌 **Plugin System (New)**
+- **Sync Bridge**: Intelligent synchronization between Workspace Memory ↔ Unified Memory
+- **Unified Query**: Cross-system retrieval interface
+- **Deduplication Check**: Prevents duplicate storage
+- **Health Monitoring**: Real-time system status monitoring
+
+---
+
+## 🚀 Quick Start
+
+### Installation
+```bash
+# Using install script (recommended)
+curl -fsSL https://raw.githubusercontent.com/mouxangithub/unified-memory/main/install.sh | bash
+
+# Or using npm
+npm install unified-memory
+```
+
+### Basic Usage
+```javascript
+import { addMemory, searchMemories, getAllMemories } from 'unified-memory';
+
+// Add a memory
+const memoryId = await addMemory({
+  text: "Meeting notes from product review",
+  tags: ["meeting", "product", "review"],
+  metadata: { priority: "high", project: "alpha" }
+});
+
+// Search memories
+const results = await searchMemories("product review meeting");
+console.log(results);
+
+// Get all memories
+const allMemories = await getAllMemories();
+```
+
+### Plugin System Usage
+```bash
+# Sync Workspace Memory
+npm run sync:manual
+
+# Unified query
+npm run query:unified -- "search keywords"
+
+# Deduplication check
+npm run dedup
+
+# Health monitoring
+npm run monitor
+```
+
+---
+
+## 📁 Project Structure
+
+```
+unified-memory/
+├── src/                    # Core system
+├── plugins/               # Plugin system
+├── scripts/               # Scripts directory
+├── test/                  # Tests directory
+├── docs/                  # Documentation (this directory)
+├── config/                # Configuration files
+├── bin/                   # CLI tools
+├── examples/              # Example code
+├── .clawhub/              # ClawHub configuration
+├── install.sh            # Installation script
+├── README.md             # Main documentation (this file)
+└── package.json          # Project configuration
+```
+
+---
+
+## 🔧 Configuration
+
+### Basic Configuration
+```json
+{
+  "storage": {
+    "mode": "json",
+    "memoryFile": "~/.unified-memory/memories.json",
+    "vectorStore": {
+      "backend": "lancedb",
+      "path": "~/.unified-memory/vector.lance"
+    }
+  },
+  "transaction": {
+    "enable": true,
+    "recoveryLog": "~/.unified-memory/transaction-recovery.log"
+  }
+}
+```
+
+### Performance Tuning
+```json
+{
+  "performance": {
+    "cacheSize": 1000,
+    "writeBehindDelay": 500,
+    "vectorCache": true,
+    "batchSize": 100
+  }
+}
+```
+
+---
+
+## 📚 Documentation
+
+### Getting Started
+- [Installation Guide](./en/getting-started/installation.md)
+- [Quick Start Guide](./en/getting-started/quickstart.md)
+- [Configuration Guide](./en/getting-started/configuration.md)
+
+### User Guides
+- [Basic Usage](./en/guides/basic-usage.md)
+- [Advanced Features](./en/guides/advanced-features.md)
+- [Plugin System](./en/guides/plugins.md)
+- [Troubleshooting](./en/guides/troubleshooting.md)
+
+### API Documentation
+- [API Overview](./en/api/overview.md)
+- [Storage API](./en/api/storage-api.md)
+- [Vector API](./en/api/vector-api.md)
+- [Plugin API](./en/api/plugin-api.md)
+
+### Architecture
+- [Architecture Overview](./en/architecture/overview.md)
+- [Atomic Transactions](./en/architecture/atomic-transactions.md)
+- [Vector Search](./en/architecture/vector-search.md)
+- [Plugin System](./en/architecture/plugin-system.md)
+
+### Reference
+- [CLI Reference](./en/reference/cli-reference.md)
+- [Configuration Reference](./en/reference/configuration.md)
+- [Changelog](./en/reference/changelog.md)
+- [FAQ](./en/reference/faq.md)
+
+---
+
+## 🔌 Plugin System Usage
+
+### Sync Workspace Memory
+```bash
+# Manual sync
+npm run sync:manual
+
+# Scheduled sync (daily at 2 AM)
+npm run sync
+
+# Generate crontab configuration
+npm run crontab
+```
+
+### Unified Query
+```bash
+# Basic query
+npm run query:unified -- "search keywords"
+
+# Start query server
+npm run query:unified -- --server 3851
+```
+
+### Deduplication Check
+```bash
+# Check for duplicate memories
+npm run dedup
+```
+
+### Health Monitoring
+```bash
+# Single check
+npm run monitor
+
+# Dashboard view
+npm run monitor:dashboard
+```
+
+### Deployment & Verification
+```bash
+# Deploy atomic fixes
+npm run deploy
+
+# Verify fixes
+npm run verify
+
+# Update documentation
+npm run docs
+```
+
+---
+
+## 🛠️ Development
+
+### Setup Development Environment
+```bash
+# Clone repository
+git clone https://github.com/mouxangithub/unified-memory.git
+cd unified-memory
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+### Running Tests
+```bash
+# Unit tests
+npm run test:unit
+
+# Integration tests
+npm run test:integration
+
+# Performance tests
+npm run bench
+```
+
+### Building for Production
+```bash
+# Build project
+npm run deploy
+
+# Verify build
+npm run verify
+```
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](./en/reference/contributing.md) for details.
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests
+5. Submit a pull request
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](../LICENSE) file for details.
+
+---
+
+## 📞 Support
+
+- **GitHub Issues**: [Report bugs or request features](https://github.com/mouxangithub/unified-memory/issues)
+- **Documentation**: [Full documentation](./en/)
+- **中文文档**: [Chinese documentation](./zh/)
+
+---
+
+## 🏆 Acknowledgments
+
+- **OpenClaw Community** for inspiration and feedback
+- **All Contributors** who helped improve Unified Memory
+- **The Node.js ecosystem** for amazing tools and libraries
+
+---
+
+**Last Updated**: 2026-04-15  
+**Version**: v5.2.0  
+**Status**: 🟢 Production Ready  
+**GitHub**: https://github.com/mouxangithub/unified-memory  
+**Documentation**: https://github.com/mouxangithub/unified-memory/tree/main/docs

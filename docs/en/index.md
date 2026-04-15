@@ -1,74 +1,148 @@
-# Unified Memory Documentation (English)
+# Unified Memory Documentation
 
-> Efficient Dream Memory Management System - 5-10x retrieval acceleration, 60% storage saving
+[English](./index.md) · [中文](../zh/index.md)
 
-[中文文档](../zh/index.md) | [Documentation Home](../README.md)
+Welcome to the Unified Memory v5.2.0 documentation. This documentation provides comprehensive guides, API references, and architecture details for the Unified Memory system.
 
-## 📚 Documentation Navigation
+## 📚 Documentation Structure
 
 ### Getting Started
-- [Quick Start Guide](./getting-started/quickstart.md)
-- [Installation Guide](./getting-started/installation.md)
-- [Configuration Guide](./getting-started/configuration.md)
+- **[Quick Start Guide](./getting-started/quickstart.md)** - Get up and running in 5 minutes
+- **[Installation Guide](./getting-started/installation.md)** - Detailed installation instructions
+- **[Configuration Guide](./getting-started/configuration.md)** - System configuration options
 
 ### User Guides
-- [Basic Usage](./guides/basic-usage.md)
-- [Advanced Usage](./guides/advanced-usage.md)
-- [Troubleshooting](./guides/troubleshooting.md)
+- **[Basic Usage](./guides/basic-usage.md)** - Everyday operations and common tasks
+- **[Advanced Features](./guides/advanced-features.md)** - Power features and optimizations
+- **[Plugin System](./guides/plugins.md)** - Extending functionality with plugins
+- **[Troubleshooting](./guides/troubleshooting.md)** - Solving common problems
 
 ### API Documentation
-- [API Overview](./api/overview.md)
-- [Function Reference](./api/functions.md)
-- [API Examples](./api/examples.md)
+- **[API Overview](./api/overview.md)** - Introduction to the Unified Memory API
+- **[Storage API](./api/storage-api.md)** - Memory storage and retrieval operations
+- **[Vector API](./api/vector-api.md)** - Vector search and similarity operations
+- **[Plugin API](./api/plugin-api.md)** - Plugin development and integration
 
 ### Architecture
-- [Architecture Overview](./architecture/overview.md)
-- [Component Details](./architecture/components.md)
-- [Data Flow](./architecture/data-flow.md)
+- **[Architecture Overview](./architecture/overview.md)** - System design and components
+- **[Atomic Transactions](./architecture/atomic-transactions.md)** - Data consistency guarantees
+- **[Vector Search](./architecture/vector-search.md)** - Search algorithms and optimizations
+- **[Plugin System](./architecture/plugin-system.md)** - Plugin architecture and design
 
-### Contributing
-- [Contribution Guidelines](./contributing/guidelines.md)
-- [Code Style Guide](./contributing/code-style.md)
-- [Testing Guide](./contributing/testing.md)
+### Reference
+- **[CLI Reference](./reference/cli-reference.md)** - Command-line interface documentation
+- **[Configuration Reference](./reference/configuration.md)** - Complete configuration options
+- **[Changelog](./reference/changelog.md)** - Version history and changes
+- **[FAQ](./reference/faq.md)** - Frequently asked questions
+- **[Contributing Guide](./reference/contributing.md)** - How to contribute to the project
 
-## 🚀 Core Features
+## 🎯 Key Features Documentation
 
-### Hybrid Search System
-- **BM25 + Vector + RRF** triple hybrid search
-- **5-10x retrieval acceleration** compared to traditional methods
-- **60% storage saving** with intelligent deduplication and compression
+### Atomic Data Consistency
+- **Two-Phase Commit Protocol**: Guarantees atomic writes for JSON and vector storage
+- **Transaction Recovery**: Automatic recovery of incomplete transactions
+- **fsync Guarantee**: Ensures data is written to disk
 
-### Memory Management
-- **1760 curated dream memories** dataset
-- **49 semantic tags** for intelligent categorization
-- **181 recognized entities** for entity extraction and association
-- **7-layer directory structure** for hierarchical organization
+### High-Performance Search
+- **Hybrid Search**: BM25 + Vector + RRF fusion for best results
+- **Optimized Algorithms**: 5-10x faster query performance
+- **Intelligent Caching**: Memory caching for frequent queries
 
-### Performance Optimization
-- **Atomic writes** for data consistency
-- **WAL protocol** for write-ahead logging reliability
-- **Intelligent caching** with incremental updates
-- **Parallel processing** with multi-threading optimization
+### Plugin System
+- **Sync Bridge**: Synchronize with Workspace Memory
+- **Unified Query**: Cross-system search interface
+- **Health Monitoring**: Real-time system monitoring
 
-## 📊 Technology Stack
+## 🔧 Development Resources
 
-- **Runtime**: Node.js >= 18.0.0
-- **Database**: SQLite + vector indexing
-- **Search**: BM25 + vector search + RRF
-- **Protocol**: MCP (Model Context Protocol)
-- **Integration**: OpenClaw >= 2.7.0
+### Code Examples
+```javascript
+// Basic memory operations
+import { addMemory, searchMemories } from 'unified-memory';
 
-## 🔗 Quick Links
+// Add a memory
+const memoryId = await addMemory({
+  text: "Example memory",
+  tags: ["example", "test"]
+});
 
-- [GitHub Repository](https://github.com/mouxangithub/unified-memory)
-- [ClawHub Skill Page](https://clawhub.ai/skills/unified-memory)
-- [OpenClaw Documentation](https://docs.openclaw.ai)
-- [Issue Tracker](https://github.com/mouxangithub/unified-memory/issues)
+// Search memories
+const results = await searchMemories("example");
+```
+
+### Testing
+```bash
+# Run unit tests
+npm run test:unit
+
+# Run integration tests
+npm run test:integration
+
+# Run performance tests
+npm run bench
+```
+
+### Building
+```bash
+# Build for production
+npm run deploy
+
+# Verify build
+npm run verify
+```
+
+## 📖 Reading Order
+
+### For New Users
+1. Start with the **[Quick Start Guide](./getting-started/quickstart.md)**
+2. Read **[Basic Usage](./guides/basic-usage.md)** for everyday tasks
+3. Explore **[Advanced Features](./guides/advanced-features.md)** as needed
+
+### For Developers
+1. Review the **[Architecture Overview](./architecture/overview.md)**
+2. Study **[Atomic Transactions](./architecture/atomic-transactions.md)** for data consistency
+3. Check the **[API Documentation](./api/overview.md)** for integration
+
+### For Contributors
+1. Read the **[Contributing Guide](./reference/contributing.md)**
+2. Understand the **[Architecture](./architecture/overview.md)**
+3. Review existing **[Code Examples](../shared/examples/)**
+
+## 🔗 Related Resources
+
+### External Links
+- **[GitHub Repository](https://github.com/mouxangithub/unified-memory)** - Source code and issues
+- **[npm Package](https://www.npmjs.com/package/unified-memory)** - Package distribution
+- **[ClawHub Skill](https://clawhub.ai/)** - Skill marketplace
+
+### Community
+- **[GitHub Discussions](https://github.com/mouxangithub/unified-memory/discussions)** - Community discussions
+- **[Issue Tracker](https://github.com/mouxangithub/unified-memory/issues)** - Bug reports and feature requests
+- **[Contributing Guide](./reference/contributing.md)** - How to contribute
 
 ## 📄 License
 
-This project is open source under the MIT License - see the [LICENSE](../../LICENSE) file for details.
+This documentation is part of the Unified Memory project and is licensed under the MIT License. See the [LICENSE](https://github.com/mouxangithub/unified-memory/blob/main/LICENSE) file for details.
+
+## 🤝 Contributing to Documentation
+
+We welcome contributions to improve this documentation! Please see our [Contributing Guide](./reference/contributing.md) for details on how to:
+
+1. Report documentation issues
+2. Suggest improvements
+3. Submit documentation updates
+4. Translate documentation
+
+## 📞 Support
+
+- **Documentation Issues**: Open an issue on [GitHub](https://github.com/mouxangithub/unified-memory/issues)
+- **Questions**: Use [GitHub Discussions](https://github.com/mouxangithub/unified-memory/discussions)
+- **Bugs**: Report via the [Issue Tracker](https://github.com/mouxangithub/unified-memory/issues)
 
 ---
 
-**Get Started**: [Quick Start Guide](./getting-started/quickstart.md)
+**Last Updated**: 2026-04-15  
+**Version**: v5.2.0  
+**Documentation Version**: 1.0.0  
+
+[← Back to Main Documentation](../README.md)
