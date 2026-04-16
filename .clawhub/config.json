@@ -1,8 +1,8 @@
 {
   "name": "unified-memory",
-  "version": "5.2.4",
-  "description": "Unified Memory - Advanced memory management system with hybrid search (BM25 + Vector + RRF), atomic transactions, and plugin system",
-  "description_zh": "统一记忆系统 - 高级记忆管理系统，支持混合搜索（BM25 + 向量 + RRF）、原子事务和插件系统",
+  "version": "5.2.10",
+  "description": "Unified Memory v5.2.10 - AI Agent 专用记忆系统，支持 Context Tree、智能摘要、知识图谱、工作流引擎、标准 MCP 接口。零依赖，完整对标 QMD/MetaGPT",
+  "description_zh": "统一记忆系统 v5.2.10 - AI Agent 专用记忆系统，支持 Context Tree、智能摘要、知识图谱、工作流引擎、标准 MCP 接口。零依赖，完整对标 QMD/MetaGPT",
   "author": "OpenClaw Team",
   "license": "MIT",
   "repository": {
@@ -48,13 +48,16 @@
   "features": [
     "Hybrid Search (BM25 + Vector + RRF)",
     "Atomic Transactions",
+    "WAL Protocol",
+    "Evidence Chain",
     "Plugin System",
-    "Memory Sync",
-    "Deduplication",
-    "Health Monitoring",
-    "Real-time Analytics",
-    "Multi-language Support",
-    "Scalable Architecture"
+    "Standard MCP Interface",
+    "Multi-Source Intelligence",
+    "Context Engineering",
+    "Intelligent Evaluation",
+    "Structured Output",
+    "Performance Analytics",
+    "Health Monitoring"
   ],
   "performance": {
     "search_speed": "5-10x faster",
