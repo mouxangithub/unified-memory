@@ -1,10 +1,10 @@
 {
   "name": "unified-memory",
-  "version": "5.0.1",
+  "version": "5.2.4",
   "displayName": "Unified Memory",
   "displayNameZh": "统一记忆系统",
-  "description": "🧠 完整的知识管理系统，集成 OpenViking 所有核心功能。分层信息模型 (L0/L1/L2)、Viking URI、意图分析、层级检索、Session 管理、8 类记忆提取、智能去重、生命周期管理。",
-  "descriptionZh": "为 AI Agent 提供持久化、层次化、可检索的长期记忆能力。开箱即用，支持 MCP 协议。",
+  "description": "🧠 Unified Memory v5.2.4 - Advanced memory management system with hybrid search (BM25 + Vector + RRF), atomic transactions, WAL protocol, evidence chain, and plugin system. Complete knowledge management with hierarchical information model, intent analysis, session management, and lifecycle management.",
+  "descriptionZh": "统一记忆系统 v5.2.4 - 高级记忆管理系统，支持混合搜索（BM25 + 向量 + RRF）、原子事务、WAL协议、证据链和插件系统。完整的知识管理，包含分层信息模型、意图分析、会话管理和生命周期管理。",
   "author": {
     "name": "mouxangithub",
     "github": "https://github.com/mouxangithub"
@@ -45,11 +45,13 @@
   ],
   "engines": {
     "node": ">=22.0.0",
-    "openclaw": ">=2026.3.0"
+    "openclaw": ">=2.7.0"
   },
   "installation": {
-    "method": "git clone + npm install",
-    "command": "curl -fsSL https://raw.githubusercontent.com/mouxangithub/unified-memory/main/install.sh | bash",
+    "method": "openclaw skills install",
+    "command": "openclaw skills install unified-memory",
+    "alternative": "git clone https://github.com/mouxangithub/unified-memory.git && cd unified-memory && npm install",
+    "script": "curl -fsSL https://raw.githubusercontent.com/mouxangithub/unified-memory/main/install.sh | bash",
     "verifyCommand": "node src/cli/index.js health"
   },
   "dependencies": {
@@ -72,54 +74,46 @@
     "env": ["OLLAMA_HOST", "OLLAMA_EMBED_MODEL"]
   },
   "features": {
-    "openviking": [
-      "Viking URI 系统",
-      "意图分析 (Intent Analysis)",
-      "类型化查询 (TypedQuery)",
-      "层级检索 (Hierarchical Retrieval)",
-      "重排序 (Rerank)",
-      "Session 管理",
-      "8 类记忆提取",
-      "LLM 去重决策",
-      "文件系统范式",
-      "文档解析器",
-      "关系管理",
-      "分层压缩 (L0/L1/L2)"
-    ],
     "core": [
-      "四层记忆架构 (L0对话录制 → L1记忆提取 → L2场景归纳 → L3用户画像)",
-      "混合搜索 (BM25 + Vector + QMD + MMR + Rerank)",
-      "智能去重与合并",
-      "记忆压缩与摘要",
-      "WAL 事务日志",
-      "多租户团队支持"
+      "混合搜索 (BM25 + Vector + RRF)",
+      "原子事务",
+      "WAL 协议 (Write-Ahead Log)",
+      "证据链机制",
+      "自动组织",
+      "插件系统",
+      "多租户支持",
+      "实时分析"
     ],
     "search": [
       "BM25 全文搜索",
       "向量相似度搜索",
-      "混合搜索",
-      "Query Understanding (QMD)",
+      "混合搜索 (RRF 融合)",
+      "查询理解",
       "最大边际相关性 (MMR)",
-      "重排序 (Rerank)"
+      "重排序"
     ],
     "storage": [
       "JSON 文件存储",
       "WAL 事务日志",
       "冷热数据分层",
-      "自动去重"
+      "自动去重",
+      "版本控制",
+      "备份恢复"
     ],
     "intelligence": [
       "噪声过滤",
       "意图路由",
       "自适应跳过",
       "反思学习",
-      "偏好提取"
+      "偏好提取",
+      "自动摘要"
     ]
   },
   "quickStart": {
-    "store": "mcporter call unified-memory memory_store '{\"content\": \"Hello\", \"category\": \"general\"}'",
-    "search": "mcporter call unified-memory memory_search '{\"query\": \"hello\"}'",
-    "list": "mcporter call unified-memory memory_list '{}'"
+    "store": "mcporter call unified-memory memory_store '{\"content\": \"Hello Unified Memory\", \"metadata\": {\"category\": \"test\"}}'",
+    "search": "mcporter call unified-memory memory_search '{\"query\": \"hello\", \"limit\": 10}'",
+    "list": "mcporter call unified-memory memory_list '{\"limit\": 20}'",
+    "health": "mcporter call unified-memory memory_health '{}'"
   },
   "mcp": {
     "transport": "stdio",
