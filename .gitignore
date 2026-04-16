@@ -5,3 +5,23 @@ wal/
 transcripts/
 memory/
 *.log
+
+# 备份目录
+docs-backup-old/
+archive/
+
+# 临时文件
+*.tmp
+*.temp
+
+# 开发环境文件
+.env
+.env.local
+.env.*.local
+
+# IDE 文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
