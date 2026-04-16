@@ -1,8 +1,11 @@
 {
   "name": "unified-memory",
-  "version": "5.2.0",
+  "version": "5.2.4",
   "type": "module",
-  "description": "🧠 Unified Memory v5.2.0 - 原子写入修复与性能优化 (原子事务 + 插件系统 + 5-10倍检索速度)",
+  "description": "🧠 Unified Memory v5.2.4 - 高级记忆管理系统，支持混合搜索（BM25 + 向量 + RRF）、原子事务、WAL协议、证据链和插件系统",
+  "description_zh": "统一记忆系统 v5.2.4 - 高级记忆管理系统，支持混合搜索（BM25 + 向量 + RRF）、原子事务、WAL协议、证据链和插件系统",
+  "displayName": "Unified Memory",
+  "displayNameZh": "统一记忆系统",
   "homepage": "https://github.com/mouxangithub/unified-memory",
   "repository": {
     "type": "git",

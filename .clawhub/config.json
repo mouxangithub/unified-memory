@@ -1,6 +1,6 @@
 {
   "name": "unified-memory",
-  "version": "5.2.0",
+  "version": "5.2.4",
   "description": "Unified Memory - Advanced memory management system with hybrid search (BM25 + Vector + RRF), atomic transactions, and plugin system",
   "description_zh": "统一记忆系统 - 高级记忆管理系统，支持混合搜索（BM25 + 向量 + RRF）、原子事务和插件系统",
   "author": "OpenClaw Team",
@@ -135,7 +135,7 @@
     "forks": 256,
     "contributors": 18
   },
-  "publish_date": "2026-04-15",
-  "last_updated": "2026-04-15",
-  "next_update": "2026-05-15"
+  "publish_date": "2026-04-16",
+  "last_updated": "2026-04-16",
+  "next_update": "2026-05-16"
 }
