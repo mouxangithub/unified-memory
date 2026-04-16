@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "unified_memory": {
+      "command": "python3",
+      "args": [
+        "${PROJECT_ROOT}/skills/unified-memory/mcp_server.py"
+      ],
+      "env": {
+        "MEMORY_STORAGE_PATH": "${MEMORY_STORAGE_PATH:-${PROJECT_ROOT}/skills/unified-memory/memory/data}",
+        "LOG_LEVEL": "${LOG_LEVEL:-INFO}",
+        "PYTHONPATH": "${PROJECT_ROOT}/skills/unified-memory"
+      }
+    }
+  }
+}
