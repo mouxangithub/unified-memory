@@ -1,235 +1,158 @@
-# Unified Memory
+# Unified Memory Documentation
 
-> 🧠 Advanced memory management system with hybrid search (BM25 + Vector + RRF), atomic transactions, and plugin system
+> 🧠 Enterprise-grade memory management system with hybrid search, atomic transactions, and plugin architecture
 
-[中文文档](../zh/README.md)
+[![Version](https://img.shields.io/badge/version-5.2.0-blue.svg)](https://github.com/mouxangithub/unified-memory)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)](https://nodejs.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## ✨ Features
+## 🚀 Quick Links
 
-### 🔍 **Hybrid Search**
-- **BM25**: Traditional keyword search
-- **Vector Search**: Semantic similarity search
-- **RRF**: Reciprocal Rank Fusion for result combination
-- **5-10x faster** search performance
+| I want to... | Go to |
+|-------------|-------|
+| Get started quickly | [Quick Start](./getting-started/quickstart.md) |
+| Install the system | [Installation Guide](./getting-started/installation.md) |
+| Configure settings | [Configuration Guide](./getting-started/configuration.md) |
+| Learn basic usage | [Basic Usage Guide](./guides/basic-usage.md) |
+| Explore advanced features | [Advanced Usage](./guides/advanced-usage.md) |
+| Build a plugin | [Plugin Development](./guides/plugins.md) |
+| Integrate with my app | [Integration Guide](./guides/integration.md) |
+| Understand the architecture | [Architecture Overview](./architecture/overview.md) |
+| Find API reference | [API Reference](./api/overview.md) |
+| Troubleshoot issues | [Troubleshooting](./reference/troubleshooting.md) |
 
-### ⚡ **Atomic Transactions**
-- **WAL (Write-Ahead Logging)**: Data consistency
-- **Rollback Support**: Transaction rollback on failure
-- **ACID Compliance**: Database transaction guarantees
+## ✨ Key Features
 
-### 🔌 **Plugin System**
-- **Hot Reload**: Plugins can be reloaded without restart
+### 🔍 Hybrid Search
+Unified Memory combines multiple search algorithms for optimal relevance:
+- **BM25**: Traditional keyword-based search
+- **Vector Search**: Semantic similarity using embeddings
+- **RRF (Reciprocal Rank Fusion)**: Combines results from multiple rankers
+
+### ⚡ Atomic Transactions
+Enterprise-grade data consistency:
+- **WAL (Write-Ahead Logging)**: Crash recovery guarantee
+- **Two-Phase Commit**: Atomic writes across JSON and vector storage
+- **fsync Guarantee**: Data is written to disk, preventing loss
+
+### 🔌 Plugin System
+Extensible architecture with hot-reload support:
 - **Lifecycle Hooks**: Before/after operation hooks
-- **Extensible Architecture**: Easy to add new features
+- **Sync Bridges**: Connect to external memory systems
+- **Custom Processors**: Add custom memory processing
 
-### 📊 **Performance**
-- **60% storage reduction** through optimization
-- **78% cache hit rate** with intelligent caching
-- **45ms average query time** for searches
+### 📊 Performance
+Optimized for production workloads:
+- **5-10x faster** search with optimized vector engine
+- **60% storage reduction** through intelligent compression
+- **78% cache hit rate** with semantic caching
+- **45ms average query time**
 
-## 🚀 Quick Start
+## 📦 Quick Start
 
-### Installation
 ```bash
-# Install via OpenClaw
-openclaw skills install unified-memory
+# Install
+curl -fsSL https://raw.githubusercontent.com/mouxangithub/unified-memory/main/install.sh | bash
 
-# Or clone manually
-git clone https://github.com/mouxangithub/unified-memory.git
-cd unified-memory
-npm install
+# Store a memory
+unified-memory add "Remember to review quarterly reports" --tags work,reminder
+
+# Search memories
+unified-memory search "quarterly reports"
+
+# Use via JavaScript API
+node -e "
+const { addMemory, searchMemories } = require('unified-memory');
+(async () => {
+  await addMemory({ text: 'My preference for morning meetings', tags: ['preference'] });
+  const results = await searchMemories('meeting schedule');
+  console.log(results);
+})();
+"
 ```
-
-### Basic Usage
-```javascript
-// Store a memory
-const result = await mcp.call('unified-memory', 'memory_store', {
-  content: 'Today I learned about atomic writes.',
-  category: 'learning',
-  tags: ['database', 'atomic']
-});
-
-// Search memories
-const searchResult = await mcp.call('unified-memory', 'memory_search', {
-  query: 'atomic writes database',
-  limit: 10
-});
-```
-
-## 📖 Documentation
-
-### Getting Started
-- [Quick Start Guide](getting-started/quickstart.md)
-- [Installation Guide](getting-started/installation.md)
-- [Configuration Guide](getting-started/configuration.md)
-
-### Guides
-- [Basic Usage](guides/basic-usage.md)
-- [Advanced Usage](guides/advanced-usage.md)
-- [Performance Optimization](guides/performance.md)
-- [Troubleshooting](guides/troubleshooting.md)
-
-### API Reference
-- [API Overview](api/overview.md)
-- [API Functions](api/functions.md)
-- [API Examples](api/examples.md)
-
-### Architecture
-- [Architecture Overview](architecture/overview.md)
-- [Architecture Decisions](../../ARCHITECTURE_DECISIONS.md)
-- [Component Documentation](architecture/components.md)
-
-### Contributing
-- [Contribution Guidelines](contributing/guidelines.md)
-- [Code of Conduct](contributing/code-of-conduct.md)
-- [Development Setup](contributing/development.md)
 
 ## 🏗️ Architecture
 
-### System Architecture
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Client Applications                      │
-│  (OpenClaw, Web UI, CLI, API Clients, MCP Clients)         │
+│                    Client Applications                       │
+│        (OpenClaw, Web UI, CLI, API, MCP Clients)            │
 └───────────────────────────┬─────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
-│                    API Gateway Layer                         │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐           │
-│  │ REST API   │  │ MCP Server │  │ WebSocket  │           │
-│  └────────────┘  └────────────┘  └────────────┘           │
+│                    API Gateway Layer                        │
+│           (REST API, MCP Server, WebSocket)                 │
 └───────────────────────────┬─────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
 │                    Service Layer                            │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐           │
-│  │ Memory     │  │ Search     │  │ Cache      │           │
-│  │ Service    │  │ Service    │  │ Service    │           │
-│  └────────────┘  └────────────┘  └────────────┘           │
+│     (Memory Service, Search Service, Cache Service)           │
 └───────────────────────────┬─────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
 │                    Storage Layer                            │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐           │
-│  │ SQLite     │  │ Vector     │  │ File       │           │
-│  │ Database   │  │ Database   │  │ System     │           │
-│  └────────────┘  └────────────┘  └────────────┘           │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-┌───────────────────────────▼─────────────────────────────────┐
-│                    Infrastructure Layer                     │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐           │
-│  │ Monitoring │  │ Logging    │  │ Plugins    │           │
-│  │ System     │  │ System     │  │ System     │           │
-│  └────────────┘  └────────────┘  └────────────┘           │
+│        (SQLite, Vector Database, File System)                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Technology Stack
-- **Backend**: Node.js, Express.js, SQLite
-- **Search**: BM25, Vector Search, RRF
-- **Frontend**: React, TypeScript, Tailwind CSS
-- **DevOps**: Docker, Kubernetes, GitHub Actions
+## 📚 Documentation Sections
 
-## 📈 Performance Metrics
+### Getting Started
+- [Quick Start](./getting-started/quickstart.md) - 5-minute introduction
+- [Installation](./getting-started/installation.md) - Full installation guide
+- [Configuration](./getting-started/configuration.md) - Configuration options
 
-| Metric | Value | Improvement |
-|--------|-------|-------------|
-| Search Speed | 5-10x faster | 400-900% |
-| Storage Usage | 60% reduction | 40% of original |
-| Cache Hit Rate | 78% | Optimal caching |
-| Average Query Time | 45ms | Real-time response |
-| Memory Usage | 245.6 MB | Efficient memory management |
-| Total Memories | 1,760 | Comprehensive coverage |
-| Total Categories | 49 | Organized structure |
-| Total Tags | 181 | Detailed categorization |
+### User Guides
+- [Basic Usage](./guides/basic-usage.md) - Core operations
+- [Advanced Usage](./guides/advanced-usage.md) - Advanced features
+- [Plugin Development](./guides/plugins.md) - Build plugins
+- [Integration](./guides/integration.md) - Connect to other systems
+
+### Architecture
+- [Overview](./architecture/overview.md) - System design
+- [Design Principles](./architecture/design-principles.md) - Key principles
+- [Modules](./architecture/modules.md) - Module reference
+- [Data Flow](./architecture/data-flow.md) - How data moves through the system
+
+### API Reference
+- [Overview](./api/overview.md) - API introduction
+- [Core API](./api/core-api.md) - Core functions
+- [MCP Tools](./api/mcp-tools.md) - MCP tool reference
+- [Plugin API](./api/plugin-api.md) - Plugin development
+
+### Reference
+- [Configuration Reference](./reference/configuration.md) - All config options
+- [Troubleshooting](./reference/troubleshooting.md) - Common issues
+- [FAQ](./reference/faq.md) - Frequently asked questions
 
 ## 🔧 Development
 
-### Prerequisites
-- Node.js >= 18.0.0
-- Git
-- OpenClaw >= 2.7.0
-
-### Setup
 ```bash
-# Clone repository
+# Clone and setup
 git clone https://github.com/mouxangithub/unified-memory.git
 cd unified-memory
-
-# Install dependencies
 npm install
-
-# Start development server
-npm run dev
 
 # Run tests
 npm test
-```
 
-### Scripts
-```bash
-# Development
-npm run dev          # Start development server
-npm run lint         # Check code style
-npm run format       # Format code
-
-# Testing
-npm test             # Run tests
-npm run test:watch   # Watch mode
-npm run test:coverage # Coverage report
-
-# Building
-npm run build        # Build for production
-npm run clean        # Clean build artifacts
-
-# Deployment
-npm run deploy       # Deploy to production
+# Build for production
+npm run build
 ```
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guidelines](contributing/guidelines.md) for details.
-
-### Contribution Levels
-1. **First-time Contributor**: Fix typos, add tests, report bugs
-2. **Regular Contributor**: Implement features, fix bugs, improve docs
-3. **Core Contributor**: Major features, architecture improvements
-4. **Maintainer**: Code review, releases, community management
-
-### Getting Help
-- [GitHub Issues](https://github.com/mouxangithub/unified-memory/issues)
-- [GitHub Discussions](https://github.com/mouxangithub/unified-memory/discussions)
-- [Documentation](README.md)
+We welcome contributions! Please read our [Contributing Guidelines](./contributing/guidelines.md) before submitting PRs.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](../../LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **OpenClaw Team** - For the amazing platform
-- **Contributors** - For making this project better
-- **Community** - For feedback and support
+MIT License - see [LICENSE](../../LICENSE) file for details.
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/mouxangithub/unified-memory/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/mouxangithub/unified-memory/discussions)
-- **Email**: team@openclaw.ai
-
-## 🔗 Links
-
-- [GitHub Repository](https://github.com/mouxangithub/unified-memory)
-- [Documentation](README.md)
-- [Changelog](../../CHANGELOG.md)
-- [Contributing Guidelines](contributing/guidelines.md)
+- [GitHub Issues](https://github.com/mouxangithub/unified-memory/issues)
+- [GitHub Discussions](https://github.com/mouxangithub/unified-memory/discussions)
 
 ---
 
-**Made with ❤️ by the OpenClaw Team**
-
-[![npm version](https://img.shields.io/npm/v/unified-memory)](https://www.npmjs.com/package/unified-memory)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub stars](https://img.shields.io/github/stars/mouxangithub/unified-memory)](https://github.com/mouxangithub/unified-memory/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/mouxangithub/unified-memory)](https://github.com/mouxangithub/unified-memory/network)
+**Version**: 5.2.0 | **Last Updated**: 2026-04-20

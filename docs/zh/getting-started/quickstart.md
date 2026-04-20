@@ -1,283 +1,260 @@
-# 快速开始指南
+# 快速入门
 
-[English](../../en/getting-started/quickstart.md) · [中文](./quickstart.md)
+> 5分钟内开始使用 Unified Memory。
 
-本指南将帮助您在 5 分钟内开始使用 Unified Memory。
+## 🚀 安装（一键命令）
 
-## 🚀 安装
-
-### 选项 1: 使用安装脚本 (推荐)
 ```bash
-# 一键安装
 curl -fsSL https://raw.githubusercontent.com/mouxangithub/unified-memory/main/install.sh | bash
 ```
 
-### 选项 2: 使用 npm
+验证安装：
 ```bash
-# 全局安装
-npm install -g unified-memory
-
-# 或在项目中本地安装
-npm install unified-memory
-```
-
-### 选项 3: 手动安装
-```bash
-# 克隆仓库
-git clone https://github.com/mouxangithub/unified-memory.git
-cd unified-memory
-
-# 安装依赖
-npm install
-
-# 构建项目
-npm run deploy
-```
-
-## 📦 验证安装
-
-```bash
-# 检查安装是否成功
 unified-memory --version
-# 应该输出: v5.2.0
-
-# 或如果本地安装
-node -e "console.log(require('unified-memory').version)"
-```
-
-## 🔧 基础配置
-
-在 `~/.unified-memory/config.json` 创建配置文件：
-
-```json
-{
-  "storage": {
-    "mode": "json",
-    "memoryFile": "~/.unified-memory/memories.json",
-    "vectorStore": {
-      "backend": "lancedb",
-      "path": "~/.unified-memory/vector.lance"
-    }
-  },
-  "transaction": {
-    "enable": true,
-    "recoveryLog": "~/.unified-memory/transaction-recovery.log"
-  }
-}
+# 输出：v5.2.0
 ```
 
 ## 💡 您的第一个记忆
 
-### 使用 JavaScript/TypeScript
-```javascript
-import { addMemory, searchMemories } from 'unified-memory';
-
-// 添加第一个记忆
-const memoryId = await addMemory({
-  text: "记得查看季度报告",
-  tags: ["工作", "提醒", "报告"],
-  metadata: {
-    priority: "高",
-    category: "工作",
-    createdBy: "user123"
-  }
-});
-
-console.log(`记忆已添加，ID: ${memoryId}`);
-
-// 搜索记忆
-const results = await searchMemories("季度报告");
-console.log("搜索结果:", results);
-```
-
 ### 使用 CLI
+
 ```bash
-# 通过 CLI 添加记忆
-unified-memory add "记得查看季度报告" --tags 工作,提醒,报告
+# 添加记忆
+unified-memory add "Remember to review quarterly reports" --tags work,reminder
 
 # 搜索记忆
-unified-memory search "季度报告"
+unified-memory search "quarterly reports"
 
 # 列出所有记忆
 unified-memory list
+
+# 查看特定记忆
+unified-memory get <memory-id>
+
+# 删除记忆
+unified-memory delete <memory-id>
 ```
 
-## 🔍 基础搜索示例
+### 使用 JavaScript/TypeScript
 
-### 简单文本搜索
 ```javascript
-const results = await searchMemories("会议记录");
+const { addMemory, searchMemories, getAllMemories, getMemory, deleteMemory } = require('unified-memory');
+
+async function main() {
+  // 添加记忆
+  const memoryId = await addMemory({
+    text: "User prefers morning meetings",
+    category: "preference",
+    importance: 0.8,
+    tags: ["meetings", "schedule"],
+    metadata: { priority: "high" }
+  });
+  console.log(`Added memory: ${memoryId}`);
+
+  // 搜索记忆
+  const results = await searchMemories("meeting schedule");
+  console.log("Search results:", results);
+
+  // 获取所有记忆
+  const allMemories = await getAllMemories();
+  console.log(`Total memories: ${allMemories.length}`);
+
+  // 获取特定记忆
+  const memory = await getMemory(memoryId);
+  console.log(memory);
+
+  // 删除记忆
+  await deleteMemory(memoryId);
+  console.log("Deleted memory");
+}
+
+main().catch(console.error);
+```
+
+### 使用 MCP 工具
+
+```javascript
+// 通过 MCP 客户端（例如 OpenClaw）
+const result = await mcp.call('unified-memory', 'memory_store', {
+  text: "Important meeting tomorrow at 9 AM",
+  category: "fact",
+  importance: 0.9,
+  tags: ["meeting", "important"]
+});
+
+const searchResult = await mcp.call('unified-memory', 'memory_search', {
+  query: "meeting tomorrow",
+  topK: 5,
+  mode: "hybrid"
+});
+```
+
+## 🔍 搜索示例
+
+### 简单搜索
+```javascript
+const results = await searchMemories("quarterly reports");
+```
+
+### 混合搜索（BM25 + 向量）
+```javascript
+const results = await searchMemories("important deadlines", {
+  mode: "hybrid",
+  vectorWeight: 0.7,
+  bm25Weight: 0.3,
+  topK: 10
+});
 ```
 
 ### 带过滤器的搜索
 ```javascript
-const results = await searchMemories("项目", {
+const results = await searchMemories("project update", {
   filters: {
-    tags: ["工作", "紧急"],
-    metadata: {
-      priority: "高"
-    }
-  },
-  limit: 10
+    category: "fact",
+    tags: ["work"],
+    importance: { min: 0.7 }
+  }
 });
 ```
 
-### 混合搜索 (BM25 + 向量)
-```javascript
-const results = await searchMemories("重要截止日期", {
-  searchType: "hybrid",  // 选项: "bm25", "vector", "hybrid"
-  vectorWeight: 0.7,     // 向量相似度权重 (0-1)
-  bm25Weight: 0.3        // BM25 相关性权重 (0-1)
-});
-```
+## 🔄 原子事务
 
-## 📊 查看记忆
-
-### 获取所有记忆
-```javascript
-const allMemories = await getAllMemories({
-  limit: 50,
-  offset: 0,
-  sortBy: "createdAt",
-  sortOrder: "desc"
-});
-```
-
-### 按 ID 获取记忆
-```javascript
-const memory = await getMemory(memoryId);
-console.log(memory);
-```
-
-### 获取记忆统计
-```javascript
-const stats = await getMemoryStats();
-console.log(stats);
-// 输出: { total: 150, byTag: { work: 50, personal: 100 }, ... }
-```
-
-## 🔄 原子事务示例
-
-Unified Memory v5.2.0 保证原子写入：
+在存储多个相关记忆时保证数据一致性：
 
 ```javascript
-import { beginTransaction, commitTransaction, rollbackTransaction } from 'unified-memory';
+const { beginTransaction, commitTransaction, rollbackTransaction, addMemory } = require('unified-memory');
 
-try {
-  // 开始事务
+async function storeTransaction() {
   const tx = await beginTransaction();
   
-  // 原子性地添加多个记忆
-  await addMemory({
-    text: "事务中的第一个记忆",
-    tags: ["事务", "测试"]
-  }, { transaction: tx });
-  
-  await addMemory({
-    text: "事务中的第二个记忆",
-    tags: ["事务", "测试"]
-  }, { transaction: tx });
-  
-  // 提交 - 两个记忆都原子性地保存
-  await commitTransaction(tx);
-  console.log("事务提交成功");
-  
-} catch (error) {
-  // 如果任何操作失败，事务回滚
-  await rollbackTransaction(tx);
-  console.error("事务回滚:", error);
+  try {
+    await addMemory({
+      text: "Project kickoff meeting",
+      tags: ["project", "meeting"]
+    }, { transaction: tx });
+    
+    await addMemory({
+      text: "Project deadline is Dec 31",
+      tags: ["project", "deadline"]
+    }, { transaction: tx });
+    
+    await commitTransaction(tx);
+    console.log("Transaction committed successfully");
+  } catch (error) {
+    await rollbackTransaction(tx);
+    console.error("Transaction rolled back:", error);
+  }
 }
 ```
 
-## 🔌 插件系统快速开始
+## 🏷️ 记忆类别
 
-### 与 Workspace Memory 同步
+记忆被分类以便更好地组织：
+
+| 类别 | 描述 |
+|------|------|
+| `preference` | 用户偏好和喜好 |
+| `fact` | 事实信息 |
+| `decision` | 做出的决定 |
+| `entity` | 人、地点、事物 |
+| `reflection` | 想法和反思 |
+
+## 📊 查看统计
+
 ```bash
-# 手动同步
+unified-memory stats
+```
+
+输出：
+```
+Total Memories: 150
+Categories: 5
+Tags: 42
+
+By Tier:
+  HOT: 45 (30%)
+  WARM: 60 (40%)
+  COLD: 45 (30%)
+
+By Scope:
+  USER: 120
+  AGENT: 20
+  TEAM: 10
+```
+
+## 🔌 插件快速入门
+
+### 启用工作区同步
+
+```bash
+# 与 Workspace Memory 同步记忆
 npm run sync:manual
 
-# 定时同步 (每日凌晨2点)
+# 安排自动同步
 npm run sync
 ```
 
-### 统一查询接口
-```bash
-# 跨所有记忆系统搜索
-npm run query:unified -- "搜索关键词"
-
-# 在端口 3851 启动查询服务器
-npm run query:unified -- --server 3851
-```
-
 ### 健康监控
+
 ```bash
 # 检查系统健康
 npm run monitor
 
-# 查看仪表板
+# 启动监控仪表板
 npm run monitor:dashboard
 ```
 
-## 🧪 测试您的设置
+## 🧪 验证安装
 
-### 运行基础测试
 ```bash
-# 验证核心功能
+# 运行验证测试
 npm run verify
 
 # 运行单元测试
 npm run test:unit
 
-# 运行集成测试
-npm run test:integration
+# 测试原子写入
+npm run test:atomic
 ```
 
-### 测试原子写入
+## 🚨 常见问题
+
+### "命令未找到"
 ```bash
-# 测试事务安全性
-npm run test:unit -- --test atomic-transactions
+# 重新安装
+npm install -g unified-memory
+# 或添加到 PATH
+export PATH="$(npm root -g)/bin:$PATH"
 ```
 
-## 🚨 故障排除
+### 向量存储错误
+```bash
+# 重新初始化向量存储
+rm -rf ~/.unified-memory/vector.lance
+unified-memory init
+```
 
-### 常见问题
+### Ollama 连接失败
+```bash
+# 启动 Ollama
+ollama serve
 
-1. **"Module not found" 错误**
-   ```bash
-   # 重新安装依赖
-   npm install
-   ```
-
-2. **向量存储初始化失败**
-   ```bash
-   # 重新初始化向量存储
-   rm -rf ~/.unified-memory/vector.lance
-   unified-memory init
-   ```
-
-3. **权限错误**
-   ```bash
-   # 修复权限
-   chmod 755 ~/.unified-memory
-   ```
-
-### 获取帮助
-
-- 查看[故障排除指南](../guides/troubleshooting.md)
-- 搜索[GitHub Issues](https://github.com/mouxangithub/unified-memory/issues)
-- 查阅[常见问题](../reference/faq.md)
+# 拉取嵌入模型
+ollama pull nomic-embed-text
+```
 
 ## 📈 下一步
 
-完成快速开始后，探索：
+| 目标 | 指南 |
+|------|------|
+| 学习更多操作 | [基础使用指南](../guides/basic-usage.md) |
+| 高级功能 | [高级使用](../guides/advanced-usage.md) |
+| 构建插件 | [插件开发](../guides/plugins.md) |
+| 理解内部原理 | [架构概述](../architecture/overview.md) |
+| API 参考 | [API 参考](../api/overview.md) |
 
-1. **[高级功能](../guides/advanced-features.md)** - 了解高级功能
-2. **[API 文档](../api/overview.md)** - 完整的 API 参考
-3. **[插件系统](../guides/plugins.md)** - 使用插件扩展功能
-4. **[性能调优](../reference/configuration.md)** - 为您的用例优化
+## 💬 需要帮助？
 
----
-
-**需要帮助？** 加入我们的社区或在 GitHub 上提出问题！
-
-[← 返回文档](../../README_CN.md) · [下一步: 高级功能 →](../guides/advanced-features.md)
+- [故障排除指南](../reference/troubleshooting.md)
+- [FAQ](../reference/faq.md)
+- [GitHub Issues](https://github.com/mouxangithub/unified-memory/issues)

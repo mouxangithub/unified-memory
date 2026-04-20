@@ -1,283 +1,260 @@
 # Quick Start Guide
 
-[English](./quickstart.md) · [中文](../../zh/getting-started/quickstart.md)
+> Get started with Unified Memory in 5 minutes.
 
-This guide will help you get started with Unified Memory in under 5 minutes.
+## 🚀 Installation (One Command)
 
-## 🚀 Installation
-
-### Option 1: Using Install Script (Recommended)
 ```bash
-# Install with one command
 curl -fsSL https://raw.githubusercontent.com/mouxangithub/unified-memory/main/install.sh | bash
 ```
 
-### Option 2: Using npm
+Verify installation:
 ```bash
-# Install globally
-npm install -g unified-memory
-
-# Or install locally in your project
-npm install unified-memory
-```
-
-### Option 3: Manual Installation
-```bash
-# Clone the repository
-git clone https://github.com/mouxangithub/unified-memory.git
-cd unified-memory
-
-# Install dependencies
-npm install
-
-# Build the project
-npm run deploy
-```
-
-## 📦 Verify Installation
-
-```bash
-# Check if installation was successful
 unified-memory --version
-# Should output: v5.2.0
-
-# Or if installed locally
-node -e "console.log(require('unified-memory').version)"
-```
-
-## 🔧 Basic Configuration
-
-Create a configuration file at `~/.unified-memory/config.json`:
-
-```json
-{
-  "storage": {
-    "mode": "json",
-    "memoryFile": "~/.unified-memory/memories.json",
-    "vectorStore": {
-      "backend": "lancedb",
-      "path": "~/.unified-memory/vector.lance"
-    }
-  },
-  "transaction": {
-    "enable": true,
-    "recoveryLog": "~/.unified-memory/transaction-recovery.log"
-  }
-}
+# Output: v5.2.0
 ```
 
 ## 💡 Your First Memory
 
-### Using JavaScript/TypeScript
-```javascript
-import { addMemory, searchMemories } from 'unified-memory';
+### Using the CLI
 
-// Add your first memory
-const memoryId = await addMemory({
-  text: "Remember to check the quarterly reports",
-  tags: ["work", "reminder", "reports"],
-  metadata: {
-    priority: "high",
-    category: "work",
-    createdBy: "user123"
-  }
-});
-
-console.log(`Memory added with ID: ${memoryId}`);
-
-// Search for memories
-const results = await searchMemories("quarterly reports");
-console.log("Search results:", results);
-```
-
-### Using CLI
 ```bash
-# Add a memory via CLI
-unified-memory add "Remember to check the quarterly reports" --tags work,reminder,reports
+# Add a memory
+unified-memory add "Remember to review quarterly reports" --tags work,reminder
 
 # Search memories
 unified-memory search "quarterly reports"
 
 # List all memories
 unified-memory list
+
+# View a specific memory
+unified-memory get <memory-id>
+
+# Delete a memory
+unified-memory delete <memory-id>
 ```
 
-## 🔍 Basic Search Examples
+### Using JavaScript/TypeScript
 
-### Simple Text Search
 ```javascript
-const results = await searchMemories("meeting notes");
+const { addMemory, searchMemories, getAllMemories, getMemory, deleteMemory } = require('unified-memory');
+
+async function main() {
+  // Add a memory
+  const memoryId = await addMemory({
+    text: "User prefers morning meetings",
+    category: "preference",
+    importance: 0.8,
+    tags: ["meetings", "schedule"],
+    metadata: { priority: "high" }
+  });
+  console.log(`Added memory: ${memoryId}`);
+
+  // Search memories
+  const results = await searchMemories("meeting schedule");
+  console.log("Search results:", results);
+
+  // Get all memories
+  const allMemories = await getAllMemories();
+  console.log(`Total memories: ${allMemories.length}`);
+
+  // Get specific memory
+  const memory = await getMemory(memoryId);
+  console.log(memory);
+
+  // Delete memory
+  await deleteMemory(memoryId);
+  console.log("Deleted memory");
+}
+
+main().catch(console.error);
 ```
 
-### Search with Filters
+### Using MCP Tools
+
 ```javascript
-const results = await searchMemories("project", {
-  filters: {
-    tags: ["work", "urgent"],
-    metadata: {
-      priority: "high"
-    }
-  },
-  limit: 10
+// Via MCP client (e.g., OpenClaw)
+const result = await mcp.call('unified-memory', 'memory_store', {
+  text: "Important meeting tomorrow at 9 AM",
+  category: "fact",
+  importance: 0.9,
+  tags: ["meeting", "important"]
 });
+
+const searchResult = await mcp.call('unified-memory', 'memory_search', {
+  query: "meeting tomorrow",
+  topK: 5,
+  mode: "hybrid"
+});
+```
+
+## 🔍 Search Examples
+
+### Simple Search
+```javascript
+const results = await searchMemories("quarterly reports");
 ```
 
 ### Hybrid Search (BM25 + Vector)
 ```javascript
 const results = await searchMemories("important deadlines", {
-  searchType: "hybrid",  // Options: "bm25", "vector", "hybrid"
-  vectorWeight: 0.7,     // Weight for vector similarity (0-1)
-  bm25Weight: 0.3        // Weight for BM25 relevance (0-1)
+  mode: "hybrid",
+  vectorWeight: 0.7,
+  bm25Weight: 0.3,
+  topK: 10
 });
 ```
 
-## 📊 Viewing Memories
-
-### Get All Memories
+### Search with Filters
 ```javascript
-const allMemories = await getAllMemories({
-  limit: 50,
-  offset: 0,
-  sortBy: "createdAt",
-  sortOrder: "desc"
+const results = await searchMemories("project update", {
+  filters: {
+    category: "fact",
+    tags: ["work"],
+    importance: { min: 0.7 }
+  }
 });
 ```
 
-### Get Memory by ID
-```javascript
-const memory = await getMemory(memoryId);
-console.log(memory);
-```
+## 🔄 Atomic Transactions
 
-### Get Memory Statistics
-```javascript
-const stats = await getMemoryStats();
-console.log(stats);
-// Output: { total: 150, byTag: { work: 50, personal: 100 }, ... }
-```
-
-## 🔄 Atomic Transactions Example
-
-Unified Memory v5.2.0 guarantees atomic writes:
+Guarantee data consistency when storing multiple related memories:
 
 ```javascript
-import { beginTransaction, commitTransaction, rollbackTransaction } from 'unified-memory';
+const { beginTransaction, commitTransaction, rollbackTransaction, addMemory } = require('unified-memory');
 
-try {
-  // Start a transaction
+async function storeTransaction() {
   const tx = await beginTransaction();
   
-  // Add multiple memories atomically
-  await addMemory({
-    text: "First memory in transaction",
-    tags: ["transaction", "test"]
-  }, { transaction: tx });
-  
-  await addMemory({
-    text: "Second memory in transaction",
-    tags: ["transaction", "test"]
-  }, { transaction: tx });
-  
-  // Commit - both memories are saved atomically
-  await commitTransaction(tx);
-  console.log("Transaction committed successfully");
-  
-} catch (error) {
-  // If anything fails, the transaction is rolled back
-  await rollbackTransaction(tx);
-  console.error("Transaction rolled back:", error);
+  try {
+    await addMemory({
+      text: "Project kickoff meeting",
+      tags: ["project", "meeting"]
+    }, { transaction: tx });
+    
+    await addMemory({
+      text: "Project deadline is Dec 31",
+      tags: ["project", "deadline"]
+    }, { transaction: tx });
+    
+    await commitTransaction(tx);
+    console.log("Transaction committed successfully");
+  } catch (error) {
+    await rollbackTransaction(tx);
+    console.error("Transaction rolled back:", error);
+  }
 }
 ```
 
-## 🔌 Plugin System Quick Start
+## 🏷️ Memory Categories
 
-### Sync with Workspace Memory
+Memories are categorized for better organization:
+
+| Category | Description |
+|----------|-------------|
+| `preference` | User preferences and likes |
+| `fact` | Factual information |
+| `decision` | Decisions made |
+| `entity` | People, places, things |
+| `reflection` | Thoughts and reflections |
+
+## 📊 View Statistics
+
 ```bash
-# Manual sync
+unified-memory stats
+```
+
+Output:
+```
+Total Memories: 150
+Categories: 5
+Tags: 42
+
+By Tier:
+  HOT: 45 (30%)
+  WARM: 60 (40%)
+  COLD: 45 (30%)
+
+By Scope:
+  USER: 120
+  AGENT: 20
+  TEAM: 10
+```
+
+## 🔌 Plugin Quick Start
+
+### Enable Workspace Sync
+
+```bash
+# Sync memories with Workspace Memory
 npm run sync:manual
 
-# Schedule daily sync at 2 AM
+# Schedule automatic sync
 npm run sync
 ```
 
-### Unified Query Interface
-```bash
-# Search across all memory systems
-npm run query:unified -- "search keywords"
-
-# Start query server on port 3851
-npm run query:unified -- --server 3851
-```
-
 ### Health Monitoring
+
 ```bash
 # Check system health
 npm run monitor
 
-# View dashboard
+# Start monitoring dashboard
 npm run monitor:dashboard
 ```
 
-## 🧪 Testing Your Setup
+## 🧪 Verify Installation
 
-### Run Basic Tests
 ```bash
-# Verify core functionality
+# Run verification tests
 npm run verify
 
 # Run unit tests
 npm run test:unit
 
-# Run integration tests
-npm run test:integration
+# Test atomic writes
+npm run test:atomic
 ```
 
-### Test Atomic Writes
+## 🚨 Common Issues
+
+### "Command not found"
 ```bash
-# Test transaction safety
-npm run test:unit -- --test atomic-transactions
+# Reinstall
+npm install -g unified-memory
+# Or add to PATH
+export PATH="$(npm root -g)/bin:$PATH"
 ```
 
-## 🚨 Troubleshooting
+### Vector store error
+```bash
+# Reinitialize vector store
+rm -rf ~/.unified-memory/vector.lance
+unified-memory init
+```
 
-### Common Issues
+### Ollama connection failed
+```bash
+# Start Ollama
+ollama serve
 
-1. **"Module not found" error**
-   ```bash
-   # Reinstall dependencies
-   npm install
-   ```
-
-2. **Vector store initialization failed**
-   ```bash
-   # Reinitialize vector store
-   rm -rf ~/.unified-memory/vector.lance
-   unified-memory init
-   ```
-
-3. **Permission errors**
-   ```bash
-   # Fix permissions
-   chmod 755 ~/.unified-memory
-   ```
-
-### Getting Help
-
-- Check the [Troubleshooting Guide](../guides/troubleshooting.md)
-- Search [GitHub Issues](https://github.com/mouxangithub/unified-memory/issues)
-- Review the [FAQ](../reference/faq.md)
+# Pull embedding model
+ollama pull nomic-embed-text
+```
 
 ## 📈 Next Steps
 
-Now that you've completed the quick start, explore:
+| Goal | Guide |
+|------|-------|
+| Learn more operations | [Basic Usage Guide](../guides/basic-usage.md) |
+| Advanced features | [Advanced Usage](../guides/advanced-usage.md) |
+| Build plugins | [Plugin Development](../guides/plugins.md) |
+| Understand internals | [Architecture Overview](../architecture/overview.md) |
+| API reference | [API Reference](../api/overview.md) |
 
-1. **[Advanced Features](../guides/advanced-features.md)** - Learn about advanced capabilities
-2. **[API Documentation](../api/overview.md)** - Full API reference
-3. **[Plugin System](../guides/plugins.md)** - Extend functionality with plugins
-4. **[Performance Tuning](../reference/configuration.md)** - Optimize for your use case
+## 💬 Need Help?
 
----
-
-**Need help?** Join our community or open an issue on GitHub!
-
-[← Back to Documentation](../../README.md) · [Next: Advanced Features →](../guides/advanced-features.md)
+- [Troubleshooting Guide](../reference/troubleshooting.md)
+- [FAQ](../reference/faq.md)
+- [GitHub Issues](https://github.com/mouxangithub/unified-memory/issues)
