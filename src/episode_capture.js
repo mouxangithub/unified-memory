@@ -18,7 +18,7 @@
  */
 
 import { startEpisode, addMessage, completeEpisode } from './episode_manager.js';
-import { EPISODE_STATES } from './episode_store.js';
+import { EPISODE_STATUS } from './episode_store.js';
 
 const DEFAULT_GAP_MS = 5 * 60 * 1000;      // 5 minute gap → new episode
 const DEFAULT_MAX_MESSAGES = 100;           // force new episode after N messages

@@ -174,16 +174,15 @@ unified-memory/
 - [Troubleshooting](./en/guides/troubleshooting.md)
 
 ### API Documentation
-- [API Overview](./en/api/overview.md)
-- [Storage API](./en/api/storage-api.md)
-- [Vector API](./en/api/vector-api.md)
-- [Plugin API](./en/api/plugin-api.md)
+- [API Reference (English)](./en/api/README.md)
+- [API 参考 (中文)](./zh/api/README.md)
+- [Architecture Guide](./ARCHITECTURE.md)
+- [MCP Configuration](./MCP-CONFIG-GUIDE.md)
 
 ### Architecture
-- [Architecture Overview](./en/architecture/overview.md)
-- [Atomic Transactions](./en/architecture/atomic-transactions.md)
-- [Vector Search](./en/architecture/vector-search.md)
-- [Plugin System](./en/architecture/plugin-system.md)
+- [Module Architecture](./ARCHITECTURE.md)
+- [Architecture Decisions](./ARCHITECTURE_DECISIONS.md)
+- [Project Structure](./STRUCTURE.md)
 
 ### Reference
 - [CLI Reference](./en/reference/cli-reference.md)

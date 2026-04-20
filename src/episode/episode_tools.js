@@ -278,4 +278,8 @@ function generateEpisodeSummary(episode) {
   };
 }
 
+// Aliases for consistent naming (episodes can be "started" or "created", "ended" or "completed")
+export { createEpisode as startEpisode };
+export { endEpisode as completeEpisode };
+
 export default { registerEpisodeTools };

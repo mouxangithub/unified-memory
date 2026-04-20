@@ -20,10 +20,10 @@ import { fileURLToPath } from 'url';
 import { config } from './config.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const EPISODE_STATES = {
-  ACTIVE: 'ACTIVE',
-  COMPLETED: 'COMPLETED',
-  ARCHIVED: 'ARCHIVED',
+const EPISODE_STATUS = {
+  ACTIVE: 'active',
+  COMPLETED: 'completed',
+  ARCHIVED: 'archived',
 };
 
 const EPISODE_FILE = join(config.memoryDir, 'episodes.json');
@@ -100,7 +100,7 @@ export function createEpisode(sessionId, participants = [], metadata = {}) {
 
   // Check for existing active episode with same sessionId
   const existing = store.episodes.find(
-    e => e.sessionId === sessionId && e.state === EPISODE_STATES.ACTIVE
+    e => e.sessionId === sessionId && e.state === EPISODE_STATUS.ACTIVE
   );
   if (existing) {
     return existing;
@@ -112,7 +112,7 @@ export function createEpisode(sessionId, participants = [], metadata = {}) {
     id: `ep_${now}_${Math.random().toString(36).slice(2, 8)}`,
     sessionId,
     participants: [...participants],
-    state: EPISODE_STATES.ACTIVE,
+    state: EPISODE_STATUS.ACTIVE,
     startTime: now,
     endTime: null,
     lastActivity: now,
@@ -157,7 +157,7 @@ export function getEpisode(id, includeArchived = false) {
 export function getActiveEpisode(sessionId) {
   const store = getStore();
   return store.episodes.find(
-    e => e.sessionId === sessionId && e.state === EPISODE_STATES.ACTIVE
+    e => e.sessionId === sessionId && e.state === EPISODE_STATUS.ACTIVE
   ) || null;
 }
 
@@ -172,7 +172,7 @@ export function getActiveEpisode(sessionId) {
 export function addMessageToEpisode(episodeId, role, content, messageId = null) {
   const store = getStore();
   const episode = store.episodes.find(e => e.id === episodeId);
-  if (!episode || episode.state !== EPISODE_STATES.ACTIVE) {
+  if (!episode || episode.state !== EPISODE_STATUS.ACTIVE) {
     return false;
   }
 
@@ -225,11 +225,11 @@ export function updateEpisode(episodeId, updates) {
 export function completeEpisode(episodeId, summaryData = {}) {
   const store = getStore();
   const episode = store.episodes.find(e => e.id === episodeId);
-  if (!episode || episode.state !== EPISODE_STATES.ACTIVE) {
+  if (!episode || episode.state !== EPISODE_STATUS.ACTIVE) {
     return false;
   }
 
-  episode.state = EPISODE_STATES.COMPLETED;
+  episode.state = EPISODE_STATUS.COMPLETED;
   episode.endTime = Date.now();
   episode.summary = summaryData.summary || null;
   episode.title = summaryData.title || episode.title || null;
@@ -272,14 +272,14 @@ export function archiveOldEpisodes(daysOld = 30) {
   const cutoff = Date.now() - daysOld * 24 * 60 * 60 * 1000;
 
   const toArchive = store.episodes.filter(
-    e => e.state === EPISODE_STATES.COMPLETED && e.endTime && e.endTime < cutoff
+    e => e.state === EPISODE_STATUS.COMPLETED && e.endTime && e.endTime < cutoff
   );
 
   if (toArchive.length === 0) return 0;
 
   // Move to archive
   for (const ep of toArchive) {
-    ep.state = EPISODE_STATES.ARCHIVED;
+    ep.state = EPISODE_STATUS.ARCHIVED;
     store.archive.push(ep);
   }
 
@@ -351,8 +351,8 @@ export function deleteEpisode(episodeId) {
 export function getEpisodeStats() {
   const store = getStore();
   return {
-    active: store.episodes.filter(e => e.state === EPISODE_STATES.ACTIVE).length,
-    completed: store.episodes.filter(e => e.state === EPISODE_STATES.COMPLETED).length,
+    active: store.episodes.filter(e => e.state === EPISODE_STATUS.ACTIVE).length,
+    completed: store.episodes.filter(e => e.state === EPISODE_STATUS.COMPLETED).length,
     archived: store.archive.length,
     total: store.metadata.episodeCount,
     lastUpdated: store.metadata.lastUpdated,
@@ -375,7 +375,7 @@ export function getRecentEpisodes(n = 10, includeArchived = false) {
   return episodes.slice(0, n);
 }
 
-export { EPISODE_STATES };
+export { EPISODE_STATUS };
 export default {
   createEpisode,
   getEpisode,
@@ -389,5 +389,5 @@ export default {
   deleteEpisode,
   getEpisodeStats,
   getRecentEpisodes,
-  EPISODE_STATES,
+  EPISODE_STATUS,
 };

@@ -20,7 +20,7 @@ import {
   getRecentEpisodes,
   getEpisodeStats as getStoreEpisodeStats,
   deleteEpisode,
-  EPISODE_STATES,
+  EPISODE_STATUS,
 } from './episode_store.js';
 
 import {
@@ -108,7 +108,7 @@ export async function addMessage(sessionId, role, content, messageId = null, opt
     if (gap > episodeGapMs) {
       // Time gap exceeded → complete old, start new
       const oldEpisode = getEpisode(tracker.episodeId);
-      if (oldEpisode && oldEpisode.state === EPISODE_STATES.ACTIVE) {
+      if (oldEpisode && oldEpisode.state === EPISODE_STATUS.ACTIVE) {
         await completeEpisode(tracker.episodeId).catch(() => {});
       }
       tracker = null;
@@ -121,7 +121,7 @@ export async function addMessage(sessionId, role, content, messageId = null, opt
     episode = getEpisode(tracker.episodeId);
   }
 
-  if (!episode || episode.state !== EPISODE_STATES.ACTIVE) {
+  if (!episode || episode.state !== EPISODE_STATUS.ACTIVE) {
     // Start new episode
     episode = startEpisode(sessionId, [participant]);
     tracker = activeTracker.get(trackerKey) || {
@@ -171,7 +171,7 @@ export async function completeEpisode(episodeId, overrideSummary = null) {
     throw new Error(`Episode not found: ${episodeId}`);
   }
 
-  if (episode.state !== EPISODE_STATES.ACTIVE) {
+  if (episode.state !== EPISODE_STATUS.ACTIVE) {
     throw new Error(`Episode already ${episode.state}: ${episodeId}`);
   }
 

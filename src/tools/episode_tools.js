@@ -22,7 +22,7 @@ import {
   getEpisodeStats,
 } from '../episode_manager.js';
 
-import { getActiveEpisode, EPISODE_STATES } from '../episode_store.js';
+import { getActiveEpisode, EPISODE_STATUS } from '../episode_store.js';
 
 /**
  * Register episode tools with the MCP server

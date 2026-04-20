@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-04-20T08:14:36.366Z",
+  "results": {
+    "total": 8,
+    "passed": 7,
+    "failed": 1,
+    "modules": {
+      "import": "✅",
+      "base": "✅",
+      "hybrid": "✅",
+      "transaction": "❌",
+      "plugin": "✅",
+      "integration": "✅",
+      "performance": "✅",
+      "scenario": "✅"
+    },
+    "performance": {
+      "hybridSearch": 2
+    }
+  },
+  "summary": {
+    "total": 8,
+    "passed": 7,
+    "failed": 1,
+    "passRate": "87.5%"
+  },
+  "environment": {
+    "node": "v22.22.2",
+    "platform": "linux",
+    "timezone": "Asia/Shanghai"
+  }
+}
