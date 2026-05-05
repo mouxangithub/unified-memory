@@ -1,0 +1,24 @@
+{
+  "name": "Unified Memory v5 记忆系统诊断分析",
+  "success": true,
+  "totalDuration": "75.8s",
+  "totalTokens": {
+    "input": 3610,
+    "output": 5667
+  },
+  "inputs": {},
+  "steps": [
+    {
+      "id": "analyze_architecture",
+      "role": "engineering/engineering-software-architect",
+      "agentName": "架构分析师",
+      "agentEmoji": "🏗️",
+      "status": "completed",
+      "duration": "75.8s",
+      "tokens": {
+        "input": 3610,
+        "output": 5667
+      }
+    }
+  ]
+}

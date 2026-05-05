@@ -265,3 +265,44 @@ git clone https://github.com/mouxangithub/unified-memory.git
 ---
 
 > "让 AI 拥有记忆，让记忆成为智能的基石。"
+---
+
+## 高级功能模块
+
+| 模块 | 路径 | 说明 |
+|------|------|------|
+| **API Gateway** | `src/advanced/api_gateway/` | JWT/API Key认证、限流、日志、OpenAPI |
+| **Version Control** | `src/advanced/version_control/` | 乐观锁、冲突解决、差异计算 |
+| **Cache Manager** | `src/advanced/cache_manager/` | L1/L2多级缓存、淘汰策略 |
+| **Monitoring** | `src/advanced/monitoring/` | Prometheus指标、健康检查 |
+| **Backup/Restore** | `src/advanced/backup_restore/` | 增量/全量备份、恢复 |
+| **Archival** | `src/advanced/archival/` | 冷热分层、自动归档 |
+| **Benchmark** | `src/advanced/benchmark/` | 性能基准测试、对比分析 |
+
+### 快速使用
+
+```python
+# API Gateway
+from api_gateway import create_app
+app = create_app()
+
+# Version Control
+from version_control import VersionManager
+vm = VersionManager()
+
+# Cache Manager
+from cache_manager import CacheManager
+cm = CacheManager()
+
+# Monitoring
+from monitoring import MetricsCollector, PrometheusExporter
+collector = MetricsCollector()
+
+# Backup/Restore
+from backup_restore import BackupManager
+bm = BackupManager(config)
+
+# Benchmark
+from benchmark import BenchmarkRunner
+runner = BenchmarkRunner(config)
+```

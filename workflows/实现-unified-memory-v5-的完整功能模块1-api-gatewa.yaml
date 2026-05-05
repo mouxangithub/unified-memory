@@ -1,0 +1,340 @@
+name: "Unified Memory v5 全模块开发工作流"
+description: "实现 Unified Memory v5 的 7 大功能模块：API Gateway、版本控制、多级缓存、监控指标、备份恢复、归档策略、性能基准，每个模块包含代码、单元测试、MCP集成和文档"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: minimax
+  model: MiniMax-M2.7
+  max_tokens: 8192
+  timeout: 600000
+  retry: 3
+
+concurrency: 7
+
+steps:
+  - id: architecture_design
+    role: engineering/engineering-software-architect
+    name: 系统架构师
+    emoji: "🏗️"
+    task: |
+      设计 Unified Memory v5 完整系统架构
+      
+      项目背景：
+      Unified Memory 是一个统一的记忆存储系统，支持向量检索、时间序列版本控制、多级缓存的企业级应用。
+      
+      设计要求：
+      1. **整体架构**：微服务架构，模块化设计，支持水平扩展
+      2. **技术栈**：Python 3.11+, FastAPI, Redis, PostgreSQL, Qdrant/Milvus 向量数据库
+      
+      7大模块详细设计：
+      
+      ## 1. API Gateway 层
+      - RESTful API + WebSocket
+      - JWT 认证 + API Key
+      - 限流：令牌桶算法，1000 req/min
+      - 统一错误码体系（1000-1999）
+      
+      ## 2. 版本控制
+      - 数据模型：memory_id, version, content, embedding, metadata, created_at
+      - 保留策略：最近 30 个版本或最近 90 天
+      - 版本差异计算：JSON diff + 向量相似度
+      
+      ## 3. 多级缓存
+      - L1: Python dict（LRU, 1000 items）
+      - L2: Redis（TTL 1小时）
+      - L3: Qdrant 向量缓存（TTL 24小时）
+      - 缓存键：namespace:memory_id:version
+      
+      ## 4. 监控指标
+      - API: QPS, 延迟P50/P95/P99, 错误率
+      - 缓存: 命中率, L1/L2/L3 分别统计
+      - 系统: CPU, 内存, 磁盘IO
+      - 业务: 记忆数量, 版本数, 归档率
+      
+      ## 5. 备份恢复
+      - 备份频率：每小时增量，每日全量
+      - 存储：本地 + S3兼容存储
+      - 恢复粒度：全量恢复、单记忆恢复、跨版本恢复
+      - RPO: 1小时, RTO: 15分钟
+      
+      ## 6. 归档策略
+      - 热数据：最近 30 天，SSD 存储
+      - 温数据：30-90 天，HDD 存储
+      - 冷数据：90天+， 归档存储， gzip 压缩
+      - 索引：归档后保留元数据索引
+      
+      ## 7. 性能基准
+      - 基准测试场景：CRUD 1000次迭代
+      - 并发测试：1/10/100/1000 并发
+      - 缓存预热模拟
+      - 输出：JSON 格式性能报告
+      
+      输出物：
+      1. system_architecture.md - 系统架构文档
+      2. api_spec.yaml - OpenAPI 3.0 规范
+      3. data_model.md - 数据模型设计
+      4. 接口约束文件（供后续步骤使用）
+    output: architecture_docs
+    depends_on: []
+
+  - id: impl_api_gateway
+    role: engineering/engineering-ai-engineer
+    name: 核心开发者
+    emoji: "⚡"
+    task: |
+      实现 Unified Memory v5 API Gateway 层完整代码
+      
+      基础约束（来自架构设计）：
+      - 技术栈：Python 3.11+, FastAPI
+      - 限流：令牌桶算法，1000 req/min
+      - 统一错误码体系（1000-1999）
+      
+      必须实现的端点：
+      POST /api/v1/memory - 创建记忆（body: {content, namespace, metadata}）
+      GET /api/v1/memory/{memory_id} - 获取记忆
+      PUT /api/v1/memory/{memory_id} - 更新记忆（body: {content, metadata}）
+      DELETE /api/v1/memory/{memory_id} - 删除记忆
+      GET /api/v1/memory/search - 语义搜索（query, namespace, limit, threshold）
+      GET /api/v1/memory/{memory_id}/versions - 版本历史列表
+      POST /api/v1/memory/{memory_id}/revert/{version} - 回滚到指定版本
+      GET /api/v1/namespaces/{ns}/stats - 命名空间统计
+      
+      必须实现的功能：
+      1. JWT Bearer Token 认证（Header: Authorization: Bearer <token>）
+      2. API Key 认证（Header: X-API-Key）
+      3. 令牌桶限流中间件
+      4. 请求日志中间件（记录 IP、路径、响应时间）
+      5. 统一异常处理（MemoryNotFoundError, ValidationError, RateLimitError）
+      6. OpenAPI 自动文档
+      
+      输出文件结构：
+      memory_v5/api_gateway/
+      ├── __init__.py
+      ├── main.py              # FastAPI 应用入口
+      ├── routes/
+      │   ├── __init__.py
+      │   ├── memory.py        # 记忆 CRUD 路由
+      │   ├── search.py        # 搜索路由
+      │   └── admin.py         # 管理路由
+      ├── middleware/
+      │   ├── __init__.py
+      │   ├── auth.py          # 认证中间件
+      │   ├── rate_limit.py    # 限流中间件
+      │   └── logging.py       # 日志中间件
+      ├── models/
+      │   ├── __init__.py
+      │   ├── requests.py      # Pydantic 请求模型
+      │   └── responses.py     # Pydantic 响应模型
+      ├── exceptions.py        # 自定义异常
+      └── config.py            # 配置管理
+      
+      每个文件必须包含完整的、可运行的代码，不能是伪代码。
+    output: api_gateway_code
+    depends_on: [architecture_design]
+
+  - id: impl_version_control
+    role: engineering/engineering-ai-engineer
+    name: 核心开发者
+    emoji: "🔄"
+    task: |
+      实现 Unified Memory v5 版本控制模块完整代码
+      
+      基础约束（来自架构设计）：
+      - 数据模型：memory_id, version, content, embedding, metadata, created_at
+      - 保留策略：最近 30 个版本或最近 90 天
+      - 版本差异计算：JSON diff + 向量相似度
+      
+      必须实现的功能：
+      
+      1. VersionedMemory 数据模型
+         - memory_id: UUID，主键
+         - version: integer，自增
+         - content: text，记忆内容
+         - embedding: vector(1536)，向量表示
+         - metadata: JSON，扩展属性
+         - created_at: timestamp
+         - created_by: string，用户标识
+         - change_summary: string，变更摘要
+      
+      2. VersionManager 类
+         - create_version(memory_id, content, metadata) -> Version
+         - get_version(memory_id, version) -> Version
+         - list_versions(memory_id, limit=100) -> List[Version]
+         - diff_versions(memory_id, v1, v2) -> DiffResult
+         - revert_to_version(memory_id, version) -> Memory
+         - cleanup_old_versions(memory_id, keep=30, days=90)
+      
+      3. 变更检测
+         - 记录每个版本的变更字段
+         - 计算版本间的文本差异
+         - 计算向量相似度判断语义变化程度
+      
+      4. 版本元数据存储
+         - PostgreSQL 表存储版本链
+         - 支持版本分支（future extension）
+      
+      输出文件：
+      memory_v5/version_control/
+      ├── __init__.py
+      ├── models.py            # 版本数据模型
+      ├── manager.py           # 版本管理器
+      ├── diff.py              # 差异计算
+      ├── repository.py        # 数据访问层
+      └── tests/
+          ├── __init__.py
+          ├── test_models.py
+          ├── test_manager.py
+          └── test_diff.py
+      
+      必须包含完整的单元测试，测试覆盖率 > 80%。
+    output: version_control_code
+    depends_on: [architecture_design]
+
+  - id: impl_cache
+    role: engineering/engineering-ai-engineer
+    name: 核心开发者
+    emoji: "⚡"
+    task: |
+      实现 Unified Memory v5 多级缓存模块完整代码
+      
+      基础约束（来自架构设计）：
+      - L1: Python dict（LRU, 1000 items）
+      - L2: Redis（TTL 1小时）
+      - L3: Qdrant 向量缓存（TTL 24小时）
+      - 缓存键：namespace:memory_id:version
+      
+      必须实现的组件：
+      
+      1. CacheLevel 抽象基类
+         - get(key) -> value
+         - set(key, value, ttl=None)
+         - delete(key)
+         - clear()
+         - stats() -> CacheStats
+      
+      2. L1Cache（进程内 LRU）
+         - 使用 Python dict + OrderedDict 实现
+         - 最大容量 1000 条
+         - 超过容量时 LRU 淘汰
+         - 线程安全（threading.RLock）
+      
+      3. L2Cache（Redis 分布式缓存）
+         - 连接池管理
+         - TTL 默认 3600 秒
+         - 支持批量操作
+         - 故障降级：Redis 不可用时跳过 L2
+      
+      4. L3Cache（Qdrant 向量缓存）
+         - 存储向量相似度计算结果
+         - TTL 默认 86400 秒
+         - 自动过期清理
+      
+      5. MultiLevelCache 主类
+         - 读写流程：L1 -> L2 -> L3 -> DB
+         - 写回策略：Write-Through
+         - 统计聚合：total_hits, total_misses, hit_rate
+         - 预热接口：warmup(namespace, keys)
+      
+      6. CacheInvalidator
+         - 基于命名空间批量失效
+         - 基于版本变化选择性失效
+         - 手动触发接口
+      
+      输出文件：
+      memory_v5/cache/
+      ├── __init__.py
+      ├── base.py              # 抽象基类
+      ├── l1.py                 # L1 进程内缓存
+      ├── l2.py                 # L2 Redis 缓存
+      ├── l3.py                 # L3 向量缓存
+      ├── multi_level.py        # 多级缓存编排
+      ├── invalidator.py        # 缓存失效管理
+      └── tests/
+          ├── __init__.py
+          ├── test_l1.py
+          ├── test_multi_level.py
+          └── test_invalidator.py
+      
+      必须包含完整的单元测试，测试 LRU 淘汰、TTL 过期、统计计算等核心逻辑。
+    output: cache_code
+    depends_on: [architecture_design]
+
+  - id: impl_monitoring
+    role: engineering/engineering-ai-engineer
+    name: 核心开发者
+    emoji: "📊"
+    task: |
+      实现 Unified Memory v5 监控指标模块完整代码
+      
+      基础约束（来自架构设计）：
+      - API: QPS, 延迟P50/P95/P99, 错误率
+      - 缓存: 命中率, L1/L2/L3 分别统计
+      - 系统: CPU, 内存, 磁盘IO
+      - 业务: 记忆数量, 版本数, 归档率
+      
+      必须实现的组件：
+      
+      1. MetricsCollector 核心类
+         - Counter（计数器）：API 请求数、错误数
+         - Gauge（仪表）：当前连接数、队列长度
+         - Histogram（直方图）：延迟分布
+         - Summary（汇总）：P50/P95/P99
+      
+      2. 预定义指标
+         api_requests_total{namespace, method, status}
+         api_request_duration_seconds{namespace, method}
+         cache_hits_total{level, namespace}
+         cache_misses_total{level, namespace}
+         cache_hit_ratio{level, namespace}
+         memory_count{namespace}
+         version_count{memory_id}
+         archive_ratio{namespace}
+         system_cpu_percent
+         system_memory_percent
+         system_disk_io_bytes
+      
+      3. Prometheus 集成
+         - /metrics 端点（Prometheus 格式）
+         - 支持 Pushgateway 推送模式
+         - 标签（labels）自动添加
+      
+      4. Grafana Dashboard 配置
+         - Dashboard JSON 定义
+         - Panel 配置：API 延迟、缓存命中率、QPS
+         - Alert 规则：错误率 > 1%, 延迟 P99 > 500ms
+      
+      5. Health Check
+         - /health 检查项：DB、Redis、Qdrant
+         - /ready 就绪检查
+         - /live 存活检查
+      
+      输出文件：
+      memory_v5/monitoring/
+      ├── __init__.py
+      ├── metrics.py            # 指标收集器
+      ├── collector.py          # 系统指标采集
+      ├── prometheus.py         # Prometheus 集成
+      ├── health.py             # 健康检查
+      ├── grafana/
+      │   ├── dashboard.json    # Dashboard 配置
+      │   └── alerts.yaml       # 告警规则
+      └── tests/
+          ├── __init__.py
+          ├── test_metrics.py
+          └── test_collector.py
+      
+      必须包含完整的单元测试，测试指标计算逻辑。
+    output: monitoring_code
+    depends_on: [architecture_design]
+
+  - id: impl_backup_recovery
+    role: engineering/engineering-ai-engineer
+    name: 核心开发者
+    emoji: "💾"
+    task: |
+      实现 Unified Memory v5 备份恢复模块完整代码
+      
+      基础约束（来自架构设计）：
+      - 备份频率：每小时增量，每日全量
+      - 存储
