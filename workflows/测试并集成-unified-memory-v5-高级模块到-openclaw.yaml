@@ -1,0 +1,31 @@
+name: "Unified Memory v5 集成测试工作流"
+description: "测试并集成 Unified Memory v5 高级模块到 OpenClaw"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: minimax
+  model: MiniMax-M2.7
+  max_tokens: 8192
+  timeout: 300000
+  retry: 2
+
+concurrency: 7
+
+steps:
+  # ==================== 阶段 1：单元测试（7个模块并行） ====================
+  - id: test_api_gateway
+    role: "testing/testing-test-results-analyzer"
+    name: "测试工程师-网关"
+    emoji: "🧪"
+    task: |
+      对 Unified Memory v5 的 api_gateway 模块进行单元测试。
+      
+      测试内容：
+      - 模块初始化和配置加载
+      - API 路由注册与匹配
+      - 请求/响应拦截器
+      - 错误处理与异常传播
+      - 超时与限流机制
+      
+      输出格式：

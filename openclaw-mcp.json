@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "unified-memory-v5": {
+      "command": "node",
+      "args": ["src/gbrain_mcp_server.js"],
+      "env": {
+        "NODE_ENV": "production",
+        "OLLAMA_BASE_URL": "http://localhost:11434",
+        "LLM_PROVIDER": "ollama",
+        "LLM_MODEL": "minimax-m2.7:cloud",
+        "EMBED_PROVIDER": "ollama",
+        "EMBED_MODEL": "nomic-embed-text:latest",
+        "VECTOR_ENGINE": "lancedb",
+        "DATA_DIR": "~/.openclaw/workspace/memory",
+        "LOG_LEVEL": "info"
+      },
+      "description": "Unified Memory v5 - AI Agent Memory System"
+    }
+  }
+}

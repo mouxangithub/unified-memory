@@ -1,0 +1,10 @@
+{
+  "name": "unified-memory-tests",
+  "version": "5.0.0",
+  "description": "Unified Memory v5 Test Suite",
+  "scripts": {
+    "test": "node tests/integration/test_mcp_integration.js",
+    "test:unit": "echo 'Run: node tests/unit/*.js'",
+    "test:coverage": "echo 'Coverage report'"
+  }
+}

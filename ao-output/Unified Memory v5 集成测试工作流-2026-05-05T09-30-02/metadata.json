@@ -1,0 +1,24 @@
+{
+  "name": "Unified Memory v5 集成测试工作流",
+  "success": true,
+  "totalDuration": "136.5s",
+  "totalTokens": {
+    "input": 4735,
+    "output": 11933
+  },
+  "inputs": {},
+  "steps": [
+    {
+      "id": "test_api_gateway",
+      "role": "testing/testing-test-results-analyzer",
+      "agentName": "测试工程师-网关",
+      "agentEmoji": "🧪",
+      "status": "completed",
+      "duration": "136.5s",
+      "tokens": {
+        "input": 4735,
+        "output": 11933
+      }
+    }
+  ]
+}
