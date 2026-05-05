@@ -1,230 +1,235 @@
-# Unified Memory v5 配置文件
+# Unified Memory v5 — 完整配置指南
 
-## 环境变量配置
+## 一句话配置（发给 AI）
 
-在项目根目录创建 `.env` 文件：
-
-```bash
-# =============================================================================
-# Unified Memory v5 — 环境配置
-# =============================================================================
-
-# ─────────────────────────────────────────────────────────────────────────────
-# LLM 配置 (大型语言模型)
-# ─────────────────────────────────────────────────────────────────────────────
-
-# LLM 提供商: ollama | openai | minimax | kimi | custom
-LLM_PROVIDER=ollama
-
-# LLM 模型
-LLM_MODEL=minimax-m2.7:cloud
-
-# LLM API 地址
-LLM_BASE_URL=http://localhost:11434
-
-# LLM API Key (如需要)
-LLM_API_KEY=your-api-key
-
-# 最大输出tokens
-LLM_MAX_TOKENS=8192
-
-# 温度参数 (0-1，越低越确定性)
-LLM_TEMPERATURE=0.7
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Embedding 配置 (向量嵌入)
-# ─────────────────────────────────────────────────────────────────────────────
-
-# Embedding 提供商: ollama | openai | cohere | local
-EMBED_PROVIDER=ollama
-
-# Embedding 模型
-EMBED_MODEL=nomic-embed-text:latest
-
-# Embedding API 地址
-EMBED_BASE_URL=http://localhost:11434
-
-# Embedding 向量维度 (nomic-embed-text 为 768)
-EMBED_DIMENSION=768
-
-# 向量批量大小
-EMBED_BATCH_SIZE=32
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Ollama 配置 (统一配置，同时适用于 LLM 和 Embedding)
-# ─────────────────────────────────────────────────────────────────────────────
-
-# Ollama 服务地址
-OLLAMA_BASE_URL=http://localhost:11434
-
-# Ollama 模型列表 (逗号分隔)
-OLLAMA_MODELS=minimax-m2.7:cloud,nomic-embed-text:latest
-
-# Ollama 上下文窗口
-OLLAMA_CONTEXT_SIZE=8192
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 存储配置
-# ─────────────────────────────────────────────────────────────────────────────
-
-# 数据存储目录
-DATA_DIR=/root/.openclaw/workspace/memory
-
-# 向量数据库路径
-VECTOR_DB_PATH=/root/.unified-memory/vector.lance
-
-# 记忆图谱存储路径
-GRAPH_DB_PATH=/root/.unified-memory/graph.json
-
-# 备份目录
-BACKUP_DIR=/root/.unified-memory/backups
-
-# 日志级别: debug | info | warn | error
-LOG_LEVEL=info
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 向量引擎配置
-# ─────────────────────────────────────────────────────────────────────────────
-
-# 向量引擎: lancedb | chromadb | faiss | builtin
-VECTOR_ENGINE=lancedb
-
-# LanceDB 配置
-LANCEDB_DB_PATH=/root/.unified-memory/lancedb
-
-# ChromaDB 配置
-CHROMA_DB_PATH=/root/.unified-memory/chroma
-
-# ─────────────────────────────────────────────────────────────────────────────
-# MCP 服务配置
-# ─────────────────────────────────────────────────────────────────────────────
-
-# MCP 服务端口 (HTTP 模式)
-MCP_PORT=38421
-
-# MCP 服务地址 (stdio | http)
-MCP_MODE=stdio
-
-# MCP 服务器名称
-MCP_SERVER_NAME=gbrain-agent-brain
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 性能配置
-# ─────────────────────────────────────────────────────────────────────────────
-
-# 最大并发请求数
-MAX_CONCURRENT=10
-
-# 缓存大小 (MB)
-CACHE_SIZE=512
-
-# 搜索结果数量限制
-SEARCH_LIMIT=20
-
-# 记忆重要性阈值
-IMPORTANCE_THRESHOLD=0.1
-
-# 记忆最大保留天数
-MAX_AGE_DAYS=30
 ```
+请帮我配置 Unified Memory v5 的环境变量：
+- LLM: provider=ollama, model=minimax-m2.7:cloud, base_url=http://localhost:11434
+- Embedding: provider=ollama, model=nomic-embed-text:latest, base_url=http://localhost:11434
+- 向量引擎: lancedb
+- 数据目录: ~/.unified-memory/
+```
+
+---
+
+## 环境变量完整列表
+
+### LLM 配置
+
+| 环境变量 | 说明 | 默认值 | 可选值 |
+|----------|------|--------|--------|
+| `LLM_PROVIDER` | LLM 提供商 | ollama | ollama, openai, siliconflow, minimax, custom |
+| `LLM_MODEL` | 模型名称 | minimax-m2.7:cloud | - |
+| `LLM_BASE_URL` | API 地址 | http://localhost:11434 | - |
+| `LLM_API_KEY` | API 密钥 | - | - |
+| `LLM_MAX_TOKENS` | 最大输出 | 8192 | - |
+| `LLM_TEMPERATURE` | 温度参数 | 0.7 | 0-1 |
+
+### Embedding 配置
+
+| 环境变量 | 说明 | 默认值 | 可选值 |
+|----------|------|--------|--------|
+| `EMBED_PROVIDER` | 向量提供商 | ollama | ollama, openai, jina, siliconflow, custom |
+| `EMBED_MODEL` | 向量模型 | nomic-embed-text | - |
+| `EMBED_BASE_URL` | API 地址 | http://localhost:11434 | - |
+| `EMBED_DIMENSION` | 向量维度 | 768 | - |
+| `EMBED_BATCH_SIZE` | 批量大小 | 32 | - |
+
+### Ollama 统一配置
+
+| 环境变量 | 说明 | 默认值 |
+|----------|------|--------|
+| `OLLAMA_BASE_URL` | Ollama 服务地址 | http://localhost:11434 |
+| `OLLAMA_HOST` | Ollama 主机 (别名) | http://localhost:11434 |
+| `OLLAMA_LLM_MODEL` | Ollama LLM 模型 | minimax-m2.7:cloud |
+| `OLLAMA_EMBED_MODEL` | Ollama Embedding 模型 | nomic-embed-text |
+| `OLLAMA_MODELS` | 模型列表 (逗号分隔) | - |
+| `OLLAMA_CONTEXT_SIZE` | 上下文窗口 | 8192 |
+
+### 向量引擎配置
+
+| 环境变量 | 说明 | 默认值 | 可选值 |
+|----------|------|--------|--------|
+| `VECTOR_ENGINE` | 向量引擎 | lancedb | lancedb, chromadb, faiss, builtin |
+| `VECTOR_DB_PATH` | 向量数据库路径 | ~/.unified-memory/ | - |
+| `LANCEDB_DB_PATH` | LanceDB 路径 | ~/.unified-memory/lancedb | - |
+| `CHROMA_DB_PATH` | ChromaDB 路径 | ~/.unified-memory/chroma | - |
+
+### 存储配置
+
+| 环境变量 | 说明 | 默认值 |
+|----------|------|--------|
+| `DATA_DIR` | 数据存储目录 | ~/.openclaw/workspace/memory |
+| `GRAPH_DB_PATH` | 图谱存储路径 | ~/.unified-memory/graph.json |
+| `BACKUP_DIR` | 备份目录 | ~/.unified-memory/backups |
+| `LOG_DIR` | 日志目录 | ~/.openclaw/workspace/memory/logs |
+
+### MCP 服务配置
+
+| 环境变量 | 说明 | 默认值 | 可选值 |
+|----------|------|--------|--------|
+| `MCP_PORT` | HTTP 模式端口 | 38421 | - |
+| `MCP_MODE` | 服务模式 | stdio | stdio, http |
+| `MCP_SERVER_NAME` | 服务器名称 | gbrain-agent-brain | - |
+
+### 性能配置
+
+| 环境变量 | 说明 | 默认值 |
+|----------|------|--------|
+| `MAX_CONCURRENT` | 最大并发请求 | 10 |
+| `CACHE_SIZE` | 缓存大小 (MB) | 512 |
+| `SEARCH_LIMIT` | 搜索结果限制 | 20 |
+| `IMPORTANCE_THRESHOLD` | 重要性阈值 | 0.1 |
+| `MAX_AGE_DAYS` | 最大保留天数 | 30 |
+| `LOG_LEVEL` | 日志级别 | info |
+
+### API Key 配置
+
+| 环境变量 | 说明 | 适用提供商 |
+|----------|------|-----------|
+| `OPENAI_API_KEY` | OpenAI API Key | openai |
+| `JINA_API_KEY` | Jina API Key | jina |
+| `SILICONFLOW_API_KEY` | SiliconFlow API Key | siliconflow |
+| `MINIMAX_API_KEY` | MiniMax API Key | minimax |
 
 ---
 
 ## 快速配置模板
 
-### 方式 1: Ollama 本地模型 (推荐开发环境)
+### 方式 1: Ollama 本地 (开发环境) ⭐推荐
 
 ```bash
-# LLM 和 Embedding 共用 Ollama
+# LLM + Embedding 共用 Ollama
+OLLAMA_BASE_URL=http://localhost:11434
 LLM_PROVIDER=ollama
 LLM_MODEL=minimax-m2.7:cloud
-LLM_BASE_URL=http://localhost:11434
-
 EMBED_PROVIDER=ollama
 EMBED_MODEL=nomic-embed-text:latest
-EMBED_BASE_URL=http://localhost:11434
+
+# 向量引擎
+VECTOR_ENGINE=lancedb
+LANCEDB_DB_PATH=~/.unified-memory/lancedb
+
+# 存储
+DATA_DIR=~/.unified-memory/data
+GRAPH_DB_PATH=~/.unified-memory/graph.json
 ```
 
 ### 方式 2: OpenAI (生产环境)
 
 ```bash
-# LLM 使用 OpenAI
+# LLM
 LLM_PROVIDER=openai
 LLM_MODEL=gpt-4o
 LLM_BASE_URL=https://api.openai.com/v1
 LLM_API_KEY=sk-xxx
 
-# Embedding 使用 OpenAI
+# Embedding
 EMBED_PROVIDER=openai
 EMBED_MODEL=text-embedding-3-small
 EMBED_BASE_URL=https://api.openai.com/v1
+
+# 向量引擎
+VECTOR_ENGINE=lancedb
 ```
 
-### 方式 3: MiniMax (国内生产环境)
+### 方式 3: MiniMax (国内生产)
 
 ```bash
-# MiniMax API
+# LLM
 LLM_PROVIDER=minimax
 LLM_MODEL=minimax-m2.7
 LLM_BASE_URL=https://api.minimaxi.com/v1
 LLM_API_KEY=xxx
 
-# 向量使用 MiniMax
-EMBED_PROVIDER=minimax
-EMBED_MODEL=embo-01
+# Embedding (用 SiliconFlow 或 Jina)
+EMBED_PROVIDER=siliconflow
+EMBED_MODEL=BAAI/bge-m3
+EMBED_BASE_URL=https://api.siliconflow.cn/v1
+EMBED_API_KEY=xxx
+```
+
+### 方式 4: SiliconFlow 一站式 (国内)
+
+```bash
+# LLM + Embedding 共用 SiliconFlow
+LLM_PROVIDER=siliconflow
+LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
+LLM_BASE_URL=https://api.siliconflow.cn/v1
+LLM_API_KEY=xxx
+
+EMBED_PROVIDER=siliconflow
+EMBED_MODEL=BAAI/bge-m3
+EMBED_BASE_URL=https://api.siliconflow.cn/v1
+EMBED_API_KEY=xxx
 ```
 
 ---
 
-## 代码中使用配置
+## 代码引用配置
 
 ```javascript
-import { config } from './config.js';
+// 从 config.js 读取配置
+import { EMBED_PROVIDERS, LLM_PROVIDERS, getConfig } from './src/config.js';
 
-// 获取 LLM 配置
-const llmConfig = {
-  provider: config.get('LLM_PROVIDER'),
-  model: config.get('LLM_MODEL'),
-  baseUrl: config.get('LLM_BASE_URL'),
-  apiKey: config.get('LLM_API_KEY'),
-  maxTokens: config.get('LLM_MAX_TOKENS'),
-  temperature: config.get('LLM_TEMPERATURE'),
-};
+// 获取当前 LLM 配置
+const llmProvider = LLM_PROVIDERS.find(p => p.name === process.env.LLM_PROVIDER || 'ollama');
 
-// 获取 Embedding 配置
-const embedConfig = {
-  provider: config.get('EMBED_PROVIDER'),
-  model: config.get('EMBED_MODEL'),
-  baseUrl: config.get('EMBED_BASE_URL'),
-  dimension: config.get('EMBED_DIMENSION'),
-};
+// 获取当前 Embedding 配置
+const embedProvider = EMBED_PROVIDERS.find(p => p.name === process.env.EMBED_PROVIDER || 'ollama');
 
-// 获取 Ollama 配置
-const ollamaConfig = {
-  baseUrl: config.get('OLLAMA_BASE_URL'),
-  models: config.get('OLLAMA_MODELS').split(','),
-};
+// 直接获取环境变量
+const baseUrl = process.env.LLM_BASE_URL || process.env.OLLAMA_BASE_URL;
+const model = process.env.LLM_MODEL;
 ```
 
 ---
 
 ## 配置优先级
 
-1. **环境变量** (最高优先级)
-2. **.env 文件**
-3. **config.json 默认配置**
-4. **内置默认值** (最低优先级)
+```
+1. 环境变量 (最高优先级)
+   ↓
+2. .env 文件
+   ↓
+3. config.js 默认值 (最低优先级)
+```
 
 ---
 
-## 配置检查命令
+## 验证配置
 
 ```bash
-# 检查当前配置
+# 检查配置是否生效
 node -e "
-import { config } from './src/config.js';
-console.log('LLM:', config.get('LLM_PROVIDER'), config.get('LLM_MODEL'));
-console.log('Embed:', config.get('EMBED_PROVIDER'), config.get('EMBED_MODEL'));
-console.log('Ollama:', config.get('OLLAMA_BASE_URL'));
+import { EMBED_PROVIDERS, LLM_PROVIDERS } from './src/config.js';
+console.log('=== LLM 配置 ===');
+console.log('Provider:', LLM_PROVIDERS[0].name);
+console.log('Model:', LLM_PROVIDERS[0].model);
+console.log('BaseURL:', LLM_PROVIDERS[0].baseURL);
+console.log('');
+console.log('=== Embed 配置 ===');
+console.log('Provider:', EMBED_PROVIDERS[0].name);
+console.log('Model:', EMBED_PROVIDERS[0].model);
+console.log('BaseURL:', EMBED_PROVIDERS[0].baseURL);
 "
+```
+
+---
+
+## 一键配置命令
+
+```bash
+# 克隆后一键配置 (Ollama 本地)
+cd unified-memory && \
+cat > .env << 'EOF'
+OLLAMA_BASE_URL=http://localhost:11434
+LLM_PROVIDER=ollama
+LLM_MODEL=minimax-m2.7:cloud
+EMBED_PROVIDER=ollama
+EMBED_MODEL=nomic-embed-text:latest
+VECTOR_ENGINE=lancedb
+DATA_DIR=~/.unified-memory/data
+LOG_LEVEL=info
+EOF
 ```

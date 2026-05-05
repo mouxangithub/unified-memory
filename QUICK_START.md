@@ -1,65 +1,201 @@
-# Unified Memory v5 一句话安装
+# Unified Memory v5 快速安装
 
-## AI Agent 快速安装命令
+## 一句话安装 + 配置（发给 AI）
 
-```bash
-# 1. 克隆并安装
-git clone https://github.com/mouxangithub/unified-memory.git && cd unified-memory && npm install
-
-# 2. 启动服务 (Node.js)
-node src/gbrain_mcp_server.js
-
-# 3. 配置 MCP 客户端
-# OpenClaw: 添加到 mcp-config.json
-# Claude Desktop: 添加到 claude_desktop_config.json
+```
+请帮我安装并配置 Unified Memory v5：
+1. git clone https://github.com/mouxangithub/unified-memory.git
+2. cd unified-memory && npm install
+3. 配置环境变量：
+   - OLLAMA_BASE_URL=http://localhost:11434
+   - LLM_PROVIDER=ollama, LLM_MODEL=minimax-m2.7:cloud
+   - EMBED_PROVIDER=ollama, EMBED_MODEL=nomic-embed-text:latest
+   - VECTOR_ENGINE=lancedb
+4. 启动服务：node src/gbrain_mcp_server.js
+5. 配置 OpenClaw/Claude/Hermes 使用 MCP 协议连接
 ```
 
 ---
 
-## 一句话说给 AI
+## 环境变量配置
 
+创建 `.env` 文件：
+
+```bash
+# ─────────────────────────────────────────────────────────────────────────────
+# LLM 配置
+# ─────────────────────────────────────────────────────────────────────────────
+OLLAMA_BASE_URL=http://localhost:11434
+LLM_PROVIDER=ollama
+LLM_MODEL=minimax-m2.7:cloud
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Embedding 配置
+# ─────────────────────────────────────────────────────────────────────────────
+EMBED_PROVIDER=ollama
+EMBED_MODEL=nomic-embed-text:latest
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 向量引擎
+# ─────────────────────────────────────────────────────────────────────────────
+VECTOR_ENGINE=lancedb
+LANCEDB_DB_PATH=~/.unified-memory/lancedb
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 存储
+# ─────────────────────────────────────────────────────────────────────────────
+DATA_DIR=~/.unified-memory/data
+GRAPH_DB_PATH=~/.unified-memory/graph.json
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 日志
+# ─────────────────────────────────────────────────────────────────────────────
+LOG_LEVEL=info
 ```
-"请帮我安装 Unified Memory v5：git clone https://github.com/mouxangithub/unified-memory.git，
-cd unified-memory && npm install，然后启动 node src/gbrain_mcp_server.js，
-最后配置 OpenClaw/Claude 使用 MCP 协议连接。"
+
+---
+
+## 完整配置项列表
+
+### LLM 配置
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `LLM_PROVIDER` | 提供商 | ollama |
+| `LLM_MODEL` | 模型 | minimax-m2.7:cloud |
+| `LLM_BASE_URL` | API 地址 | http://localhost:11434 |
+| `LLM_MAX_TOKENS` | 最大 tokens | 8192 |
+| `LLM_TEMPERATURE` | 温度 | 0.7 |
+
+### Embedding 配置
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `EMBED_PROVIDER` | 提供商 | ollama |
+| `EMBED_MODEL` | 模型 | nomic-embed-text:latest |
+| `EMBED_BASE_URL` | API 地址 | http://localhost:11434 |
+| `EMBED_DIMENSION` | 向量维度 | 768 |
+
+### 向量引擎
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `VECTOR_ENGINE` | 引擎 | lancedb |
+| `VECTOR_DB_PATH` | 数据库路径 | ~/.unified-memory/ |
+
+### MCP 服务
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `MCP_PORT` | 端口 | 38421 |
+| `MCP_MODE` | 模式 | stdio |
+
+详细配置：[CONFIG.md](docs/CONFIG.md)
+
+---
+
+## 安装步骤
+
+### 1. 克隆项目
+
+```bash
+git clone https://github.com/mouxangithub/unified-memory.git
+cd unified-memory
+```
+
+### 2. 安装依赖
+
+```bash
+npm install
+```
+
+### 3. 配置环境变量
+
+```bash
+cat > .env << 'EOF'
+OLLAMA_BASE_URL=http://localhost:11434
+LLM_PROVIDER=ollama
+LLM_MODEL=minimax-m2.7:cloud
+EMBED_PROVIDER=ollama
+EMBED_MODEL=nomic-embed-text:latest
+VECTOR_ENGINE=lancedb
+DATA_DIR=~/.unified-memory/data
+LOG_LEVEL=info
+EOF
+```
+
+### 4. 启动服务
+
+```bash
+node src/gbrain_mcp_server.js
 ```
 
 ---
 
 ## OpenClaw 配置
 
-```bash
-# 在 openclaw.json 中添加：
+在 `~/.openclaw/openclaw.json` 添加：
+
+```json
 {
   "mcp": {
     "servers": {
-      "unified-memory": {
+      "agent-brain": {
         "command": "node",
-        "args": ["/path/to/unified-memory/src/gbrain_mcp_server.js"]
+        "args": ["/path/to/unified-memory/src/gbrain_mcp_server.js"],
+        "env": {
+          "OLLAMA_BASE_URL": "http://localhost:11434",
+          "LLM_PROVIDER": "ollama",
+          "LLM_MODEL": "minimax-m2.7:cloud",
+          "EMBED_PROVIDER": "ollama",
+          "EMBED_MODEL": "nomic-embed-text:latest"
+        }
       }
     }
   }
 }
 ```
 
-## ⚙️ 配置 (.env)
+重启：`openclaw gateway restart`
 
-```bash
-# LLM 配置
-LLM_PROVIDER=ollama
-LLM_MODEL=minimax-m2.7:cloud
-LLM_BASE_URL=http://localhost:11434
+---
 
-# Embedding 配置
-EMBED_PROVIDER=ollama
-EMBED_MODEL=nomic-embed-text:latest
-EMBED_BASE_URL=http://localhost:11434
+## Claude Desktop 配置
 
-# 向量引擎
-VECTOR_ENGINE=lancedb
+在 `claude_desktop_config.json` 添加：
+
+```json
+{
+  "mcpServers": {
+    "unified-memory": {
+      "command": "node",
+      "args": ["/path/to/unified-memory/src/gbrain_mcp_server.js"],
+      "env": {
+        "OLLAMA_BASE_URL": "http://localhost:11434",
+        "LLM_PROVIDER": "ollama",
+        "LLM_MODEL": "minimax-m2.7:cloud",
+        "EMBED_PROVIDER": "ollama",
+        "EMBED_MODEL": "nomic-embed-text:latest"
+      }
+    }
+  }
+}
 ```
 
-详细配置：[CONFIG.md](docs/CONFIG.md)
+---
+
+## Hermes 配置
+
+```yaml
+mcp:
+  servers:
+    - name: gbrain
+      command: node
+      args:
+        - /path/to/unified-memory/src/gbrain_mcp_server.js
+      env:
+        OLLAMA_BASE_URL: http://localhost:11434
+        LLM_PROVIDER: ollama
+        LLM_MODEL: minimax-m2.7:cloud
+        EMBED_PROVIDER: ollama
+        EMBED_MODEL: nomic-embed-text:latest
+```
 
 ---
 
@@ -67,7 +203,7 @@ VECTOR_ENGINE=lancedb
 
 ```bash
 # 测试 MCP 服务
-node -e "import('./src/gbrain_mcp_server.js').then(() => console.log('OK'))"
+node -e "import('./src/gbrain_mcp_server.js').then(() => console.log('✅ OK'))"
 
 # 或使用 CLI
 node src/brain_cli.js --help
@@ -77,20 +213,26 @@ node src/brain_cli.js --help
 
 ## 可用工具
 
-| 工具 | 用途 |
-|------|------|
-| `remember` | 存储记忆（自动实体检测+关联） |
-| `search` | 语义搜索记忆 |
-| `get_context` | 获取当前状态 |
-| `graph_stats` | 图谱统计 |
-| `cleanup` | 清理低价值记忆 |
+| 工具 | 用途 | 参数 |
+|------|------|------|
+| `remember` | 存储记忆 | text, category, importance, entities, project, topics |
+| `search` | 语义搜索 | query, limit, entity, project, topic |
+| `get_context` | 获取状态 | - |
+| `graph_stats` | 图谱统计 | - |
+| `cleanup` | 清理记忆 | threshold, max_age_days |
 
 ---
 
-## 支持平台
+## 快速参考
 
-- ✅ OpenClaw
-- ✅ Claude Desktop
-- ✅ Cursor AI
-- ✅ Hermes
-- ✅ 任意 MCP 客户端
+```bash
+# 一行命令安装 + 配置 (Ollama 本地)
+cd unified-memory && \
+echo 'OLLAMA_BASE_URL=http://localhost:11434
+LLM_PROVIDER=ollama
+LLM_MODEL=minimax-m2.7:cloud
+EMBED_PROVIDER=ollama
+EMBED_MODEL=nomic-embed-text:latest
+VECTOR_ENGINE=lancedb' > .env && \
+node src/gbrain_mcp_server.js
+```
