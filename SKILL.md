@@ -6,15 +6,11 @@
 
 ```
 请帮我安装并配置 Unified Memory v5：
-1. git clone https://github.com/mouxangithub/unified-memory.git
-2. cd unified-memory && npm install
-3. 配置环境变量 .env：
-   OLLAMA_BASE_URL=http://localhost:11434
-   LLM_PROVIDER=ollama, LLM_MODEL=minimax-m2.7:cloud
-   EMBED_PROVIDER=ollama, EMBED_MODEL=nomic-embed-text:latest
-   VECTOR_ENGINE=lancedb
-4. 启动：node src/gbrain_mcp_server.js
-5. 配置 OpenClaw MCP 连接
+git clone https://github.com/mouxangithub/unified-memory.git && cd unified-memory && npm install && \
+OLLAMA_BASE_URL=http://localhost:11434 && \
+LLM_PROVIDER=ollama && LLM_MODEL=minimax-m2.7:cloud && \
+EMBED_PROVIDER=ollama && EMBED_MODEL=nomic-embed-text:latest && \
+VECTOR_ENGINE=lancedb && node src/gbrain_mcp_server.js
 ```
 
 ---
