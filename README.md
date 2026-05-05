@@ -147,6 +147,13 @@ mcp:
         EMBED_MODEL: nomic-embed-text:latest
 ```
 
+
+**Hermes SKILL.md**:
+```bash
+mkdir -p ~/.hermes/skills/memory/unified-memory
+cp SKILL.md ~/.hermes/skills/memory/unified-memory/
+```
+
 ---
 
 ## 🛠️ 可用工具

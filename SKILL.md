@@ -198,8 +198,20 @@ openclaw gateway restart
 
 - ✅ **OpenClaw** - 直接配置 `mcp.servers`
 - ✅ **Claude Desktop** - 配置 `mcpServers`
-- ✅ **Hermes** - 配置 `mcp.servers`
+- ✅ **Hermes** - 安装 SKILL.md 到 `~/.hermes/skills/`
 - ✅ **其他 MCP 客户端** - 通用 stdio 协议
+
+### Hermes 安装
+
+```bash
+# 创建目录并安装
+mkdir -p ~/.hermes/skills/memory/unified-memory
+cp SKILL.md ~/.hermes/skills/memory/unified-memory/
+
+
+# 验证
+hermes skills list | grep unified
+```
 
 ---
 

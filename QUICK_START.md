@@ -182,6 +182,19 @@ node src/gbrain_mcp_server.js
 
 ## Hermes 配置
 
+### 方式 1: SKILL.md 安装 (推荐)
+
+```bash
+# 创建目录并安装
+mkdir -p ~/.hermes/skills/memory/unified-memory
+cp unified-memory/SKILL.md ~/.hermes/skills/memory/unified-memory/
+
+# 验证
+hermes skills list | grep unified
+```
+
+### 方式 2: MCP Server
+
 ```yaml
 mcp:
   servers:
