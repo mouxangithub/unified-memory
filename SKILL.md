@@ -1,10 +1,15 @@
-# Unified Memory v5 — Skill for OpenClaw
+---
+name: unified-memory-v5
+description: Unified Memory v5 - AI Agent 统一记忆系统 | 自动记忆 | MCP 协议 | 支持 OpenClaw/Hermes/Claude
+---
 
-> 🧠 AI Agent 统一记忆系统 | **自动记忆** | MCP 协议 | 一句话安装
+# Unified Memory v5 — Skill for OpenClaw & Hermes
+
+> 🧠 AI Agent 统一记忆记忆系统 | **自动记忆** | MCP 协议 | 一句话安装
 
 ---
 
-## 🚀 一句话安装配置命令（发给 AI）
+## ⚡ 一句话安装配置命令（发给 AI）
 
 ```
 请帮我安装并配置 Unified Memory v5：
@@ -16,12 +21,7 @@ VECTOR_ENGINE=lancedb && \
 node src/gbrain_mcp_server.js
 ```
 
-### 自动配置说明
-
-运行后自动开启：
-- ✅ **自动记忆** - 重要性评分 > 0.7 时自动存储
-- ✅ **实体检测** - 自动识别文本中的实体
-- ✅ **相似记忆关联** - 自动关联已有记忆
+> ⚡ **安装后自动开启**：自动记忆（重要性 > 0.7 自动存储）+ 实体检测 + 相似记忆关联
 
 ---
 
@@ -88,36 +88,11 @@ await auto_analyze({
 
 ---
 
-## 环境变量配置
+## 🔧 平台配置
 
-创建 `.env` 文件：
+### OpenClaw 配置
 
-```bash
-# ─── LLM 配置 ───
-LLM_PROVIDER=ollama
-LLM_MODEL=minimax-m2.7:cloud
-LLM_BASE_URL=http://localhost:11434
-
-# ─── Embedding 配置 ───
-EMBED_PROVIDER=ollama
-EMBED_MODEL=nomic-embed-text:latest
-EMBED_BASE_URL=http://localhost:11434
-EMBED_DIMENSION=768
-
-# ─── 存储配置 ───
-VECTOR_ENGINE=lancedb
-DATA_DIR=~/.openclaw/workspace/memory
-
-# ─── 自动记忆配置 ───
-AUTO_MEMORY_THRESHOLD=0.7  # 重要性阈值，默认 0.7
-```
-
----
-
-## OpenClaw MCP 配置
-
-### 方式 1: mcp-config.json
-
+**方式 1: mcp-config.json**
 ```json
 {
   "mcpServers": {
@@ -138,53 +113,159 @@ AUTO_MEMORY_THRESHOLD=0.7  # 重要性阈值，默认 0.7
 }
 ```
 
-### 方式 2: SKILL.md 安装 (Hermes)
+### Hermes 配置
+
+Hermes 支持两种方式使用本技能：
+
+#### 方式 1: MCP Server 配置（推荐）
+
+在 Hermes 配置文件中添加 MCP server：
+
+```yaml
+# ~/.hermes/config.yaml 或 hermes.yaml
+mcp:
+  servers:
+    unified-memory:
+      command: node
+      args:
+        - /path/to/unified-memory/src/gbrain_mcp_server.js
+      env:
+        OLLAMA_BASE_URL: http://localhost:11434
+        LLM_PROVIDER: ollama
+        LLM_MODEL: minimax-m2.7:cloud
+        EMBED_PROVIDER: ollama
+        EMBED_MODEL: nomic-embed-text:latest
+        VECTOR_ENGINE: lancedb
+        AUTO_MEMORY_THRESHOLD: "0.7"
+```
+
+#### 方式 2: SKILL.md 安装
 
 ```bash
-mkdir -p ~/.hermes/skills/memory/unified-memory
-cp SKILL.md ~/.hermes/skills/memory/unified-memory/
+# 克隆仓库
+git clone https://github.com/mouxangithub/unified-memory.git
+
+# 安装 SKILL.md 到 Hermes skills 目录
+mkdir -p ~/.hermes/skills/memory/
+cp unified-memory/SKILL.md ~/.hermes/skills/memory/unified-memory.md
+
+# 查看已安装的技能
+# 使用 skills_list 工具
+```
+
+### Claude Desktop 配置
+
+```json
+{
+  "mcpServers": {
+    "unified-memory": {
+      "command": "node",
+      "args": ["/path/to/unified-memory/src/gbrain_mcp_server.js"],
+      "env": {
+        "OLLAMA_BASE_URL": "http://localhost:11434",
+        "LLM_PROVIDER": "ollama",
+        "LLM_MODEL": "minimax-m2.7:cloud",
+        "EMBED_PROVIDER": "ollama",
+        "EMBED_MODEL": "nomic-embed-text:latest",
+        "VECTOR_ENGINE": "lancedb",
+        "AUTO_MEMORY_THRESHOLD": "0.7"
+      }
+    }
+  }
+}
 ```
 
 ---
 
-## MCP 接口兼容
+## ⚙️ 环境变量配置
 
-- ✅ **OpenClaw** - 直接配置 `mcp.servers`
-- ✅ **Claude Desktop** - 配置 `mcpServers`
-- ✅ **Hermes** - 安装 SKILL.md 到 `~/.hermes/skills/`
-- ✅ **其他 MCP 客户端** - 通用 stdio 协议
-
----
-
-## 高级功能模块
-
-| 模块 | 路径 | 说明 |
-|------|------|------|
-| **API Gateway** | `src/advanced/api_gateway/` | JWT/API Key认证、限流、OpenAPI |
-| **Version Control** | `src/advanced/version_control/` | 乐观锁、冲突解决、差异计算 |
-| **Cache Manager** | `src/advanced/cache_manager/` | L1/L2多级缓存、淘汰策略 |
-| **Monitoring** | `src/advanced/monitoring/` | Prometheus指标、健康检查 |
-| **Backup/Restore** | `src/advanced/backup_restore/` | 增量/全量备份、恢复 |
-| **Archival** | `src/advanced/archival/` | 冷热分层、自动归档 |
-| **Benchmark** | `src/advanced/benchmark/` | 性能基准测试、对比分析 |
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `LLM_PROVIDER` | LLM 提供商 | ollama |
+| `LLM_MODEL` | 模型名称 | minimax-m2.7:cloud |
+| `LLM_BASE_URL` | API 地址 | http://localhost:11434 |
+| `EMBED_PROVIDER` | Embedding 提供商 | ollama |
+| `EMBED_MODEL` | Embedding 模型 | nomic-embed-text:latest |
+| `EMBED_BASE_URL` | Embedding API 地址 | http://localhost:11434 |
+| `VECTOR_ENGINE` | 向量引擎 | lancedb |
+| `DATA_DIR` | 数据目录 | ~/.openclaw/workspace/memory |
+| `AUTO_MEMORY_THRESHOLD` | **自动记忆阈值** | 0.7 |
 
 ---
 
-## 快速使用
+## 📁 快速使用
+
+### Hermes Agent 使用方式
 
 ```javascript
-// Node.js
-const { exec } = require('child_process');
+// 1. 首先安装技能
+await skills_list();
+// 找到 "unified-memory-v5" 并使用
 
-// 启动 MCP 服务器（自动记忆功能已内置）
-exec('node src/gbrain_mcp_server.js', {
-  env: {
-    OLLAMA_BASE_URL: 'http://localhost:11434',
-    AUTO_MEMORY_THRESHOLD: '0.7',
-    ...process.env
-  }
+// 2. 调用 MCP 工具
+// 自动记忆功能已内置，无需额外配置
+await remember({
+  text: "用户偏好：喜欢冷萃咖啡，不加糖"
+});
+
+// 3. 搜索记忆
+await search({
+  query: "用户的咖啡偏好"
+});
+
+// 4. 预分析（不存储）
+await auto_analyze({
+  text: "我决定下周去日本旅游"
 });
 ```
+
+---
+
+## 🔌 MCP 接口兼容
+
+| 平台 | 状态 | 配置方式 |
+|------|------|----------|
+| **OpenClaw** | ✅ 支持 | mcp-config.json |
+| **Hermes** | ✅ 支持 | config.yaml / SKILL.md |
+| **Claude Desktop** | ✅ 支持 | claude_desktop_config.json |
+| **其他 MCP 客户端** | ✅ 支持 | 通用 stdio 协议 |
+
+---
+
+## 🛠️ 可用工具
+
+| 工具 | 用途 | 关键参数 |
+|------|------|----------|
+| `remember` | 存储记忆 | text, category, importance, **auto** |
+| `search` | 语义搜索 | query, limit, entity, project, topic |
+| `get_context` | 获取状态 | - |
+| `graph_stats` | 图谱统计 | - |
+| `cleanup` | 清理记忆 | threshold, max_age_days |
+| `auto_analyze` | **重要性分析** | text（仅分析不存储） |
+
+---
+
+## 📁 项目结构
+
+```
+unified-memory/
+├── src/
+│   ├── gbrain_mcp_server.js     # MCP 服务器入口（自动记忆 v1.1.0）
+│   ├── gbrain-integration.js    # GBrain 集成模块
+│   ├── memory_graph.js          # 记忆关联网络
+│   ├── entity_detection.js      # 实体检测
+│   └── ...
+├── SKILL.md                     # 本文件
+├── README.md                    # 完整文档
+└── CHANGELOG.md                 # 版本历史
+```
+
+---
+
+## 🌐 链接
+
+- **GitHub**: https://github.com/mouxangithub/unified-memory
+- **文档**: https://github.com/mouxangithub/unified-memory#readme
 
 ---
 
@@ -192,19 +273,9 @@ exec('node src/gbrain_mcp_server.js', {
 
 | 版本 | 日期 | 更新内容 |
 |------|------|----------|
-| v1.1.0 | 2026-05-05 | 🆕 自动记忆功能 - 重要性评分 > 0.7 自动存储 |
+| **v1.1.0** | 2026-05-05 | 🆕 自动记忆功能 - 重要性评分 > 0.7 自动存储 |
 | v1.0.0 | 2026-04-20 | 初始版本 - 基础记忆、搜索、图谱功能 |
 
 ---
 
-## 测试
-
-```bash
-npm test
-```
-
----
-
-## 许可证
-
-MIT
+> 🧠 **让 AI 拥有记忆，让记忆成为智能的基石。**
