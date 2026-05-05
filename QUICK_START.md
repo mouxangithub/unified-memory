@@ -42,6 +42,25 @@ cd unified-memory && npm install，然后启动 node src/gbrain_mcp_server.js，
 }
 ```
 
+## ⚙️ 配置 (.env)
+
+```bash
+# LLM 配置
+LLM_PROVIDER=ollama
+LLM_MODEL=minimax-m2.7:cloud
+LLM_BASE_URL=http://localhost:11434
+
+# Embedding 配置
+EMBED_PROVIDER=ollama
+EMBED_MODEL=nomic-embed-text:latest
+EMBED_BASE_URL=http://localhost:11434
+
+# 向量引擎
+VECTOR_ENGINE=lancedb
+```
+
+详细配置：[CONFIG.md](docs/CONFIG.md)
+
 ---
 
 ## 验证安装

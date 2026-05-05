@@ -117,10 +117,41 @@ unified-memory/
 
 ---
 
+## 🔧 配置
+
+> 详细配置文档：[CONFIG.md](docs/CONFIG.md)
+
+| 配置项 | 说明 |
+|--------|------|
+| `LLM_PROVIDER` | 提供商: ollama, openai, minimax, kimi |
+| `LLM_MODEL` | 模型名称 |
+| `LLM_BASE_URL` | API 地址 |
+| `EMBED_PROVIDER` | 向量提供商 |
+| `EMBED_MODEL` | 向量模型 |
+| `OLLAMA_BASE_URL` | Ollama 服务地址 |
+
+**快速配置示例：**
+
+```bash
+# Ollama 本地
+LLM_PROVIDER=ollama
+LLM_MODEL=minimax-m2.7:cloud
+LLM_BASE_URL=http://localhost:11434
+EMBED_PROVIDER=ollama
+EMBED_MODEL=nomic-embed-text:latest
+```
+
+---
+
 ## 📦 发布版本
 
-- **npm**: 即将发布
+```bash
+# 一键安装
+npm install unified-memory
+```
+
 - **GitHub**: https://github.com/mouxangithub/unified-memory
+- **npm**: 即将发布
 - **ClawHub**: https://clawhub.ai/skill/unified-memory-v5
 
 ---
@@ -128,6 +159,7 @@ unified-memory/
 ## 📖 文档
 
 - [快速安装](QUICK_START.md) - 一句话发给 AI
+- [配置指南](docs/CONFIG.md) - LLM/Embedding/Ollama 配置
 - [架构设计](docs/ARCHITECTURE.md) - 核心模块说明
 - [MCP 接口](docs/MCP_INTERFACE.md) - 工具/资源/提示模板
 

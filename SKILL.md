@@ -108,6 +108,21 @@ openclaw gateway restart
 - ✅ **Hermes** - 配置 `mcp.servers`
 - ✅ **其他 MCP 客户端** - 通用 stdio 协议
 
+## ⚙️ 配置
+
+```bash
+# .env 文件
+LLM_PROVIDER=ollama
+LLM_MODEL=minimax-m2.7:cloud
+LLM_BASE_URL=http://localhost:11434
+
+EMBED_PROVIDER=ollama
+EMBED_MODEL=nomic-embed-text:latest
+EMBED_BASE_URL=http://localhost:11434
+```
+
+详细配置：[CONFIG.md](docs/CONFIG.md)
+
 ---
 
 ## 技术细节
@@ -116,9 +131,10 @@ openclaw gateway restart
 |------|-----|
 | 协议 | MCP 1.0 (stdio) |
 | 运行时 | Node.js 18+ |
-| 依赖 | @modelcontextprotocol/sdk |
-| 存储 | JSON 文件 (开发) |
-| 向量 | LanceDB (可选) |
+| LLM | ollama/openai/minimax/kimi |
+| Embedding | ollama/openai/cohere |
+| 向量引擎 | LanceDB/ChromaDB/FAISS |
+| 存储 | JSON (开发) / PostgreSQL (生产) |
 
 ---
 
