@@ -1,0 +1,44 @@
+name: 更新 SKILL.md 和 README - 自动记忆功能
+description: 更新 Unified Memory v5 的 SKILL.md 和 README.md，添加自动记忆功能说明和自动配置
+version: 1.0.0
+
+settings:
+  parallel: false
+  max_retries: 2
+
+agents:
+  - id: doc-writer
+    name: 技术文档工程师
+    role: 技术文档
+    goal: 更新 Unified Memory v5 的 SKILL.md 和 README.md，添加自动记忆功能说明
+
+tasks:
+  - id: update_skill_md
+    agent: doc-writer
+    description: |
+      更新 /root/unified-memory/SKILL.md，添加：
+      1. 自动记忆功能说明（重要性评分算法）
+      2. 新增工具：auto_analyze
+      3. 更新一句话安装命令，添加自动配置选项
+    output_file: steps/1-update-skill.md
+    timeout: 180
+
+  - id: update_readme
+    agent: doc-writer
+    description: |
+      更新 /root/unified-memory/README.md，添加：
+      1. 自动记忆功能章节
+      2. 重要性评分算法说明
+      3. 更新安装配置部分
+    output_file: steps/2-update-readme.md
+    timeout: 180
+
+  - id: create_changelog
+    agent: doc-writer
+    description: |
+      创建 CHANGELOG.md 或更新现有 CHANGELOG，记录 v1.1.0 自动记忆功能
+    output_file: steps/3-changelog.md
+    timeout: 120
+
+output:
+  summary: steps/summary.md
