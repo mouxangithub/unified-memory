@@ -1,235 +1,136 @@
-# Unified Memory
+# 🧠 Unified Memory v5
 
-> 🧠 Advanced memory management system with hybrid search (BM25 + Vector + RRF), atomic transactions, and plugin system
+> AI Agent 的统一记忆系统 | MCP 协议 | 开箱即用
 
-[中文文档](docs/zh/README.md)
-
-## ✨ Features
-
-### 🔍 **Hybrid Search**
-- **BM25**: Traditional keyword search
-- **Vector Search**: Semantic similarity search
-- **RRF**: Reciprocal Rank Fusion for result combination
-- **5-10x faster** search performance
-
-### ⚡ **Atomic Transactions**
-- **WAL (Write-Ahead Logging)**: Data consistency
-- **Rollback Support**: Transaction rollback on failure
-- **ACID Compliance**: Database transaction guarantees
-
-### 🔌 **Plugin System**
-- **Hot Reload**: Plugins can be reloaded without restart
-- **Lifecycle Hooks**: Before/after operation hooks
-- **Extensible Architecture**: Easy to add new features
-
-### 📊 **Performance**
-- **60% storage reduction** through optimization
-- **78% cache hit rate** with intelligent caching
-- **45ms average query time** for searches
-
-## 🚀 Quick Start
-
-### Installation
-```bash
-# Install via OpenClaw
-openclaw skills install unified-memory
-
-# Or clone manually
-git clone https://github.com/mouxangithub/unified-memory.git
-cd unified-memory
-npm install
-```
-
-### Basic Usage
-```javascript
-// Store a memory
-const result = await mcp.call('unified-memory', 'memory_store', {
-  content: 'Today I learned about atomic writes.',
-  category: 'learning',
-  tags: ['database', 'atomic']
-});
-
-// Search memories
-const searchResult = await mcp.call('unified-memory', 'memory_search', {
-  query: 'atomic writes database',
-  limit: 10
-});
-```
-
-## 📖 Documentation
-
-### Getting Started
-- [Quick Start Guide](docs/en/getting-started/quickstart.md)
-- [Installation Guide](docs/en/getting-started/installation.md)
-- [Configuration Guide](docs/en/getting-started/configuration.md)
-
-### Guides
-- [Basic Usage](docs/en/guides/basic-usage.md)
-- [Advanced Usage](docs/en/guides/advanced-usage.md)
-- [Performance Optimization](docs/en/guides/performance.md)
-- [Troubleshooting](docs/en/guides/troubleshooting.md)
-
-### API Reference
-- [API Overview](docs/en/api/overview.md)
-- [API Functions](docs/en/api/functions.md)
-- [API Examples](docs/en/api/examples.md)
-
-### Architecture
-- [Architecture Overview](docs/en/architecture/overview.md)
-- [Architecture Decisions](docs/ARCHITECTURE_DECISIONS.md)
-- [Component Documentation](docs/en/architecture/components.md)
-
-### Contributing
-- [Contribution Guidelines](docs/en/contributing/guidelines.md)
-- [Code of Conduct](docs/en/contributing/code-of-conduct.md)
-- [Development Setup](docs/en/contributing/development.md)
-
-## 🏗️ Architecture
-
-### System Architecture
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Client Applications                      │
-│  (OpenClaw, Web UI, CLI, API Clients, MCP Clients)         │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-┌───────────────────────────▼─────────────────────────────────┐
-│                    API Gateway Layer                         │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐           │
-│  │ REST API   │  │ MCP Server │  │ WebSocket  │           │
-│  └────────────┘  └────────────┘  └────────────┘           │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-┌───────────────────────────▼─────────────────────────────────┐
-│                    Service Layer                            │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐           │
-│  │ Memory     │  │ Search     │  │ Cache      │           │
-│  │ Service    │  │ Service    │  │ Service    │           │
-│  └────────────┘  └────────────┘  └────────────┘           │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-┌───────────────────────────▼─────────────────────────────────┐
-│                    Storage Layer                            │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐           │
-│  │ SQLite     │  │ Vector     │  │ File       │           │
-│  │ Database   │  │ Database   │  │ System     │           │
-│  └────────────┘  └────────────┘  └────────────┘           │
-└───────────────────────────┬─────────────────────────────────┘
-                            │
-┌───────────────────────────▼─────────────────────────────────┐
-│                    Infrastructure Layer                     │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐           │
-│  │ Monitoring │  │ Logging    │  │ Plugins    │           │
-│  │ System     │  │ System     │  │ System     │           │
-│  └────────────┘  └────────────┘  └────────────┘           │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Technology Stack
-- **Backend**: Node.js, Express.js, SQLite
-- **Search**: BM25, Vector Search, RRF
-- **Frontend**: React, TypeScript, Tailwind CSS
-- **DevOps**: Docker, Kubernetes, GitHub Actions
-
-## 📈 Performance Metrics
-
-| Metric | Value | Improvement |
-|--------|-------|-------------|
-| Search Speed | 5-10x faster | 400-900% |
-| Storage Usage | 60% reduction | 40% of original |
-| Cache Hit Rate | 78% | Optimal caching |
-| Average Query Time | 45ms | Real-time response |
-| Memory Usage | 245.6 MB | Efficient memory management |
-| Total Memories | 1,760 | Comprehensive coverage |
-| Total Categories | 49 | Organized structure |
-| Total Tags | 181 | Detailed categorization |
-
-## 🔧 Development
-
-### Prerequisites
-- Node.js >= 18.0.0
-- Git
-- OpenClaw >= 2.7.0
-
-### Setup
-```bash
-# Clone repository
-git clone https://github.com/mouxangithub/unified-memory.git
-cd unified-memory
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Run tests
-npm test
-```
-
-### Scripts
-```bash
-# Development
-npm run dev          # Start development server
-npm run lint         # Check code style
-npm run format       # Format code
-
-# Testing
-npm test             # Run tests
-npm run test:watch   # Watch mode
-npm run test:coverage # Coverage report
-
-# Building
-npm run build        # Build for production
-npm run clean        # Clean build artifacts
-
-# Deployment
-npm run deploy       # Deploy to production
-```
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](docs/en/contributing/guidelines.md) for details.
-
-### Contribution Levels
-1. **First-time Contributor**: Fix typos, add tests, report bugs
-2. **Regular Contributor**: Implement features, fix bugs, improve docs
-3. **Core Contributor**: Major features, architecture improvements
-4. **Maintainer**: Code review, releases, community management
-
-### Getting Help
-- [GitHub Issues](https://github.com/mouxangithub/unified-memory/issues)
-- [GitHub Discussions](https://github.com/mouxangithub/unified-memory/discussions)
-- [Documentation](docs/en/README.md)
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **OpenClaw Team** - For the amazing platform
-- **Contributors** - For making this project better
-- **Community** - For feedback and support
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/mouxangithub/unified-memory/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/mouxangithub/unified-memory/discussions)
-- **Email**: team@openclaw.ai
-
-## 🔗 Links
-
-- [GitHub Repository](https://github.com/mouxangithub/unified-memory)
-- [Documentation](docs/en/README.md)
-- [Changelog](CHANGELOG.md)
-- [Contributing Guidelines](docs/en/contributing/guidelines.md)
+**一行安装，即刻拥有记忆能力。**
 
 ---
 
-**Made with ❤️ by the OpenClaw Team**
+## ⚡ 一句话安装（发给 AI）
 
-[![npm version](https://img.shields.io/npm/v/unified-memory)](https://www.npmjs.com/package/unified-memory)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub stars](https://img.shields.io/github/stars/mouxangithub/unified-memory)](https://github.com/mouxangithub/unified-memory/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/mouxangithub/unified-memory)](https://github.com/mouxangithub/unified-memory/network)
+```
+请帮我安装 Unified Memory v5：
+1. git clone https://github.com/mouxangithub/unified-memory.git
+2. cd unified-memory && npm install
+3. 启动服务：node src/gbrain_mcp_server.js
+4. 配置 MCP 客户端连接
+```
+
+---
+
+## ✨ 核心能力
+
+| 功能 | 说明 |
+|------|------|
+| 🧠 **记忆存储** | 情景/语义/实体记忆，自动提取实体和关系 |
+| 🔍 **语义搜索** | 向量 + BM25 混合搜索，RRF 融合 |
+| 🔗 **关系图谱** | 记忆关联网络，发现隐藏联系 |
+| 📊 **实体检测** | 自动识别人物/组织/地点/概念 |
+| 🔌 **MCP 接口** | 标准协议，兼容 OpenClaw/Claude/Hermes |
+
+---
+
+## 🚀 快速开始
+
+### 方式 1：直接运行
+
+```bash
+git clone https://github.com/mouxangithub/unified-memory.git
+cd unified-memory
+npm install
+node src/gbrain_mcp_server.js
+```
+
+### 方式 2：配置到 AI 工具
+
+**OpenClaw** (`openclaw.json`):
+```json
+{
+  "mcp": {
+    "servers": {
+      "agent-brain": {
+        "command": "node",
+        "args": ["/path/to/unified-memory/src/gbrain_mcp_server.js"]
+      }
+    }
+  }
+}
+```
+
+**Claude Desktop** (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "unified-memory": {
+      "command": "node",
+      "args": ["/path/to/unified-memory/src/gbrain_mcp_server.js"]
+    }
+  }
+}
+```
+
+---
+
+## 🛠️ 可用工具
+
+| 工具 | 用途 |
+|------|------|
+| `remember` | 存储记忆，自动实体检测+关联 |
+| `search` | 语义搜索，支持实体/项目/话题过滤 |
+| `get_context` | 获取记忆系统状态 |
+| `graph_stats` | 查看图谱统计 |
+| `cleanup` | 清理低价值记忆 |
+
+---
+
+## 📁 项目结构
+
+```
+unified-memory/
+├── src/
+│   ├── gbrain_mcp_server.js     # MCP 服务器入口
+│   ├── gbrain-integration.js    # GBrain 集成模块
+│   ├── memory_graph.js          # 记忆关联网络
+│   ├── entity_detection.js      # 实体检测
+│   ├── typed_links.js           # 类型化链接
+│   ├── source_attribution.js    # 来源追溯
+│   ├── resolver.js               # 决策树
+│   ├── memory_two_layer.js      # 两层页面格式
+│   └── brain_cli.js             # CLI 工具
+├── docs/
+│   ├── ARCHITECTURE.md          # 系统架构
+│   ├── MCP_INTERFACE.md         # MCP 接口规范
+│   └── QUICK_START.md           # 快速安装
+├── SKILL.md                     # OpenClaw Skill 定义
+└── package.json
+```
+
+---
+
+## 🔧 技术栈
+
+- **运行时**: Node.js 18+
+- **协议**: MCP (Model Context Protocol)
+- **存储**: JSON 文件 (开发) / PostgreSQL (生产)
+- **向量**: LanceDB (可选)
+- **依赖**: @modelcontextprotocol/sdk
+
+---
+
+## 📦 发布版本
+
+- **npm**: 即将发布
+- **GitHub**: https://github.com/mouxangithub/unified-memory
+- **ClawHub**: https://clawhub.ai/skill/unified-memory-v5
+
+---
+
+## 📖 文档
+
+- [快速安装](QUICK_START.md) - 一句话发给 AI
+- [架构设计](docs/ARCHITECTURE.md) - 核心模块说明
+- [MCP 接口](docs/MCP_INTERFACE.md) - 工具/资源/提示模板
+
+---
+
+> "让 AI 拥有记忆，让记忆成为智能的基石。"

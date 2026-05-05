@@ -1,214 +1,89 @@
-# Unified Memory — Module Architecture
+# Unified Memory v5 系统架构
 
-> Clear separation of responsibilities across all modules. Last updated: 2026-04-20.
+> 版本：5.3.0 | 更新日期：2026-05-05
 
----
+## 1. 系统概述
 
-## 📁 Directory Map
+Unified Memory v5 是一个面向 AI Agent 的**统一记忆系统**，支持：
+- 多模态记忆存储（情景/语义/实体）
+- 语义向量搜索 + BM25 混合检索
+- 实体关系图谱 + 知识网络
+- MCP 协议接口，兼容 OpenClaw / Claude / Cursor / Hermes
 
-```
-src/
-├── agents/          Agent orchestration & collaboration
-├── api/             HTTP/MCP server interfaces
-├── backup/          Backup & restore
-├── benchmark/       Performance benchmarking
-├── chunking/        Text chunking strategies
-├── claudemem_features/  Claude memory compatibility
-├── cli/             Command-line tools
-├── collab/          Collaboration features
-├── compression/     Memory compression
-├── config/          Configuration management
-├── connectors/      External system connectors
-├── consolidate/     Memory consolidation
-├── conversation/     Conversation processing
-├── core/            Core memory operations
-├── decay/           Time-based importance decay
-├── deduplication/   Deduplication logic
-├── episode/         Episode capture & management
-├── extraction/      Memory extraction from text
-├── extractors/      Pluggable content extractors
-├── forgetting/      Forgetting & TTL management
-├── graph/           Knowledge graph
-├── hooks/           Lifecycle hooks
-├── integrations/     Third-party integrations
-├── lifecycle/       Lifecycle management
-├── memory_types/    Memory type definitions
-├── multimodal/      Multimodal content support
-├── observability/   Metrics & monitoring
-├── parsing/         Input parsing
-├── persona/         Persona management
-├── plugin/          Plugin system
-├── procedural/      Procedural memory
-├── profile/         User profile aggregation
-├── prompts/        Prompt templates
-├── quality/         Memory quality scoring
-├── queue/           Async operation queue
-├── recall/          Memory recall strategies
-├── record/          L1 record processing
-├── relations/       Memory relations
-├── rerank/          Result reranking
-├── retrieval/       Retrieval strategies
-├── rule/            Rule-based processing
-├── scene/           Scene understanding
-├── search/          Search engine
-├── session/         Session management
-├── setup/           System initialization
-├── storage/         Storage backends
-├── store/           Store operations
-├── system/          System-level operations
-├── tools/           MCP tool implementations
-├── utils/           Shared utilities
-├── v4/              v4.0 storage gateway
-└── visualize/       Visualization
-
-top-level (flat .js files):  Large cross-cutting modules (memory.js, index.js, etc.)
-```
-
----
-
-## 🎯 Core Principle: One Module = One Responsibility
-
-| Module | Responsibility | Public API |
-|--------|---------------|------------|
-| `src/storage.js` | SQLite JSON file CRUD | `addMemory`, `getMemory`, `getAllMemories`, `deleteMemory`, `saveMemories` |
-| `src/vector.js` / `vector_lancedb.js` | Vector embeddings & search | `getEmbedding`, `searchVectors` |
-| `src/bm25.js` | BM25 keyword index | `buildBM25Index`, `bm25Search` |
-| `src/fusion.js` | Hybrid search (BM25 + Vector + RRF) | `hybridSearch` |
-| `src/index.js` | MCP server entry point, all tool registrations | All `server.registerTool()` calls |
-| `src/manager.js` | Memory lifecycle manager | `init`, `shutdown`, `tick` |
-| `src/memory.js` | Unified memory facade | `store`, `search`, `get`, `delete` |
-| `src/tools/*.js` | Individual MCP tool implementations | `executeXxx`, `cmdXxx`, `XxxTool` |
-
----
-
-## 🔄 Tool Flow (MCP Request → Response)
+## 2. 核心模块
 
 ```
-MCP Client
-    │
-    ▼
-src/index.js  (McpServer)
-    │  server.registerTool('memory_search', ...)
-    ▼
-src/tools/memory_search.js  (executeMemorySearch)
-    │
-    ▼
-src/fusion.js  (hybridSearch)
-    │
-    ├──► src/bm25.js  (bm25Search)
-    ├──► src/vector.js  (getEmbedding + searchVectors)
-    └──► src/recall/  (recall strategies)
-    │
-    ▼
-src/tools/memory_search.js  (formatSearchResponse)
-    │
-    ▼
-MCP Response
+┌─────────────────────────────────────────────────────────────┐
+│                    Unified Memory v5                         │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 4: 接口层 (MCP / REST / WebSocket)                   │
+│  ─────────────────────────────────────────────────────────  │
+│  Layer 3: 推理增强层 (Context Manager / Summarizer)         │
+│  ─────────────────────────────────────────────────────────  │
+│  Layer 2: 索引检索层 (Semantic Index / BM25 / Graph Query)  │
+│  ─────────────────────────────────────────────────────────  │
+│  Layer 1: 数据接入层 (Memory Store / Entity Extract / Dedup)│
+├─────────────────────────────────────────────────────────────┤
+│  存储适配器: PostgreSQL + LanceDB + Redis                   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
----
+### 2.1 模块职责
 
-## ⚠️ Responsibility Overlaps to Avoid
+| 模块 | 文件 | 职责 |
+|------|------|------|
+| **Memory Store** | `memory_store.js` | 接收记忆、验证、写入存储 |
+| **Entity Extractor** | `entity_detection.js` | 实体识别、关系抽取 |
+| **Semantic Index** | `memory_graph.js` | 向量索引、相似度计算 |
+| **BM25 Search** | `bm25.js` | 关键词全文搜索 |
+| **Context Manager** | `context_manager.js` | 上下文组装、记忆召回 |
+| **Graph Query** | `memory_graph.js` | 关系路径、邻居查询 |
+| **MCP Server** | `gbrain_mcp_server.js` | MCP 协议接口 |
 
-### 1. Storage vs. Cache
-- **Storage** (`src/storage.js`): Source of truth, persists memories to disk
-- **Cache** (`src/cache_semantic.js`): Ephemeral query result cache
-- **Rule**: Never write to storage from cache. Never use cache as source of truth.
+## 3. 功能分层
 
-### 2. Search vs. Retrieval
-- **Search** (`src/search/`, `src/fusion.js`): Query-time rankers
-- **Retrieval** (`src/retrieval/`): What memories to fetch before ranking
-- **Rule**: `fusion.js` orchestrates. Individual search engines (BM25, vector) only rank.
+### Layer 1: 数据接入层
+- `memory_store()` - 存储记忆
+- `deduplicate()` - 去重检测
+- `validate()` - 数据验证
 
-### 3. Tools vs. Core Logic
-- **Tools** (`src/tools/*.js`): MCP adapter layer, input validation, output formatting
-- **Core logic** (`src/core/`, `src/storage.js`): Business logic, no MCP dependencies
-- **Rule**: Tools import from core. Core never imports from tools.
+### Layer 2: 索引检索层
+- `vector_search()` - 向量相似度搜索
+- `bm25_search()` - BM25 关键词搜索
+- `hybrid_search()` - 混合搜索 (RRF 融合)
+- `graph_query()` - 图谱查询
 
-### 4. Episode vs. Conversation vs. Transcript
-| Module | Scope |
-|--------|-------|
-| `conversation/` | L0 capture from raw messages |
-| `episode/` | Grouped conversation episodes |
-| `transcript_manager.js` | Persistent transcript storage |
+### Layer 3: 推理增强层
+- `context_recall()` - 基于上下文的记忆召回
+- `summarize()` - 记忆摘要生成
+- `link_entities()` - 实体链接
 
-### 5. dedup.js (top-level) vs. deduplication/ (module)
-| File | Responsibility |
-|------|---------------|
-| `src/dedup.js` | Top-level dedup CLI/interface |
-| `src/deduplication/` | Core dedup algorithm & merging |
-| `src/record/l1_dedup.js` | L1 extraction dedup |
+### Layer 4: 接口协议层
+- MCP Tools: `memory_store`, `memory_search`, `memory_get`, `memory_update`, `memory_delete`, `memory_graph_query`
+- MCP Resources: `memory://recent`, `memory://entities`, `memory://graph`
+- MCP Prompts: `memory_recall`, `memory_context_inject`
 
----
-
-## 📊 Tier System
-
-Memories are automatically classified by age:
-
-| Tier | Age | Compression | Eligible for Dedup |
-|------|-----|------------|-------------------|
-| HOT | ≤ 7 days | None | Yes |
-| WARM | 7–30 days | Light | Yes |
-| COLD | > 30 days | Heavy | Yes |
-
-Pinned memories are **never** compressed or deduplicated.
-
----
-
-## 🔌 Plugin System
-
-Plugins live in `plugins/` and must export:
-```javascript
-export const plugin = {
-  name: 'my-plugin',
-  version: '1.0.0',
-  hooks: {
-    beforeStore: async (mem) => mem,
-    afterSearch: async (results) => results,
-  }
-};
-```
-
----
-
-## 🧠 v4.0 Storage Gateway
-
-`src/v4/storage-gateway.js` is a ground-up rewrite of storage with:
-- SQLite with proper schema (memories, evidence, versions, wal tables)
-- Incremental BM25 (no full rebuild)
-- Multi-tenant team spaces
-- Evidence TTL chains
-- Distributed rate limiting
-
-**v4 is additive** — it coexists with v3 storage. Use `memory_v4_*` tools for new features.
-
----
-
-## 📝 Documentation Structure
+## 4. 数据流
 
 ```
-docs/
-├── README.md              Landing page (EN)
-├── README_CN.md           Landing page (ZH)
-├── ARCHITECTURE.md       This file
-├── STRUCTURE.md          Directory structure overview
-├── MCP-CONFIG-GUIDE.md   MCP server configuration
-├── en/
-│   ├── README.md          EN section index
-│   ├── index.md           EN landing
-│   ├── getting-started/
-│   │   └── quickstart.md  5-minute quick start
-│   ├── guides/
-│   ├── api/               API reference (MCP tools)
-│   ├── architecture/
-│   └── reference/
-└── zh/
-    ├── README.md          ZH section index
-    ├── index.md           ZH landing
-    ├── getting-started/
-    ├── guides/
-    ├── api/
-    ├── architecture/
-    ├── contributing/
-    └── reference/
+用户输入 → Layer 1 (存储+去重) 
+         → Layer 2 (向量+BM25索引) 
+         → Layer 3 (上下文组装)
+         → Layer 4 (MCP接口输出)
 ```
+
+## 5. 技术选型
+
+| 组件 | 技术 | 用途 |
+|------|------|------|
+| 主存储 | PostgreSQL | 结构化数据、事务 |
+| 向量索引 | LanceDB | 高效向量检索 |
+| 缓存 | Redis | 热数据、队列 |
+| 图谱 | 内存 NetworkX | 轻量图关系 |
+| Embedding | Ollama / OpenAI | 文本向量化 |
+
+## 6. 快速链接
+
+- [快速安装](QUICK_START.md)
+- [API 参考](API.md)
+- [MCP 接口规范](MCP_INTERFACE.md)

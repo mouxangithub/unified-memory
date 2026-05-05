@@ -1,0 +1,136 @@
+name: "Unified Memory v5 系统规划"
+description: "规划 Unified Memory v5 的核心模块、功能分层、MCP接口和快速安装文档"
+
+agents_dir: "agency-agents-zh"
+
+llm:
+  provider: minimax
+  model: MiniMax-M2.7
+  max_tokens: 8192
+  timeout: 300000
+  retry: 2
+
+concurrency: 2
+
+steps:
+  - id: design_architecture
+    role: "engineering/engineering-software-architect"
+    name: "系统架构师"
+    emoji: "🏗️"
+    task: |
+      设计 Unified Memory v5 系统的核心模块架构和功能分层。
+
+      系统背景：
+      - Unified Memory 是一个 AI 智能体的记忆系统，用于存储、检索和共享跨智能体的知识
+      - 支持语义搜索、向量存储、实体关系图谱
+      - 需要支持 MCP (Model Context Protocol) 协议接口
+      - 目标用户：AI 开发者和企业 AI 平台团队
+
+      请设计以下内容：
+
+      ## 1. 核心模块设计
+      - Memory Core Engine（记忆核心引擎）
+      - Semantic Index（语义索引层）
+      - Entity Graph Manager（实体图谱管理器）
+      - Context Manager（上下文管理器）
+      - Storage Adapter（存储适配器）
+
+      ## 2. 功能分层架构
+      - Layer 1: 数据接入层 (Data Ingestion Layer)
+      - Layer 2: 索引与检索层 (Indexing & Retrieval Layer)  
+      - Layer 3: 推理与增强层 (Reasoning & Augmentation Layer)
+      - Layer 4: 接口与协议层 (Interface & Protocol Layer)
+
+      ## 3. 关键接口定义
+      为每个模块定义输入输出和关键方法
+
+      请输出详细的架构设计文档，包括每个模块的职责、依赖关系和数据流向。
+    output: architecture_doc
+    depends_on: []
+
+  - id: design_mcp_interface
+    role: "specialized/specialized-mcp-builder"
+    name: "MCP 协议专家"
+    emoji: "🔌"
+    task: |
+      为 Unified Memory v5 系统设计 MCP (Model Context Protocol) 接口规范。
+
+      系统背景：
+      - Unified Memory v5 是 AI 智能体的记忆系统
+      - 需要通过 MCP 协议与各种 AI 客户端/服务器通信
+      - MCP 是一种标准的上下文协议，支持工具调用、资源访问和提示模板
+
+      请设计以下 MCP 接口：
+
+      ## 1. Tools（工具接口）
+      定义以下工具函数：
+      - memory_store: 存储记忆
+      - memory_search: 语义搜索记忆
+      - memory_get: 根据 ID 获取单条记忆
+      - memory_update: 更新记忆内容
+      - memory_delete: 删除记忆
+      - memory_graph_query: 图谱关系查询
+
+      每个工具需要定义：
+      - 工具名称和描述
+      - 输入参数（JSON Schema）
+      - 输出格式
+      - 使用示例
+
+      ## 2. Resources（资源接口）
+      定义可访问的内存资源：
+      - memory://recent - 最近记忆
+      - memory://entities - 实体列表
+      - memory://graph - 关系图谱
+
+      ## 3. Prompts（提示模板）
+      定义 MCP 提示模板：
+      - memory_recall: 记忆召回模板
+      - memory_context_inject: 上下文注入模板
+
+      请输出完整的 MCP 接口规范文档，格式遵循 MCP 协议标准。
+    output: mcp_interface_spec
+    depends_on: []
+
+  - id: write_installation_docs
+    role: "engineering/engineering-technical-writer"
+    name: "技术文档工程师"
+    emoji: "📖"
+    task: |
+      为 Unified Memory v5 系统编写快速安装文档。
+
+      你需要基于以下输入来编写文档：
+      - 架构设计：{{architecture_doc}}
+      - MCP 接口规范：{{mcp_interface_spec}}
+
+      ## 文档结构要求
+
+      # Unified Memory v5 快速安装指南
+
+      ## 1. 环境要求
+      - Python 版本要求
+      - 依赖服务（Redis/PostgreSQL 等）
+      - 硬件要求
+
+      ## 2. 安装步骤
+      提供完整的安装命令序列，包括：
+      - pip install 命令
+      - 配置文件创建
+      - 环境变量设置
+      - 数据库初始化
+
+      ## 3. MCP 客户端配置
+      - 如何配置 MCP 客户端连接 Unified Memory
+      - 示例配置文件（JSON/YAML）
+
+      ## 4. 快速验证
+      - 健康检查命令
+      - 基本功能测试命令
+
+      ## 5. 常见问题
+      - 列出 5-8 个常见安装问题及解决方案
+
+      文档应该简洁实用，让用户能在 10 分钟内完成安装和基本配置。
+      输出完整的 Markdown 格式文档。
+    output: installation_guide
+    depends_on: [design_architecture, design_mcp_interface]
