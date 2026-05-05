@@ -8,6 +8,7 @@
  * - 类型化链接 (Typed Links)
  * - 来源追溯 (Source Attribution)
  * - 决策树 (Resolver)
+ * - 自动记忆 (Auto-Remember) - 重要性 > 0.7 时自动存储
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -36,21 +37,152 @@ const gbrain = new GBrainIntegration({ memoryGraph });
 let stats = {
   rememberCount: 0,
   searchCount: 0,
+  autoRememberCount: 0,
   startTime: Date.now()
 };
+
+// ─────────────────────────────────────────────────────────────
+// 自动记忆功能
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 分析文本重要性
+ * @param {string} text - 要分析的文本
+ * @param {object} context - 上下文信息
+ * @returns {object} { score: number, reasons: string[] }
+ */
+function analyzeImportance(text, context = {}) {
+  const reasons = [];
+  let score = 0.5; // 基础分数
+
+  const textLower = text.toLowerCase();
+  const wordCount = text.split(/\s+/).length;
+
+  // 1. 内容长度因素 (权重: 0.1)
+  // 太短的内容（<10词）可能是闲聊，太长可能是重复内容
+  if (wordCount >= 10 && wordCount <= 500) {
+    score += 0.1;
+    reasons.push('长度适中');
+  } else if (wordCount > 500) {
+    score -= 0.05;
+    reasons.push('内容过长');
+  }
+
+  // 2. 关键决策/偏好信号 (权重: 0.2)
+  const decisionKeywords = [
+    '决定', '选择', '偏好', '喜欢', '讨厌', '需要', '想要',
+    'never', 'always', 'hate', 'love', 'prefer', 'need', 'want',
+    '不', '要', '不要', '必须', '绝对', '一定'
+  ];
+  const hasDecision = decisionKeywords.some(kw => textLower.includes(kw));
+  if (hasDecision) {
+    score += 0.2;
+    reasons.push('包含决策信号');
+  }
+
+  // 3. 情感/情绪信号 (权重: 0.15)
+  const emotionKeywords = [
+    '重要', '紧急', '担心', '害怕', '开心', '满意', '不满意',
+    'important', 'urgent', 'worried', 'afraid', 'happy', 'satisfied'
+  ];
+  const hasEmotion = emotionKeywords.some(kw => textLower.includes(kw));
+  if (hasEmotion) {
+    score += 0.15;
+    reasons.push('包含情感信号');
+  }
+
+  // 4. 事实/信息性内容 (权重: 0.15)
+  const factKeywords = [
+    '是', '在', '已经', '将会', 'is', 'are', 'was', 'will',
+    '因为', '所以', '但是', 'however', 'because', 'therefore'
+  ];
+  const hasFacts = factKeywords.some(kw => textLower.includes(kw));
+  if (hasFacts) {
+    score += 0.15;
+    reasons.push('事实性内容');
+  }
+
+  // 5. 项目/任务关联 (权重: 0.15)
+  const projectKeywords = [
+    '项目', '任务', '计划', '截止', 'deadline', 'project', 'task', 'plan'
+  ];
+  const hasProject = projectKeywords.some(kw => textLower.includes(kw));
+  if (hasProject) {
+    score += 0.15;
+    reasons.push('项目相关');
+  }
+
+  // 6. 个人信息/实体 (权重: 0.1)
+  const entityCheck = entityDetector.detect(text, {});
+  if (entityCheck.length >= 2) {
+    score += 0.1;
+    reasons.push('包含多个实体');
+  } else if (entityCheck.length === 1) {
+    score += 0.05;
+    reasons.push('包含实体');
+  }
+
+  // 7. 问句/不确定内容 (降低分数)
+  const questionKeywords = ['?', '？', '怎么', '什么', '为什么', '如何', 'who', 'what', 'why', 'how'];
+  const isQuestion = questionKeywords.some(kw => textLower.includes(kw));
+  if (isQuestion) {
+    score -= 0.1;
+    reasons.push('问句内容(降低)');
+  }
+
+  // 确保分数在 0-1 范围内
+  score = Math.max(0, Math.min(1, score));
+
+  return { score, reasons };
+}
+
+/**
+ * 自动提取实体
+ * @param {string} text - 要提取实体的文本
+ * @returns {string[]} 实体列表
+ */
+function extractEntities(text) {
+  const entities = entityDetector.detect(text, {});
+  return entities.map(e => e.name);
+}
+
+/**
+ * 查找相似记忆
+ * @param {string} query - 查询文本
+ * @returns {object[]} 相似记忆列表
+ */
+function findSimilarMemories(query) {
+  const allMemories = Array.from(memoryGraph.nodes.values());
+  const queryLower = query.toLowerCase();
+  
+  return allMemories
+    .filter(m => m.text && (
+      m.text.toLowerCase().includes(queryLower) ||
+      m.entities?.some(e => queryLower.includes(e.toLowerCase()))
+    ))
+    .sort((a, b) => (b.importance || 0) - (a.importance || 0))
+    .slice(0, 5)
+    .map(m => ({
+      id: m.id,
+      text: m.text.substring(0, 100),
+      importance: m.importance
+    }));
+}
+
+// ─────────────────────────────────────────────────────────────
+// 加载/保存功能
+// ─────────────────────────────────────────────────────────────
 
 // 加载已有图数据
 async function loadGraph() {
   try {
     const data = await fs.readFile(GRAPH_FILE, 'utf-8');
     const saved = JSON.parse(data);
-    // 恢复节点
     if (saved.nodes) {
       for (const [id, node] of Object.entries(saved.nodes)) {
         memoryGraph.nodes.set(id, node);
       }
     }
-    // 恢复边
     if (saved.edges) {
       for (const [sourceId, edges] of Object.entries(saved.edges)) {
         memoryGraph.edges.set(sourceId, edges);
@@ -88,20 +220,33 @@ async function loadStats() {
   }
 }
 
+// 保存统计
+async function saveStats() {
+  try {
+    await fs.writeFile(
+      path.join(STORAGE_DIR, 'stats.json'),
+      JSON.stringify(stats, null, 2),
+      'utf-8'
+    );
+  } catch (error) {
+    console.error('[GBrain] 保存统计失败:', error.message);
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // MCP 服务器
 // ─────────────────────────────────────────────────────────────
 
 const server = new McpServer({
   name: 'gbrain-agent-brain',
-  version: '1.0.0',
-  description: 'GBrain 记忆大脑 - 集成记忆关联网络、实体检测、类型化链接'
+  version: '1.1.0',
+  description: 'GBrain 记忆大脑 - 自动记忆 | 记忆关联网络 | 实体检测 | 类型化链接'
 });
 
-// 工具：remember - 记住信息（带 GBrain 功能）
+// 工具：remember - 记住信息（带自动记忆功能）
 server.tool(
   'remember',
-  '记住一段信息到 AgentBrain（集成 GBrain 功能）',
+  '记住一段信息到 AgentBrain（自动评估重要性 > 0.7 时自动存储）',
   {
     text: z.string().describe('要记住的文本内容'),
     category: z.string().optional().describe('分类标签'),
@@ -113,12 +258,28 @@ server.tool(
       targetId: z.string(),
       type: z.string(),
       weight: z.number().optional()
-    })).optional().describe('关联到其他记忆')
+    })).optional().describe('关联到其他记忆'),
+    auto: z.boolean().optional().describe('是否自动记忆模式')
   },
-  async ({ text, category, importance, entities, project, topics, relations }) => {
+  async ({ text, category, importance, entities, project, topics, relations, auto }) => {
     try {
       const memoryId = `mem_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
+      // ─── 自动记忆分析 ───
+      let autoAnalysis = null;
+      if (auto !== false) {
+        // 自动评估重要性
+        autoAnalysis = analyzeImportance(text, { category });
+        
+        // 如果未指定 importance 且分数 > 0.7，自动设置
+        if (!importance && autoAnalysis.score > 0.7) {
+          importance = autoAnalysis.score;
+        }
+      }
+
+      // 使用传入的值或默认值
+      const finalImportance = importance || autoAnalysis?.score || 0.5;
+
       // 检测实体
       const detectedEntities = entityDetector.detect(text, {});
       const allEntities = [
@@ -131,25 +292,29 @@ server.tool(
         id: memoryId,
         text,
         category: category || 'general',
-        importance: importance || 0.5,
+        importance: finalImportance,
         entities: allEntities,
         project,
         topics: topics || [],
         createdAt: Date.now(),
-        metadata: {}
+        metadata: {
+          autoAnalyzed: autoAnalysis !== null,
+          autoScore: autoAnalysis?.score,
+          autoReasons: autoAnalysis?.reasons || []
+        }
       };
 
-      // 1. 添加到记忆图谱
+      // 添加到记忆图谱
       memoryGraph.addNode(memory);
 
-      // 2. 添加关联
+      // 添加关联
       if (relations && relations.length > 0) {
         for (const rel of relations) {
           memoryGraph.addEdge(memoryId, rel.targetId, rel.type, rel.weight || 0.8);
         }
       }
 
-      // 3. 自动关联相似记忆
+      // 自动关联相似记忆
       const similarMemories = memoryGraph.findSimilar(memoryId, { limit: 3, threshold: 0.5 });
       for (const similar of similarMemories) {
         if (similar.id !== memoryId) {
@@ -157,44 +322,53 @@ server.tool(
         }
       }
 
-      // 4. 实体索引
+      // 实体索引
       for (const entity of allEntities) {
         memoryGraph.addEntityIndex(entity, memoryId);
       }
-
-      // 5. 来源追溯（存储上下文）
-      const sourceInfo = {
-        memoryId,
-        channel: 'feishu',
-        timestamp: new Date().toISOString(),
-        author: '刘选权'
-      };
 
       // 保存图数据
       await saveGraph();
 
       stats.rememberCount++;
+      if (auto && autoAnalysis) {
+        stats.autoRememberCount++;
+      }
+      await saveStats();
 
-      // 构建响应
-      const response = {
-        success: true,
-        id: memoryId,
-        entities: detectedEntities,
-        similarFound: similarMemories.length,
-        graphStats: memoryGraph.getStats()
-      };
+      // ─── 构建响应 ───
+      let responseText = '';
+
+      if (auto && autoAnalysis) {
+        // 自动记忆模式的响应
+        responseText = `🔄 自动记忆分析:\n\n` +
+          `📊 重要性评分: ${autoAnalysis.score.toFixed(2)}\n` +
+          `📝 分析理由: ${autoAnalysis.reasons.join(', ')}\n\n` +
+          `📝 记忆内容: "${text.substring(0, 80)}${text.length > 80 ? '...' : ''}"\n` +
+          `🆔 ID: ${memoryId}\n` +
+          `🏷️ 分类: ${memory.category}\n` +
+          `⭐ 最终重要性: ${finalImportance.toFixed(2)}\n`;
+        
+        if (detectedEntities.length > 0) {
+          responseText += `🔍 检测到实体: ${detectedEntities.map(e => e.name).join(', ')}\n`;
+        }
+        responseText += `🔗 相似记忆: ${similarMemories.length} 条`;
+      } else {
+        // 手动模式的响应
+        responseText = `✅ 已记住并分析:\n\n` +
+          `📝 内容: "${text.substring(0, 80)}${text.length > 80 ? '...' : ''}"\n` +
+          `🆔 ID: ${memoryId}\n` +
+          `🏷️ 分类: ${memory.category}\n` +
+          `⭐ 重要性: ${finalImportance}\n` +
+          `🔍 检测到实体: ${detectedEntities.length} 个\n` +
+          `🔗 找到相似记忆: ${similarMemories.length} 条\n` +
+          `📊 图谱统计: ${memoryGraph.nodes.size} 节点, ${memoryGraph.edges.size} 边`;
+      }
 
       return {
         content: [{
           type: 'text',
-          text: `✅ 已记住并分析:\n\n` +
-                `📝 内容: "${text.substring(0, 80)}${text.length > 80 ? '...' : ''}"\n` +
-                `🆔 ID: ${memoryId}\n` +
-                `🏷️ 分类: ${memory.category}\n` +
-                `⭐ 重要性: ${memory.importance}\n` +
-                `🔍 检测到实体: ${detectedEntities.length} 个\n` +
-                `🔗 找到相似记忆: ${similarMemories.length} 条\n` +
-                `📊 图谱统计: ${memoryGraph.nodes.size} 节点, ${memoryGraph.edges.size} 边`
+          text: responseText
         }]
       };
     } catch (error) {
@@ -280,6 +454,7 @@ server.tool(
       }
 
       stats.searchCount++;
+      await saveStats();
 
       if (results.length === 0) {
         return {
@@ -335,12 +510,14 @@ server.tool(
                 `   实体类型: ${graphStats.entityTypes}\n` +
                 `   搜索次数: ${stats.searchCount}\n` +
                 `   记忆次数: ${stats.rememberCount}\n` +
+                `   自动记忆: ${stats.autoRememberCount}\n` +
                 `   运行时间: ${Math.floor((Date.now() - stats.startTime) / 1000)}秒\n\n` +
                 `🔍 图谱功能:\n` +
                 `   • 记忆关联网络 ✓\n` +
                 `   • 实体检测 ✓\n` +
                 `   • 类型化链接 ✓\n` +
-                `   • 来源追溯 ✓`
+                `   • 来源追溯 ✓\n` +
+                `   • 自动记忆 (重要性 > 0.7) ✓`
         }]
       };
     } catch (error) {
@@ -440,6 +617,44 @@ server.tool(
   }
 );
 
+// 工具：auto_analyze - 分析文本重要性（不存储）
+server.tool(
+  'auto_analyze',
+  '分析文本重要性（仅分析，不存储）',
+  {
+    text: z.string().describe('要分析的文本内容')
+  },
+  async ({ text }) => {
+    try {
+      const analysis = analyzeImportance(text);
+      const entities = extractEntities(text);
+      const similar = findSimilarMemories(text);
+
+      return {
+        content: [{
+          type: 'text',
+          text: `🔍 自动分析结果:\n\n` +
+                `📊 重要性评分: ${analysis.score.toFixed(2)}\n` +
+                `📝 分析理由: ${analysis.reasons.join(', ')}\n` +
+                `🔍 检测到实体: ${entities.length} 个\n` +
+                `   ${entities.map(e => e).join(', ') || '(无)'}\n` +
+                `🔗 相似记忆: ${similar.length} 条\n` +
+                `   ${similar.map(m => `${m.id.substring(0, 15)}... (⭐${m.importance})`).join('\n   ') || '(无)'}\n\n` +
+                `💡 建议: ${analysis.score > 0.7 ? '建议自动存储' : analysis.score > 0.5 ? '可选择性存储' : '暂不需要存储'}`
+        }]
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ 分析失败: ${error.message}`
+        }],
+        isError: true
+      };
+    }
+  }
+);
+
 // ─────────────────────────────────────────────────────────────
 // 启动服务器
 // ─────────────────────────────────────────────────────────────
@@ -455,9 +670,9 @@ async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   
-  console.error('🧠 GBrain AgentBrain MCP 服务器已启动');
+  console.error('🧠 GBrain AgentBrain MCP 服务器已启动 (v1.1.0)');
   console.error('📁 存储目录: ' + STORAGE_DIR);
-  console.error('🔗 功能: 记忆关联网络 | 实体检测 | 类型化链接 | 来源追溯');
+  console.error('🔗 功能: 自动记忆 | 记忆关联网络 | 实体检测 | 类型化链接');
 }
 
 main().catch((error) => {
